@@ -213,16 +213,29 @@ def _sim_state_plants(running: bool) -> dict:
         for plant in plants
     }
 
-def _write_sim_state(plants: dict):
-    """Merge `plants` into sim_state.json."""
+def _write_sim_state(data: dict):
+    """Merge data into sim_state.json. Plant states go under 'plants', global state at top level."""
     try:
         with open(SIM_STATE_FILE) as f:
-            current = json.load(f).get('plants', {})
+            current = json.load(f)
     except Exception:
-        current = {}
-    current.update(plants)
+        current = {'plants': {}}
+    
+    # Handle plant states
+    if 'plants' in data:
+        current['plants'].update(data['plants'])
+    else:
+        # Check if this is plant data (contains plant keys like "Group|Plant")
+        plant_data = {k: v for k, v in data.items() if '|' in k}
+        global_data = {k: v for k, v in data.items() if '|' not in k}
+        
+        if plant_data:
+            current['plants'].update(plant_data)
+        if global_data:
+            current.update(global_data)
+    
     with open(SIM_STATE_FILE, 'w') as f:
-        json.dump({'plants': current}, f, indent=2)
+        json.dump(current, f, indent=2)
 
 def _server_alive() -> bool:
     with _locks['proc']:
@@ -605,6 +618,7 @@ def api_server_config_save():
 @app.route('/api/plants/start-all', methods=['POST'])
 def api_start_all():
     _write_sim_state(_sim_state_plants(True))
+    _write_sim_state({'simulator_running': True})  # Global simulator state
     def fn(_, idx, ent):
         _start_all_plants(idx, ent)
         return "Started all plants"
@@ -614,6 +628,7 @@ def api_start_all():
 @app.route('/api/plants/stop-all', methods=['POST'])
 def api_stop_all():
     _write_sim_state(_sim_state_plants(False))
+    _write_sim_state({'simulator_running': False})  # Global simulator state
     def fn(_, idx, ent):
         results = []
         for group, plants in _get_enterprise_structure().items():
@@ -645,7 +660,23 @@ def api_plant_control():
     value  = data['value']
 
     if action == 'set_state':
-        _write_sim_state({f"{group}|{plant}": bool(value)})
+        plant_key = f"{group}|{plant}"
+        _write_sim_state({plant_key: bool(value)})
+        
+        # Update global simulator state
+        try:
+            with open(SIM_STATE_FILE) as f:
+                current = json.load(f).get('plants', {})
+        except Exception:
+            current = {}
+        
+        # If starting a plant, set simulator to running
+        if bool(value):
+            _write_sim_state({'simulator_running': True})
+        else:
+            # If stopping a plant, check if any plants are still running
+            any_running = any(state for key, state in current.items() if key != plant_key and state)
+            _write_sim_state({'simulator_running': any_running})
 
     def fn(_, idx, ent):
         pc = (ent.get_child([f"{idx}:{group}"])
@@ -854,7 +885,7 @@ def api_uns_save():
             # After factory restarts all ProcessState nodes default to False.
             # Restore running state by starting all plants after a short startup delay.
             def _delayed_start_all():
-                time.sleep(4)   # wait for OPC-UA server to finish booting
+                time.sleep(6)   # wait for OPC-UA server to finish booting (increased from 4)
                 # Try to write OPC state (retry once if it fails)
                 for attempt in range(2):
                     try:
@@ -867,13 +898,14 @@ def api_uns_save():
                 # Always update sim_state.json regardless of OPC write success,
                 # so the dashboard reflects the intended state
                 _write_sim_state(_sim_state_plants(True))
+                # Now restart the bridge after the factory is fully ready
+                time.sleep(1)  # Brief pause before bridge restart
+                if _bridge_alive():
+                    stop_bridge()
+                    ok, _ = start_bridge()
+                    if ok:
+                        restarted.append('bridge')
             threading.Thread(target=_delayed_start_all, daemon=True).start()
-    # Restart bridge so it picks up new topic mappings
-    if _bridge_alive():
-        stop_bridge()
-        ok, _ = start_bridge()
-        if ok:
-            restarted.append('bridge')
     return jsonify({'ok': True, 'restarted': restarted})
 
 # ── Payload Schema Designer ───────────────────────────────────────────────────

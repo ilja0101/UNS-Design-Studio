@@ -216,7 +216,10 @@ class OpcPoller:
                         node = node.get_child([step])
                     # opc_parts: [EnterpriseName, BusinessUnit, FactorySite, ...]
                     # plant_key matches sim_state.json: "BusinessUnit|FactorySite"
-                    plant_key = f"{opc_parts[1]}|{opc_parts[2]}" if len(opc_parts) >= 3 else None
+                    # Only set plant_key for tags that belong to specific sites
+                    plant_key = None
+                    if len(opc_parts) >= 3 and opc_parts[2].startswith('Factory'):
+                        plant_key = f"{opc_parts[1]}|{opc_parts[2]}"
                     self._cache[topic] = (node, unit, schema_id, data_type, tag_name, plant_key)
                     ok += 1
                 except Exception:
@@ -231,11 +234,12 @@ class OpcPoller:
         schemas  = _load_schemas()
         sim_state = self._read_sim_state()
 
+        # Check global simulator state - no publishing if simulator is off
+        if not sim_state.get('simulator_running', False):
+            return []
+
         out = []
         for topic, (node, unit, schema_id, data_type, tag_name, plant_key) in self._cache.items():
-            # Gate: skip all tags for stopped plants (missing key → stopped)
-            if plant_key and not sim_state.get(plant_key, False):
-                continue
             try:
                 v       = _ser(node.get_value())
                 payload = _format_payload(v, ts, unit, schema_id, topic, self.sep,
@@ -250,7 +254,12 @@ class OpcPoller:
         sim_file = os.path.join(BASE_DIR, 'sim_state.json')
         try:
             with open(sim_file) as f:
-                return json.load(f).get('plants', {})
+                data = json.load(f)
+                # Return both plants and global state
+                result = data.get('plants', {}).copy()
+                if 'simulator_running' in data:
+                    result['simulator_running'] = data['simulator_running']
+                return result
         except Exception:
             return {}
 

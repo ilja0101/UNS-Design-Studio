@@ -180,10 +180,14 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
 SIM_STATE_FILE = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'sim_state.json')
 
 def _read_sim_state() -> dict:
-    """Return {plant_key: bool}.  Missing keys default to True (running)."""
+    """Return {plant_key: bool} plus global state. Missing keys default to True (running)."""
     try:
         with open(SIM_STATE_FILE) as f:
-            return json.load(f).get('plants', {})
+            data = json.load(f)
+            result = data.get('plants', {}).copy()
+            if 'simulator_running' in data:
+                result['simulator_running'] = data['simulator_running']
+            return result
     except Exception:
         return {}
 
@@ -194,6 +198,11 @@ def _read_sim_state() -> dict:
 async def run_simulation(variables, anomaly_key_map):
     while not stop_flag:
         sim_state = _read_sim_state()
+
+        # Gate: skip all simulation if simulator is globally off
+        if not sim_state.get('simulator_running', False):
+            await asyncio.sleep(1)
+            continue
 
         for opc_path, (var, sim, plant_key) in list(variables.items()):
             try:

@@ -1,5 +1,5 @@
 {
-  "lastModified": "2026-04-19T21:06:10Z",
+  "lastModified": "2026-04-19T21:18:44Z",
   "namespaceUri": "http://royalfarmerscollective.com/uns",
   "tree": {
     "children": [
@@ -453,7 +453,7 @@
                         "description": "",
                         "id": "dfda09d9-4a07-4541-a9ef-b44c41a3b1e7",
                         "name": "OEE_Percent",
-                        "payloadSchema": "simple",
+                        "payloadSchema": "pi",
                         "simulation": {
                           "profile": "oee"
                         },
@@ -661,7 +661,32 @@
         "description": "Potato Flakes Division",
         "id": "bu-vlok",
         "name": "Vlokkenheim",
-        "tags": [],
+        "tags": [
+          {
+            "access": "R",
+            "dataType": "Float",
+            "description": "",
+            "id": "8a2ea5af-ccb6-4133-a161-bc92bba08192",
+            "name": "testee",
+            "payloadSchema": "",
+            "simulation": {
+              "profile": "oee"
+            },
+            "unit": ""
+          },
+          {
+            "access": "R",
+            "dataType": "Float",
+            "description": "",
+            "id": "411f23e3-d127-4cc6-864e-e9d755fe5758",
+            "name": "NewTag",
+            "payloadSchema": "standard",
+            "simulation": {
+              "profile": "accumulator"
+            },
+            "unit": ""
+          }
+        ],
         "type": "businessUnit"
       },
       {

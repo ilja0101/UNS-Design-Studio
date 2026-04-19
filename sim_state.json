@@ -13,5 +13,6 @@
     "Wortelkracht|FactoryRoosendaal": true,
     "DeBietenBende|FactoryZevenbergen": true,
     "DeBietenBende|FactoryStadskanaal": true
-  }
+  },
+  "simulator_running": true
 }
