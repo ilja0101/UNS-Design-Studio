@@ -1,5 +1,5 @@
 {
-  "lastModified": "2026-04-19T20:44:15Z",
+  "lastModified": "2026-04-19T21:06:10Z",
   "namespaceUri": "http://royalfarmerscollective.com/uns",
   "tree": {
     "children": [
@@ -526,7 +526,20 @@
                     "description": "",
                     "id": "wc-emm-oee",
                     "name": "OEE",
-                    "tags": [],
+                    "tags": [
+                      {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "",
+                        "id": "dd51130c-daab-4db8-970b-5148b3c94491",
+                        "name": "OEE_Percentage",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "oee"
+                        },
+                        "unit": ""
+                      }
+                    ],
                     "type": "workCenter"
                   },
                   {
@@ -549,14 +562,52 @@
                 "description": "",
                 "id": "area-emm-pl",
                 "name": "ProductionLine",
-                "tags": [],
+                "tags": [
+                  {
+                    "access": "R",
+                    "dataType": "Float",
+                    "description": "",
+                    "id": "5b539fa5-adbe-4359-8448-e489dfa65487",
+                    "name": "TAGGIEE",
+                    "payloadSchema": "",
+                    "simulation": {
+                      "profile": "oee"
+                    },
+                    "unit": ""
+                  }
+                ],
                 "type": "area"
               }
             ],
             "description": "",
             "id": "site-emm",
             "name": "Emmeloord",
-            "tags": [],
+            "tags": [
+              {
+                "access": "R",
+                "dataType": "Float",
+                "description": "",
+                "id": "03e113ae-8172-477a-beb6-c02ef0aae11d",
+                "name": "Tag_niveai_site",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "oee"
+                },
+                "unit": ""
+              },
+              {
+                "access": "R",
+                "dataType": "Float",
+                "description": "",
+                "id": "635efde9-2b3c-45e4-93d0-74cd7415607e",
+                "name": "testttt",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "oee"
+                },
+                "unit": ""
+              }
+            ],
             "type": "site"
           },
           {
@@ -588,18 +639,6 @@
                           "profile": "oee"
                         },
                         "unit": ""
-                      },
-                      {
-                        "id": "264587d8-9845-4ea6-bebb-461f46980f22",
-                        "name": "OEE2",
-                        "dataType": "Float",
-                        "unit": "",
-                        "description": "",
-                        "access": "R",
-                        "payloadSchema": "standard",
-                        "simulation": {
-                          "profile": "oee"
-                        }
                       }
                     ],
                     "type": "workCenter"

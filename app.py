@@ -353,8 +353,15 @@ def _poll_loop():
                 _state['plant_data'] = _collect_plant_data(ent, ns_idx)
 
             while _endpoint() == current_endpoint and _state['opc_connected']:
-                with _locks['data']:
-                    _state['plant_data'] = _collect_plant_data(ent, ns_idx)
+                try:
+                    with _locks['data']:
+                        _state['plant_data'] = _collect_plant_data(ent, ns_idx)
+                except Exception as e:
+                    # Node structure may have changed (e.g., factory restart with UNS edits)
+                    # Force reconnect by breaking out of polling loop
+                    _log(f"[poll] Data collection error (triggering reconnect): {e}")
+                    _state['opc_connected'] = False
+                    break
                 time.sleep(3)
 
             try:
@@ -837,6 +844,9 @@ def api_uns_save():
     factory_was_running = _server_alive()
     # Restart factory server so it re-reads the updated structure
     if factory_was_running:
+        # Signal polling loop to disconnect before we stop the server
+        _state['opc_connected'] = False
+        time.sleep(1)  # Give polling loop time to disconnect
         stop_factory_server()
         ok, _ = start_factory_server()
         if ok:
@@ -845,10 +855,18 @@ def api_uns_save():
             # Restore running state by starting all plants after a short startup delay.
             def _delayed_start_all():
                 time.sleep(4)   # wait for OPC-UA server to finish booting
-                try:
-                    _opc_write(lambda _, idx, ent: _start_all_plants(idx, ent))
-                except Exception:
-                    pass
+                # Try to write OPC state (retry once if it fails)
+                for attempt in range(2):
+                    try:
+                        _opc_write(lambda _, idx, ent: _start_all_plants(idx, ent))
+                        break  # Success, exit retry loop
+                    except Exception:
+                        if attempt == 0:
+                            time.sleep(2)  # Wait a bit more before retry
+                        pass
+                # Always update sim_state.json regardless of OPC write success,
+                # so the dashboard reflects the intended state
+                _write_sim_state(_sim_state_plants(True))
             threading.Thread(target=_delayed_start_all, daemon=True).start()
     # Restart bridge so it picks up new topic mappings
     if _bridge_alive():
