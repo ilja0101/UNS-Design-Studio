@@ -144,6 +144,56 @@ def _log(msg: str):
         if len(_state['server_logs']) > 600:
             _state['server_logs'].pop(0)
 
+def _read_opc(node, path, default=None):
+    try:
+        current = node
+        for step in path:
+            current = current.get_child([step])
+        value = current.get_value()
+        return default if value is None else value
+    except Exception:
+        return default
+
+def _num(value, digits=1, default=0.0):
+    try:
+        return round(float(value), digits)
+    except Exception:
+        return default
+
+def _collect_plant_data(ent, idx):
+    plants = {}
+    for group, plant_names in _get_enterprise_structure().items():
+        try:
+            group_node = ent.get_child([f"{idx}:{group}"])
+        except Exception:
+            continue
+
+        for plant in plant_names:
+            try:
+                site = group_node.get_child([f"{idx}:{plant}"])
+                line = site.get_child([f"{idx}:ProductionLine"])
+            except Exception:
+                continue
+
+            process_state = bool(_read_opc(line, [f"{idx}:ProcessControl", f"{idx}:ProcessState"], False))
+            recipe = str(_read_opc(line, [f"{idx}:ProcessControl", f"{idx}:Recipe"], '--NA--'))
+            maint_status = str(_read_opc(line, [f"{idx}:Maintenance", f"{idx}:FabriekStatus"], ''))
+            if not maint_status:
+                maint_status = 'Running' if process_state else 'Stopped'
+
+            plants[f"{group}|{plant}"] = {
+                'group': group,
+                'plant': plant,
+                'process_state': process_state,
+                'recipe': recipe,
+                'maint_status': maint_status,
+                'oee': _num(_read_opc(line, [f"{idx}:OEE", f"{idx}:OEEPercent"], 0.0)),
+                'power': _num(_read_opc(line, [f"{idx}:Energy", f"{idx}:HuidigVermogenkW"], 0.0)),
+                'good_tons': _num(_read_opc(line, [f"{idx}:Production", f"{idx}:GoodCountTons"], 0.0)),
+                'trucks_recv': _num(_read_opc(line, [f"{idx}:Logistics", f"{idx}:InkomendWeegbrug", f"{idx}:CumulatiefOntvangenTons"], 0.0)),
+            }
+    return plants
+
 def _server_alive() -> bool:
     with _locks['proc']:
         p = _state['server_proc']
@@ -269,14 +319,12 @@ def _poll_loop():
             _state['opc_connected'] = True
             _log("[poll] Successfully connected to OPC UA server")
 
-            # For now, just mark as connected and collect basic data
-            # (We can expand node browsing later once connection is stable)
             with _locks['data']:
-                _state['plant_data'] = {}  # reset
+                _state['plant_data'] = _collect_plant_data(ent, ns_idx)
 
-            # Keep connection open and poll simple status
             while _endpoint() == current_endpoint and _state['opc_connected']:
-                # Minimal poll - just keep the connection alive and mark connected
+                with _locks['data']:
+                    _state['plant_data'] = _collect_plant_data(ent, ns_idx)
                 time.sleep(3)
 
             try:

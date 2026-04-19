@@ -521,6 +521,7 @@ let _anom = {group:'', plant:'', short:'', category:'', overrides:{}};
 let _logOpen = false;
 let _serverLogs = [];
 let _pollTimer = null;
+let _plantsCache = {};
 
 // ── Polling ────────────────────────────────────────────────────────────────────
 async function poll() {
@@ -528,8 +529,9 @@ async function poll() {
     const r = await fetch('/api/status');
     if (!r.ok) return;
     const d = await r.json();
+    _plantsCache = d.plants || {};
     updateHeader(d);
-    updateCards(d.plants);
+    updateCards(_plantsCache);
     updateBridgeUI(d);
     // sync host/port inputs
     if (document.activeElement.id !== 'inpHost') document.getElementById('inpHost').value = d.opc_host;
@@ -729,10 +731,12 @@ async function openCtrlModal(group, plant, short) {
   sel.innerHTML = d.recipes.map(rec =>
     `<option value="${escAttr(rec)}">${escHtml(rec)}</option>`).join('');
 
-  // Set current state from polled data
   const key = `${group}|${plant}`;
-  // We'll just set toggle to null until user picks
-  setToggle(null);
+  const current = _plantsCache[key] || {};
+  setToggle(typeof current.process_state === 'boolean' ? current.process_state : null);
+  if (current.recipe) {
+    sel.value = current.recipe;
+  }
 
   openModal('ctrlModal');
 }
