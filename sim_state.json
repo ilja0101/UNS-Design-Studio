@@ -1,0 +1,17 @@
+{
+  "plants": {
+    "KnappertjesBV|FactoryTerneuzen2": false,
+    "KnappertjesBV|FactoryBergenOpZoom": false,
+    "Vlokkenheim|FactoryEmmeloord": false,
+    "Vlokkenheim|FactoryVeendam": false,
+    "FritoMaxx|FactoryHeerenveen": false,
+    "FritoMaxx|FactoryHarlingen": false,
+    "FritoMaxx|FactoryMeppel": false,
+    "FritoMaxx|FactoryHardenberg": false,
+    "FritoMaxx|FactoryHoogeveen": false,
+    "FritoMaxx|FactoryCoevorden": false,
+    "Wortelkracht|FactoryRoosendaal": true,
+    "DeBietenBende|FactoryZevenbergen": true,
+    "DeBietenBende|FactoryStadskanaal": true
+  }
+}

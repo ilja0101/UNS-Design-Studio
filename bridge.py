@@ -69,21 +69,15 @@ def _build_entries(tree, sep, prefix):
     first site in the tree that defines tags for that workCenter name, so all plants
     are polled even if only one site has fully specified tags.
     """
-    # Pass 1: build canonical tag list per workCenter name (first definition wins)
-    canonical = {}
-
-    def _collect(node):
-        name = node.get('name', '')
-        tags = node.get('tags', [])
-        if tags and name and name not in canonical:
-            canonical[name] = tags
-        for child in node.get('children', []):
-            _collect(child)
-
-    _collect(tree)
-
-    # Pass 2: walk tree, emit one entry per (uns_topic, opc_path_parts, unit)
+    # Walk tree and emit one entry per explicitly-defined tag.
+    # No canonical inheritance — the bridge only publishes what is explicitly
+    # configured in the UNS designer for each plant.
     entries = []
+
+    def _sanitize(s: str) -> str:
+        """Replace characters invalid in MQTT topics / NATS subjects with underscores."""
+        import re
+        return re.sub(r'[\s#+]', '_', s)
 
     def _walk(node, uns_parts, opc_parts, area_opc_parts):
         ntype = node.get('type', '')
@@ -95,8 +89,6 @@ def _build_entries(tree, sep, prefix):
         new_area_opc = new_opc if ntype == 'area' else area_opc_parts
 
         tags = node.get('tags', [])
-        if not tags and ntype in ('workCenter', 'area', 'workUnit') and name in canonical:
-            tags = canonical[name]
 
         for tag in tags:
             t_uns       = tag['name']
@@ -111,7 +103,10 @@ def _build_entries(tree, sep, prefix):
                 t_opc_name  = tag.get('opcNodeName', t_uns)
                 t_opc_parts = new_opc + [t_opc_name]
 
-            topic = sep.join(new_uns + [t_uns])
+            # Sanitize every segment: spaces / # / + are invalid in MQTT topics
+            safe_uns_parts = [_sanitize(p) for p in new_uns]
+            safe_t_uns     = _sanitize(t_uns)
+            topic = sep.join(safe_uns_parts + [safe_t_uns])
             if prefix:
                 topic = prefix + sep + topic
             entries.append((topic, t_opc_parts, t_unit, t_schema, t_data_type, t_uns))
@@ -219,7 +214,10 @@ class OpcPoller:
                     path = ['0:Objects'] + [f'{idx}:{p}' for p in opc_parts]
                     for step in path:
                         node = node.get_child([step])
-                    self._cache[topic] = (node, unit, schema_id, data_type, tag_name)
+                    # opc_parts: [EnterpriseName, BusinessUnit, FactorySite, ...]
+                    # plant_key matches sim_state.json: "BusinessUnit|FactorySite"
+                    plant_key = f"{opc_parts[1]}|{opc_parts[2]}" if len(opc_parts) >= 3 else None
+                    self._cache[topic] = (node, unit, schema_id, data_type, tag_name, plant_key)
                     ok += 1
                 except Exception:
                     miss += 1
@@ -229,10 +227,15 @@ class OpcPoller:
 
     def poll(self):
         """Returns list of (topic, payload_str). Raises on OPC-UA error."""
-        ts      = time.time()
-        schemas = _load_schemas()
-        out     = []
-        for topic, (node, unit, schema_id, data_type, tag_name) in self._cache.items():
+        ts       = time.time()
+        schemas  = _load_schemas()
+        sim_state = self._read_sim_state()
+
+        out = []
+        for topic, (node, unit, schema_id, data_type, tag_name, plant_key) in self._cache.items():
+            # Gate: skip all tags for stopped plants (missing key → stopped)
+            if plant_key and not sim_state.get(plant_key, False):
+                continue
             try:
                 v       = _ser(node.get_value())
                 payload = _format_payload(v, ts, unit, schema_id, topic, self.sep,
@@ -241,6 +244,15 @@ class OpcPoller:
             except Exception:
                 _stats["errors"] += 1
         return out
+
+    @staticmethod
+    def _read_sim_state() -> dict:
+        sim_file = os.path.join(BASE_DIR, 'sim_state.json')
+        try:
+            with open(sim_file) as f:
+                return json.load(f).get('plants', {})
+        except Exception:
+            return {}
 
     def disconnect(self):
         _stats["opc_ok"] = False
@@ -278,6 +290,13 @@ def run_mqtt(cfg):
         # paho < 2.0 doesn't have CallbackAPIVersion
         client = mqtt.Client(client_id="uns-sim-bridge", protocol=mqtt.MQTTv311)
 
+    # Back off reconnect attempts so rapid disconnect/reconnect cycles don't
+    # overwhelm the broker (NATS MQTT adapter disconnects on burst publishes).
+    try:
+        client.reconnect_delay_set(min_delay=5, max_delay=60)
+    except Exception:
+        pass
+
     if cfg.get("username"):
         client.username_pw_set(cfg["username"], cfg.get("password", ""))
 
@@ -314,7 +333,10 @@ def run_mqtt(cfg):
         poller  = OpcPoller(opc_ep, "/", cfg.get("topic_prefix", "").strip())
 
         def pub(topic, payload):
-            client.publish(topic, payload, qos=0, retain=False)
+            # Skip publish while disconnected — avoids buffering a large burst
+            # that would overwhelm the broker immediately on reconnect.
+            if _stats["connected"]:
+                client.publish(topic, payload, qos=0, retain=False)
 
         _poll_loop(poller, pub, interval)
 

@@ -79,35 +79,60 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
     variables = {}
     anomaly_key_map = {}
 
-    def _walk(node, uns_parts, opc_parts, area_opc_parts):
-        ntype = node.get('type', '')
+    # Pass 1: build canonical tag list per node name — same logic as bridge.py.
+    # First definition with tags wins.  Lets every plant inherit the full tag
+    # set from the reference site even when its own workCenter is left empty.
+    canonical = {}
+    def _collect_canonical(node):
         name = node.get('name', '')
+        tags = node.get('tags', [])
+        if tags and name and name not in canonical:
+            canonical[name] = tags
+        for child in node.get('children', []):
+            _collect_canonical(child)
+    _collect_canonical(tree)
+
+    # plant_key = "BusinessUnit|FactorySite" string matching sim_state.json and app.py
+    def _walk(node, uns_parts, opc_parts, area_opc_parts, plant_key):
+        ntype    = node.get('type', '')
+        name     = node.get('name', '')
         opc_name = ('Factory' + name) if ntype == 'site' else name
 
-        new_uns = uns_parts + [name]
-        new_opc = opc_parts + [opc_name]
+        new_uns  = uns_parts + [name]
+        new_opc  = opc_parts + [opc_name]
         new_area = new_opc if ntype == 'area' else area_opc_parts
 
-        for tag in node.get('tags', []):
-            t_name = tag['name']
+        # Set plant key when entering a site; all children inherit it
+        new_plant_key = plant_key
+        if ntype == 'site':
+            bu_name = opc_parts[-1] if opc_parts else ''
+            new_plant_key = f"{bu_name}|{opc_name}"
+
+        # Use canonical tags for empty workCenter / area nodes so every plant
+        # gets the same full tag set as the reference site.
+        tags = node.get('tags', [])
+        if not tags and name in canonical and ntype in ('workCenter', 'area', 'workUnit'):
+            tags = canonical[name]
+
+        for tag in tags:
+            t_name     = tag['name']
             t_opc_name = tag.get('opcNodeName', t_name)
-            data_type = tag.get('dataType', 'Float')
+            data_type  = tag.get('dataType', 'Float')
 
             if 'opcPath' in tag:
-                rel = tag['opcPath'].split('/')
+                rel        = tag['opcPath'].split('/')
                 target_opc = new_area + rel
             else:
                 target_opc = new_opc + [t_opc_name]
 
-            # Navigate or create only the parent objects for this variable.
-            # The final segment is the variable name itself.
-            current = enterprise_obj
+            # Navigate or create parent objects for this variable.
+            current      = enterprise_obj
             parent_parts = target_opc[:-1]
-            var_name = target_opc[-1]
+            var_name     = target_opc[-1]
             for part in parent_parts:
                 try:
                     current = current.get_child([f"{idx}:{part}"])
-                except:
+                except Exception:
                     current = current.add_object(idx, part)
 
             # Create variable
@@ -124,7 +149,7 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
                 default = ""
                 vt = ua.VariantType.String
             elif data_type == 'DateTime':
-                default = datetime.datetime.now(datetime.UTC)  # Fixed deprecation
+                default = datetime.datetime.now(datetime.UTC)
                 vt = ua.VariantType.DateTime
             else:
                 default = 0.0
@@ -139,26 +164,45 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
             elif "profile" not in sim:
                 sim["profile"] = "default"
 
-            variables[tuple(target_opc)] = (var, sim)
+            variables[tuple(target_opc)] = (var, sim, new_plant_key)
             anomaly_key = "".join(target_opc)
             anomaly_key_map[anomaly_key] = var
 
         for child in node.get('children', []):
-            _walk(child, new_uns, new_opc, new_area)
+            _walk(child, new_uns, new_opc, new_area, new_plant_key)
 
     for child in tree.get('children', []):
-        _walk(child, [], [], [])
-    print(f"[factory] Dynamic address space ready - {len(variables)} tags")
+        _walk(child, [], [], [], None)
+
+    print(f"[factory] Dynamic address space ready — {len(variables)} tags")
     return variables, anomaly_key_map
+
+SIM_STATE_FILE = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'sim_state.json')
+
+def _read_sim_state() -> dict:
+    """Return {plant_key: bool}.  Missing keys default to True (running)."""
+    try:
+        with open(SIM_STATE_FILE) as f:
+            return json.load(f).get('plants', {})
+    except Exception:
+        return {}
+
 
 # ================================================================
 # SIMULATOR
 # ================================================================
 async def run_simulation(variables, anomaly_key_map):
     while not stop_flag:
-        for opc_path, (var, sim) in list(variables.items()):
+        sim_state = _read_sim_state()
+
+        for opc_path, (var, sim, plant_key) in list(variables.items()):
             try:
-                current = var.get_value()
+                # Gate: skip all simulation for stopped plants.
+                # Missing plant_key in sim_state → assume running.
+                if plant_key and not sim_state.get(plant_key, False):
+                    continue
+
+                current     = var.get_value()
                 anomaly_key = "".join(opc_path)
 
                 if anomaly_key in anomaly_overrides and anomaly_overrides[anomaly_key] is not None:
@@ -168,13 +212,18 @@ async def run_simulation(variables, anomaly_key_map):
                 profile = SIMULATION_PROFILES.get(sim.get("profile"), SIMULATION_PROFILES["default"])
 
                 if profile["type"] == "gauss_walk":
-                    std = sim.get("std", profile["std"])
+                    # Never apply numeric profiles to Bool variables.
+                    if isinstance(current, bool):
+                        continue
+                    std     = sim.get("std", profile["std"])
                     new_val = current + random.gauss(0, std)
                     new_val = max(sim.get("min", profile.get("min", 0)),
                                   min(sim.get("max", profile.get("max", 9999)), new_val))
                     var.set_value(float(new_val))
 
                 elif profile["type"] == "increment":
+                    if isinstance(current, bool):
+                        continue
                     step = random.uniform(profile["step_min"], profile["step_max"])
                     var.set_value(current + step)
 

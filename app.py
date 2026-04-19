@@ -4,7 +4,7 @@ Royal Farmers Collective – Enterprise UNS Simulator
 Web-based Control Dashboard  (Flask backend)
 """
 
-import os, sys, time, json, socket, threading, subprocess
+import os, sys, time, json, socket, threading, subprocess, hashlib
 from flask import Flask, render_template, jsonify, request
 
 # ── Adjust path so recipe.py is importable ────────────────────────────────────
@@ -19,6 +19,7 @@ app = Flask(__name__)
 UNS_CONFIG_FILE      = os.path.join(BASE_DIR, 'uns_config.json')
 SCHEMAS_CONFIG_FILE  = os.path.join(BASE_DIR, 'payload_schemas.json')
 SERVER_CONFIG_FILE   = os.path.join(BASE_DIR, 'server_config.json')
+SIM_STATE_FILE       = os.path.join(BASE_DIR, 'sim_state.json')
 
 def _load_server_cfg() -> dict:
     try:
@@ -161,6 +162,15 @@ def _num(value, digits=1, default=0.0):
         return default
 
 def _collect_plant_data(ent, idx):
+    # Use sim_state.json as the authoritative running/stopped source.
+    # This works for ALL plants regardless of whether they have a ProcessState
+    # OPC node (some plants have custom ProcessControl tags without ProcessState).
+    try:
+        with open(SIM_STATE_FILE) as f:
+            sim_state = json.load(f).get('plants', {})
+    except Exception:
+        sim_state = {}
+
     plants = {}
     for group, plant_names in _get_enterprise_structure().items():
         try:
@@ -175,24 +185,44 @@ def _collect_plant_data(ent, idx):
             except Exception:
                 continue
 
-            process_state = bool(_read_opc(line, [f"{idx}:ProcessControl", f"{idx}:ProcessState"], False))
-            recipe = str(_read_opc(line, [f"{idx}:ProcessControl", f"{idx}:Recipe"], '--NA--'))
-            maint_status = str(_read_opc(line, [f"{idx}:Maintenance", f"{idx}:FabriekStatus"], ''))
+            plant_key     = f"{group}|{plant}"
+            process_state = sim_state.get(plant_key, False)
+            recipe        = str(_read_opc(line, [f"{idx}:ProcessControl", f"{idx}:Recipe"], '--NA--'))
+            maint_status  = str(_read_opc(line, [f"{idx}:Maintenance", f"{idx}:FabriekStatus"], ''))
             if not maint_status:
                 maint_status = 'Running' if process_state else 'Stopped'
 
-            plants[f"{group}|{plant}"] = {
+            plants[plant_key] = {
                 'group': group,
                 'plant': plant,
                 'process_state': process_state,
                 'recipe': recipe,
                 'maint_status': maint_status,
-                'oee': _num(_read_opc(line, [f"{idx}:OEE", f"{idx}:OEEPercent"], 0.0)),
-                'power': _num(_read_opc(line, [f"{idx}:Energy", f"{idx}:HuidigVermogenkW"], 0.0)),
-                'good_tons': _num(_read_opc(line, [f"{idx}:Production", f"{idx}:GoodCountTons"], 0.0)),
-                'trucks_recv': _num(_read_opc(line, [f"{idx}:Logistics", f"{idx}:InkomendWeegbrug", f"{idx}:CumulatiefOntvangenTons"], 0.0)),
+                'oee':        _num(_read_opc(line, [f"{idx}:OEE", f"{idx}:OEEPercent"], 0.0)),
+                'power':      _num(_read_opc(line, [f"{idx}:Energy", f"{idx}:HuidigVermogenkW"], 0.0)),
+                'good_tons':  _num(_read_opc(line, [f"{idx}:Production", f"{idx}:GoodCountTons"], 0.0)),
+                'trucks_recv':_num(_read_opc(line, [f"{idx}:Logistics", f"{idx}:InkomendWeegbrug", f"{idx}:CumulatiefOntvangenTons"], 0.0)),
             }
     return plants
+
+def _sim_state_plants(running: bool) -> dict:
+    """Return {plant_key: running} for every plant in the current UNS structure."""
+    return {
+        f"{group}|{plant}": running
+        for group, plants in _get_enterprise_structure().items()
+        for plant in plants
+    }
+
+def _write_sim_state(plants: dict):
+    """Merge `plants` into sim_state.json."""
+    try:
+        with open(SIM_STATE_FILE) as f:
+            current = json.load(f).get('plants', {})
+    except Exception:
+        current = {}
+    current.update(plants)
+    with open(SIM_STATE_FILE, 'w') as f:
+        json.dump({'plants': current}, f, indent=2)
 
 def _server_alive() -> bool:
     with _locks['proc']:
@@ -410,6 +440,70 @@ def _opc_write(fn):
     except Exception as e:
         return False, str(e)
 
+# ── Plant tag introspection (for dynamic anomaly UI) ─────────────────────────
+
+def _get_plant_tags(group: str, plant: str) -> list:
+    """
+    Return [{name, anomalyKey, dataType, unit, workCenter}] for every tag
+    defined under <group>/<plant> in uns_config.json.
+
+    anomalyKey matches exactly what factory.py stores in anomaly_key_map:
+        "".join(target_opc_parts)
+    where target_opc_parts follows the same rules as _create_dynamic_address_space.
+    """
+    try:
+        with open(UNS_CONFIG_FILE) as f:
+            cfg = json.load(f)
+    except Exception:
+        return []
+
+    tree     = cfg.get('tree', {})
+    # plant is "FactoryTerneuzen2" → site name is "Terneuzen2"
+    site_name = plant[len('Factory'):] if plant.startswith('Factory') else plant
+
+    results = []
+
+    def _walk(node, opc_parts, area_opc_parts, wc_label):
+        ntype    = node.get('type', '')
+        name     = node.get('name', '')
+        opc_name = ('Factory' + name) if ntype == 'site' else name
+        new_opc  = opc_parts + [opc_name]
+        new_area = new_opc if ntype == 'area' else area_opc_parts
+        new_wc   = name    if ntype == 'workCenter' else wc_label
+
+        for tag in node.get('tags', []):
+            t_name     = tag['name']
+            t_opc_name = tag.get('opcNodeName', t_name)
+            if 'opcPath' in tag:
+                rel        = tag['opcPath'].split('/')
+                target_opc = list(new_area) + rel
+            else:
+                target_opc = new_opc + [t_opc_name]
+
+            results.append({
+                'name':        t_name,
+                'anomalyKey':  ''.join(target_opc),
+                'dataType':    tag.get('dataType', 'Float'),
+                'unit':        tag.get('unit', ''),
+                'workCenter':  new_wc,
+                'access':      tag.get('access', 'R'),
+            })
+
+        for child in node.get('children', []):
+            _walk(child, new_opc, new_area, new_wc)
+
+    # Walk only the target business-unit → target site subtree, using the same
+    # starting opc_parts as factory.py (bu name first, then site adds Factory prefix).
+    for bu in tree.get('children', []):
+        if bu.get('name') == group:
+            for site in bu.get('children', []):
+                if site.get('name') == site_name:
+                    _walk(site, [group], [], '')
+            break
+
+    return results
+
+
 # ── Flask routes ───────────────────────────────────────────────────────────────
 
 @app.route('/')
@@ -429,6 +523,8 @@ def api_status():
         bstats = dict(_state['bridge_stats'])
     cfg = _load_bridge_cfg()
     cfg.pop('password', None)
+    struct = _get_enterprise_structure()
+    struct_hash = hashlib.md5(json.dumps(struct, sort_keys=True).encode()).hexdigest()[:8]
     return jsonify(dict(
         server_running=_server_alive(),
         opc_connected=_state['opc_connected'],
@@ -438,6 +534,7 @@ def api_status():
         bridge_running=_bridge_alive(),
         bridge_stats=bstats,
         bridge_cfg=cfg,
+        structure_hash=struct_hash,
         ts=time.time(),
     ))
 
@@ -500,6 +597,7 @@ def api_server_config_save():
 # ─ Bulk plant control ──────────────────────────────────────────────────────────
 @app.route('/api/plants/start-all', methods=['POST'])
 def api_start_all():
+    _write_sim_state(_sim_state_plants(True))
     def fn(_, idx, ent):
         _start_all_plants(idx, ent)
         return "Started all plants"
@@ -508,6 +606,7 @@ def api_start_all():
 
 @app.route('/api/plants/stop-all', methods=['POST'])
 def api_stop_all():
+    _write_sim_state(_sim_state_plants(False))
     def fn(_, idx, ent):
         results = []
         for group, plants in _get_enterprise_structure().items():
@@ -538,6 +637,9 @@ def api_plant_control():
     action = data['action']
     value  = data['value']
 
+    if action == 'set_state':
+        _write_sim_state({f"{group}|{plant}": bool(value)})
+
     def fn(_, idx, ent):
         pc = (ent.get_child([f"{idx}:{group}"])
                  .get_child([f"{idx}:{plant}"])
@@ -560,6 +662,12 @@ def api_recipes(group):
 @app.route('/api/equipment/<group>')
 def api_equipment(group):
     return jsonify({'equipment': EQUIPMENT_OPTIONS.get(group, {})})
+
+@app.route('/api/plant/tags/<group>/<plant>')
+def api_plant_tags(group, plant):
+    """Return all UNS tags for a plant with their anomaly keys (for dynamic anomaly UI)."""
+    tags = _get_plant_tags(group, plant)
+    return jsonify({'tags': tags})
 
 # ─ Anomaly injection ──────────────────────────────────────────────────────────
 @app.route('/api/anomaly/inject', methods=['POST'])

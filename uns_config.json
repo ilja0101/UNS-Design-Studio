@@ -1,5 +1,5 @@
 {
-  "lastModified": "2026-04-19T19:05:33Z",
+  "lastModified": "2026-04-19T20:44:15Z",
   "namespaceUri": "http://royalfarmerscollective.com/uns",
   "tree": {
     "children": [
@@ -382,7 +382,7 @@
             ],
             "description": "Terneuzen Production Facility",
             "id": "site-tern",
-            "name": "Terneuzen",
+            "name": "Terneuzen2",
             "tags": [],
             "type": "site"
           },
@@ -397,46 +397,46 @@
                     "name": "ProcessControl",
                     "tags": [
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "",
                         "id": "717143a4-57b5-4ef0-9b4a-99acb6b00d62",
                         "name": "NewTag",
-                        "dataType": "Float",
-                        "unit": "",
-                        "description": "",
-                        "access": "R",
                         "payloadSchema": "simple",
                         "simulation": {
                           "profile": "oee"
-                        }
+                        },
+                        "unit": ""
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "",
                         "id": "e7828e7e-d0ca-4405-92df-3db4e0ae97e3",
                         "name": "NewTag2",
-                        "dataType": "Float",
-                        "unit": "",
-                        "description": "",
-                        "access": "R",
                         "payloadSchema": "pi",
-                        "simulation": null
+                        "simulation": null,
+                        "unit": ""
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "",
                         "id": "107504ae-71c9-4140-96db-540b9a862620",
                         "name": "NewTag3",
-                        "dataType": "Float",
-                        "unit": "",
-                        "description": "",
-                        "access": "R",
                         "payloadSchema": "isa95",
-                        "simulation": null
+                        "simulation": null,
+                        "unit": ""
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "",
                         "id": "3477765c-73b1-4d49-9258-e527f0fcc117",
                         "name": "NewTag4",
-                        "dataType": "Float",
-                        "unit": "",
-                        "description": "",
-                        "access": "R",
                         "payloadSchema": "",
-                        "simulation": null
+                        "simulation": null,
+                        "unit": ""
                       }
                     ],
                     "type": "workCenter"
@@ -446,7 +446,20 @@
                     "description": "",
                     "id": "wc-bog-oee",
                     "name": "OEE",
-                    "tags": [],
+                    "tags": [
+                      {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "",
+                        "id": "dfda09d9-4a07-4541-a9ef-b44c41a3b1e7",
+                        "name": "OEE_Percent",
+                        "payloadSchema": "simple",
+                        "simulation": {
+                          "profile": "oee"
+                        },
+                        "unit": ""
+                      }
+                    ],
                     "type": "workCenter"
                   },
                   {
@@ -485,24 +498,6 @@
             "id": "site-bog",
             "name": "BergenOpZoom",
             "tags": [],
-            "type": "site"
-          },
-          {
-            "children": [],
-            "description": "",
-            "id": "4e3b306b-f98f-4faa-ab0d-ece252b928d2",
-            "name": "NewSite",
-            "tags": [
-              {
-                "access": "R",
-                "dataType": "Float",
-                "description": "",
-                "id": "5899645e-f3c4-4ff3-b6f8-330076f288b5",
-                "name": "TEST tag",
-                "payloadSchema": "standard",
-                "unit": ""
-              }
-            ],
             "type": "site"
           }
         ],
@@ -581,7 +576,32 @@
                     "description": "",
                     "id": "wc-veen-oee",
                     "name": "OEE",
-                    "tags": [],
+                    "tags": [
+                      {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "",
+                        "id": "fda6fead-7a49-4b15-8152-4c104d1a3476",
+                        "name": "OEEEE_Percentage",
+                        "payloadSchema": "simple",
+                        "simulation": {
+                          "profile": "oee"
+                        },
+                        "unit": ""
+                      },
+                      {
+                        "id": "264587d8-9845-4ea6-bebb-461f46980f22",
+                        "name": "OEE2",
+                        "dataType": "Float",
+                        "unit": "",
+                        "description": "",
+                        "access": "R",
+                        "payloadSchema": "standard",
+                        "simulation": {
+                          "profile": "oee"
+                        }
+                      }
+                    ],
                     "type": "workCenter"
                   }
                 ],
@@ -647,7 +667,17 @@
                 "description": "",
                 "id": "b182ad37-a864-4d47-9fe4-a6558f668332",
                 "name": "_ERP",
-                "tags": [],
+                "tags": [
+                  {
+                    "access": "R",
+                    "dataType": "String",
+                    "description": "",
+                    "id": "4c5a7d8a-92a3-4eb4-9a59-da89654b22f8",
+                    "name": "ErpOrder",
+                    "payloadSchema": "simple",
+                    "unit": ""
+                  }
+                ],
                 "type": "area"
               }
             ],
@@ -791,220 +821,6 @@
         "description": "Frozen Frites Division",
         "id": "bu-frito",
         "name": "FritoMaxx",
-        "tags": [],
-        "type": "businessUnit"
-      },
-      {
-        "children": [
-          {
-            "children": [
-              {
-                "children": [
-                  {
-                    "children": [],
-                    "description": "",
-                    "id": "wc-roos-pc",
-                    "name": "ProcessControl",
-                    "tags": [],
-                    "type": "workCenter"
-                  },
-                  {
-                    "children": [],
-                    "description": "",
-                    "id": "wc-roos-oee",
-                    "name": "OEE",
-                    "tags": [],
-                    "type": "workCenter"
-                  },
-                  {
-                    "children": [],
-                    "description": "",
-                    "id": "wc-roos-energy",
-                    "name": "Energy",
-                    "tags": [],
-                    "type": "workCenter"
-                  }
-                ],
-                "description": "",
-                "id": "area-roos-pl",
-                "name": "ProductionLine",
-                "tags": [],
-                "type": "area"
-              }
-            ],
-            "description": "",
-            "id": "site-roos",
-            "name": "Roosendaal",
-            "tags": [],
-            "type": "site"
-          }
-        ],
-        "description": "Chicory & Inulin Division",
-        "id": "bu-wort",
-        "name": "Wortelkracht",
-        "tags": [],
-        "type": "businessUnit"
-      },
-      {
-        "children": [
-          {
-            "children": [
-              {
-                "children": [
-                  {
-                    "children": [],
-                    "description": "",
-                    "id": "wc-zev-pc",
-                    "name": "ProcessControl",
-                    "tags": [],
-                    "type": "workCenter"
-                  },
-                  {
-                    "children": [],
-                    "description": "",
-                    "id": "wc-zev-oee",
-                    "name": "OEE",
-                    "tags": [],
-                    "type": "workCenter"
-                  },
-                  {
-                    "children": [],
-                    "description": "",
-                    "id": "wc-zev-energy",
-                    "name": "Energy",
-                    "tags": [],
-                    "type": "workCenter"
-                  }
-                ],
-                "description": "",
-                "id": "area-zev-pl",
-                "name": "ProductionLine",
-                "tags": [],
-                "type": "area"
-              }
-            ],
-            "description": "",
-            "id": "site-zev",
-            "name": "Zevenbergen",
-            "tags": [],
-            "type": "site"
-          },
-          {
-            "children": [
-              {
-                "children": [
-                  {
-                    "children": [],
-                    "description": "",
-                    "id": "wc-stad-pc",
-                    "name": "ProcessControl",
-                    "tags": [],
-                    "type": "workCenter"
-                  },
-                  {
-                    "children": [],
-                    "description": "",
-                    "id": "wc-stad-oee",
-                    "name": "OEE",
-                    "tags": [],
-                    "type": "workCenter"
-                  }
-                ],
-                "description": "",
-                "id": "area-stad-pl",
-                "name": "ProductionLine",
-                "tags": [],
-                "type": "area"
-              }
-            ],
-            "description": "",
-            "id": "site-stad",
-            "name": "Stadskanaal",
-            "tags": [],
-            "type": "site"
-          }
-        ],
-        "description": "Sugar Beet Division",
-        "id": "bu-biet",
-        "name": "DeBietenBende",
-        "tags": [],
-        "type": "businessUnit"
-      },
-      {
-        "children": [
-          {
-            "children": [
-              {
-                "children": [
-                  {
-                    "children": [
-                      {
-                        "children": [
-                          {
-                            "children": [],
-                            "description": "",
-                            "id": "0952f6c5-d811-4690-b580-56eeafa02192",
-                            "name": "NewDevice",
-                            "tags": [
-                              {
-                                "access": "R",
-                                "dataType": "Float",
-                                "description": "",
-                                "id": "aca01747-0588-46ab-9eac-01ffca078faa",
-                                "name": "NewTag",
-                                "unit": ""
-                              },
-                              {
-                                "access": "R",
-                                "dataType": "Float",
-                                "description": "",
-                                "id": "09cb3a8d-b82c-40e5-87e8-fcdbe212b6b1",
-                                "name": "NewTag2",
-                                "unit": ""
-                              },
-                              {
-                                "access": "R",
-                                "dataType": "Float",
-                                "description": "",
-                                "id": "9c9cc6f8-704b-42fe-ac86-425730702f23",
-                                "name": "NewTag3",
-                                "unit": ""
-                              }
-                            ],
-                            "type": "device"
-                          }
-                        ],
-                        "description": "",
-                        "id": "d7ebf929-8e9f-479d-8143-8c0d949498c9",
-                        "name": "NewWorkUnit",
-                        "tags": [],
-                        "type": "workUnit"
-                      }
-                    ],
-                    "description": "",
-                    "id": "dfe07d1d-75bc-4298-a155-5f02be40d7a6",
-                    "name": "NewWorkCenter",
-                    "tags": [],
-                    "type": "workCenter"
-                  }
-                ],
-                "description": "",
-                "id": "213e0b27-b179-47f4-83f7-bfbf8b5c1f94",
-                "name": "NewArea",
-                "tags": [],
-                "type": "area"
-              }
-            ],
-            "description": "",
-            "id": "1908250f-7b88-48f6-85d3-9de8c5a7446a",
-            "name": "NewSite",
-            "tags": [],
-            "type": "site"
-          }
-        ],
-        "description": "",
-        "id": "12379dd2-d3ce-4085-98d5-1d75b95ddee0",
-        "name": "NewBusinessUnit",
         "tags": [],
         "type": "businessUnit"
       }

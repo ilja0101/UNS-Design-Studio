@@ -522,6 +522,7 @@ let _logOpen = false;
 let _serverLogs = [];
 let _pollTimer = null;
 let _plantsCache = {};
+let _structureHash = null;
 
 // ── Polling ────────────────────────────────────────────────────────────────────
 async function poll() {
@@ -529,6 +530,14 @@ async function poll() {
     const r = await fetch('/api/status');
     if (!r.ok) return;
     const d = await r.json();
+    // Reload page if enterprise structure changed (UNS designer was used)
+    if (d.structure_hash) {
+      if (_structureHash && _structureHash !== d.structure_hash) {
+        location.reload();
+        return;
+      }
+      _structureHash = d.structure_hash;
+    }
     _plantsCache = d.plants || {};
     updateHeader(d);
     updateCards(_plantsCache);
@@ -769,161 +778,126 @@ async function apiPlantCtrl(group, plant, action, value) {
   } catch(e) { return {ok:false}; }
 }
 
-// ── Anomaly Modal ─────────────────────────────────────────────────────────────
+// ── Anomaly Modal (dynamic, driven by UNS tag list) ───────────────────────────
 async function openAnomalyModal(group, plant, short) {
-  _anom = {group, plant, short, category:'', overrides:{}};
+  _anom = {group, plant, short, overrides:{}};
   document.getElementById('anomalyTitle').textContent = `⚡ Anomaly — ${short}`;
-
-  const equipR = await fetch(`/api/equipment/${group}`);
-  const equipD = await equipR.json();
-  renderAnomalyStep1(group, equipD.equipment);
+  const body = document.getElementById('anomalyBody');
+  body.innerHTML = '<p style="color:var(--muted);font-size:12px;padding:8px 0">Loading tags…</p>';
   openModal('anomalyModal');
+
+  try {
+    const r = await fetch(`/api/plant/tags/${encodeURIComponent(group)}/${encodeURIComponent(plant)}`);
+    const d = await r.json();
+    _renderDynamicAnomaly(d.tags || []);
+  } catch(e) {
+    body.innerHTML = '<p style="color:var(--red);font-size:12px">Failed to load tag list.</p>';
+  }
 }
 
-function renderAnomalyStep1(group, equipment) {
-  const prefix = `${_anom.group}${_anom.plant}`;
-  const hasEquip = Object.keys(equipment).length > 0;
+function _renderDynamicAnomaly(tags) {
   const body = document.getElementById('anomalyBody');
 
-  const cats = [
-    {id:'silos',   icon:'🏗', label:'Infeed Silos'},
-    {id:'outbound',icon:'📦', label:'Outbound Weight'},
-    ...(hasEquip ? [{id:'equip', icon:'⚙', label:'Process Equipment'}] : []),
-    {id:'pumps',   icon:'🔄', label:'Pumps (12)'},
-    {id:'valves',  icon:'🔧', label:'Valves (20)'},
-    {id:'fans',    icon:'🌀', label:'Fans (10)'},
-    {id:'tanks',   icon:'🛢', label:'Buffer Tanks (10)'},
-  ];
+  // Only numeric types make sense to override with a number
+  const numericTags = tags.filter(t => t.dataType === 'Float' || t.dataType === 'Int');
+
+  // Group by workCenter
+  const groups = {};
+  for (const t of numericTags) {
+    const wc = t.workCenter || '—';
+    if (!groups[wc]) groups[wc] = [];
+    groups[wc].push(t);
+  }
+
+  if (numericTags.length === 0) {
+    body.innerHTML = `
+      <p style="font-size:12px;color:var(--muted)">
+        No numeric tags found for <strong>${_anom.short}</strong>.<br>
+        Add Float/Int tags to this plant in the UNS Designer to enable anomaly injection.
+      </p>`;
+    return;
+  }
+
+  let tagRows = '';
+  for (const [wc, wcTags] of Object.entries(groups)) {
+    tagRows += `<div class="anom-wc-group" data-wc="${wc.toLowerCase()}">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);padding:4px 8px;
+           text-transform:uppercase;letter-spacing:.4px;background:var(--surface2);
+           position:sticky;top:0">${escHtml(wc)}</div>`;
+    for (const t of wcTags) {
+      const unit = t.unit ? ` <span style="color:var(--muted);font-size:10px">${escHtml(t.unit)}</span>` : '';
+      tagRows += `<label class="cb-item anom-tag-item"
+          data-search="${(t.name + ' ' + wc).toLowerCase()}"
+          style="border-radius:0;border-left:none;border-right:none;border-top:none">
+        <input type="checkbox" class="anom-tag-cb" value="${escAttr(t.anomalyKey)}">
+        ${escHtml(t.name)}${unit}
+      </label>`;
+    }
+    tagRows += `</div>`;
+  }
 
   body.innerHTML = `
-    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
-      Plant: <strong>${_anom.short}</strong> · Override tag values in real-time (auto-reset after duration)
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+      Plant: <strong>${escHtml(_anom.short)}</strong> &nbsp;·&nbsp;
+      Override tag values in real-time (auto-reset after duration)
     </p>
-    <div class="form-group"><label>Select Anomaly Category</label>
-      <div class="cat-grid" id="catGrid">
-        ${cats.map(c=>`<button class="cat-btn" onclick="selectCategory('${c.id}')" id="cat-${c.id}">
-          <span class="cat-icon">${c.icon}</span>${c.label}
-        </button>`).join('')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="form-group" style="margin:0">
+        <label>Override Value</label>
+        <input type="number" id="anomValue" step="any" placeholder="e.g. 0 or 999" style="width:100%">
       </div>
-    </div>
-    <div id="anomalyConfig" style="margin-top:14px"></div>
-    <div class="form-group" style="margin-top:14px;display:flex;gap:12px;align-items:flex-end">
-      <div style="flex:1">
-        <label>Duration (seconds, 0=permanent)</label>
+      <div class="form-group" style="margin:0">
+        <label>Duration (s, 0 = permanent)</label>
         <input type="number" id="anomDuration" value="30" min="0" style="width:100%">
       </div>
-      <div style="flex:1">
-        <label>Override Value</label>
-        <input type="number" id="anomValue" step="any" placeholder="Enter value" style="width:100%">
-      </div>
     </div>
-    <div id="anomalyPreview" style="margin-top:8px;font-size:11px;color:var(--muted)"></div>
-  `;
-  _anom._equip = equipment;
-}
-
-function selectCategory(cat) {
-  _anom.category = cat;
-  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('selected'));
-  document.getElementById(`cat-${cat}`)?.classList.add('selected');
-  renderAnomalyConfig(cat);
-}
-
-function renderAnomalyConfig(cat) {
-  const cfg = document.getElementById('anomalyConfig');
-  const prefix = `${_anom.group}${_anom.plant}`;
-
-  if (cat === 'silos') {
-    cfg.innerHTML = `
-      <div class="form-group">
-        <label>Select Silos</label>
-        <div class="checkbox-grid">${[1,2,3,4].map(i=>
-          `<label class="cb-item"><input type="checkbox" class="silo-cb" value="${i}"> Silo ${i}</label>`
-        ).join('')}</div>
+    <div class="form-group" style="margin:0">
+      <label>Tags to override
+        <span id="anomSelCount" style="color:var(--accent);font-weight:600;margin-left:6px"></span>
+      </label>
+      <input type="text" id="anomSearch" placeholder="Search tags…"
+             style="width:100%;margin-bottom:6px" oninput="_filterAnomalyTags(this.value)">
+      <div id="anomTagList"
+           style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px">
+        ${tagRows}
       </div>
-      <p style="font-size:11px;color:var(--muted);margin-top:6px">Override key: ${prefix}InfeedSilo<em>N</em>Level</p>`;
-  } else if (cat === 'outbound') {
-    cfg.innerHTML = `<p style="font-size:12px;color:var(--muted)">Override key: ${prefix}OutboundWeight (tons)</p>`;
-  } else if (cat === 'equip') {
-    const opts = _anom._equip;
-    cfg.innerHTML = `
-      <div class="form-group">
-        <label>Select Equipment</label>
-        <div class="checkbox-grid">${Object.keys(opts).map(label=>
-          `<label class="cb-item"><input type="checkbox" class="equip-cb" value="${opts[label]}"> ${label}</label>`
-        ).join('')}</div>
-      </div>`;
-  } else if (cat === 'pumps') {
-    renderMultiItemConfig('pump', 12, 'Pump', ['Speed','Current','Vibration','BearingTemp','Flow','SuctionPressure','DischargePressure']);
-    return;
-  } else if (cat === 'valves') {
-    renderMultiItemConfig('valve', 20, 'Valve', ['Position','Current','Torque']);
-    return;
-  } else if (cat === 'fans') {
-    renderMultiItemConfig('fan', 10, 'Fan', ['Speed','Current','Vibration','BearingTemp','Damper','Airflow']);
-    return;
-  } else if (cat === 'tanks') {
-    renderMultiItemConfig('tank', 10, 'Tank', ['Level','Temp','Pressure','pH','Conductivity','AgitCurrent']);
-    return;
-  }
-}
-
-function renderMultiItemConfig(type, count, pfx, params) {
-  const cfg = document.getElementById('anomalyConfig');
-  const items = Array.from({length:count},(_,i)=>`${pfx}${String(i+1).padStart(2,'0')}`);
-  cfg.innerHTML = `
-    <div class="form-group">
-      <label>Select ${pfx}s</label>
-      <div class="checkbox-grid">${items.map(it=>
-        `<label class="cb-item"><input type="checkbox" class="${type}-cb" value="${it}"> ${it}</label>`
-      ).join('')}</div>
-    </div>
-    <div class="form-group">
-      <label>Parameter</label>
-      <select id="selParam">${params.map(p=>`<option>${p}</option>`).join('')}</select>
     </div>`;
+
+  // Live selection counter
+  document.getElementById('anomTagList').addEventListener('change', () => {
+    const n = document.querySelectorAll('.anom-tag-cb:checked').length;
+    document.getElementById('anomSelCount').textContent = n ? `${n} selected` : '';
+  });
 }
 
-function buildOverrides() {
-  const cat     = _anom.category;
-  const prefix  = `${_anom.group}${_anom.plant}`;
-  const value   = parseFloat(document.getElementById('anomValue').value);
-  if (isNaN(value)) { toast('Enter a numeric override value','error'); return null; }
-  const overrides = {};
-
-  if (cat === 'silos') {
-    document.querySelectorAll('.silo-cb:checked').forEach(cb => {
-      overrides[`${prefix}InfeedSilo${cb.value}Level`] = value;
-    });
-  } else if (cat === 'outbound') {
-    overrides[`${prefix}OutboundWeight`] = value;
-  } else if (cat === 'equip') {
-    document.querySelectorAll('.equip-cb:checked').forEach(cb => {
-      const raw = cb.value; // e.g. "cutter_speed"
-      const cap = raw.charAt(0).toUpperCase() + raw.slice(1); // "Cutter_speed"
-      overrides[`${prefix}${cap}`] = value;
-    });
-  } else {
-    // pump/valve/fan/tank
-    const typeMap = {pump:'Pump',valve:'Valve',fan:'Fan',tank:'Tank'};
-    const typePfx = typeMap[cat] || '';
-    const cbClass = `${cat}-cb`;
-    const param = document.getElementById('selParam')?.value || '';
-    document.querySelectorAll(`.${cbClass}:checked`).forEach(cb => {
-      overrides[`${prefix}${cb.value}${param}`] = value;
-    });
-  }
-  return overrides;
+function _filterAnomalyTags(q) {
+  const lq = q.trim().toLowerCase();
+  document.querySelectorAll('.anom-tag-item').forEach(el => {
+    el.style.display = (!lq || el.dataset.search.includes(lq)) ? '' : 'none';
+  });
+  document.querySelectorAll('.anom-wc-group').forEach(grp => {
+    const visible = [...grp.querySelectorAll('.anom-tag-item')].some(el => el.style.display !== 'none');
+    grp.style.display = visible ? '' : 'none';
+  });
 }
 
 async function injectAnomaly() {
-  if (!_anom.category) { toast('Select an anomaly category first','error'); return; }
-  const overrides = buildOverrides();
-  if (!overrides || Object.keys(overrides).length === 0) {
-    toast('No tags selected','error'); return;
+  const valueEl = document.getElementById('anomValue');
+  if (!valueEl) { toast('Open the anomaly modal first','error'); return; }
+  const value = parseFloat(valueEl.value);
+  if (isNaN(value)) { toast('Enter a numeric override value','error'); return; }
+
+  const overrides = {};
+  document.querySelectorAll('.anom-tag-cb:checked').forEach(cb => {
+    overrides[cb.value] = value;
+  });
+
+  if (Object.keys(overrides).length === 0) {
+    toast('Select at least one tag','error'); return;
   }
+
   const duration = parseFloat(document.getElementById('anomDuration').value) || 0;
-  const r = await fetch('/api/anomaly/inject',{
+  const r = await fetch('/api/anomaly/inject', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({group:_anom.group, plant:_anom.plant, overrides, duration})
   });
