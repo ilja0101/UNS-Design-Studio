@@ -192,6 +192,11 @@ Per-tag payload schema assignment is done in the Tags tab of the UNS designer �
 
 ---
 
+##  Live UNS viewer (requires external broker + Websocket)
+
+![Live UNS Viewer](docs/Live_Uns_viewer_via_broker.JPG)
+
+---
 ##  Network & Server Settings
 
 Click the **Settings** button in the dashboard header:
@@ -278,10 +283,6 @@ UNS-Design-Studio/
 ├── entrypoint.sh         # First-boot config seeding + symlinks
 └── requirements.txt
 ```
-
-##  Live UNS viewer (requires external broker + Websocket)
-
-![Live UNS Viewer](docs/Live_Uns_viewer_via_broker.JPG)
 
 ---
 
