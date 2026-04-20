@@ -38,7 +38,9 @@ Built as a learning and demo tool for **ISA-95 hierarchy**, **UNS architecture**
 > **Dashboard** — factory status overview with OEE, power draw and running state per plant
 
 ```
-<img width="1920" height="931" alt="image" src="https://github.com/user-attachments/assets/ffe0afab-26ad-4178-a677-a02554241fde" />
+
+<img width="1920" height="931" alt="image" src="https://github.com/user-attachments/assets/080df3ed-ad06-422a-bde3-c68c91504c62" />
+
 
 
 > **UNS Topic Designer** — build your ISA-95 namespace visually
