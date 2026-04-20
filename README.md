@@ -60,7 +60,7 @@ Tags with simulation profiles are automatically added!!
 
 <img width="1917" height="938" alt="image" src="https://github.com/user-attachments/assets/9f27d331-8288-4e24-9a2c-22d908f43bbd" />
 
-
+![alt text](image-2.png)
 ---
 
 ## 🚀 Quick Start
