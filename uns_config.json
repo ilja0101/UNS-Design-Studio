@@ -1,5 +1,5 @@
 {
-  "lastModified": "2026-04-19T21:18:44Z",
+  "lastModified": "2026-04-20T02:56:31Z",
   "namespaceUri": "http://royalfarmerscollective.com/uns",
   "tree": {
     "children": [
@@ -371,6 +371,171 @@
                       }
                     ],
                     "type": "workCenter"
+                  },
+                  {
+                    "id": "d460635a-28c2-4288-a492-0442eec4a205",
+                    "name": "Package Unit",
+                    "type": "workCenter",
+                    "description": "",
+                    "tags": [
+                      {
+                        "id": "88610bac-31ef-4d31-ad0e-5f89f4f69efd",
+                        "name": "Running",
+                        "dataType": "Bool",
+                        "unit": "",
+                        "description": "Machine running",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "boolean_running"
+                        }
+                      },
+                      {
+                        "id": "23195cf7-a3db-4121-80db-9ba56b3d0d23",
+                        "name": "Fault",
+                        "dataType": "Bool",
+                        "unit": "",
+                        "description": "Fault active",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "boolean_fault"
+                        }
+                      },
+                      {
+                        "id": "93620d88-a45b-463d-9dc7-55acee8be88e",
+                        "name": "OEEPct",
+                        "dataType": "Float",
+                        "unit": "%",
+                        "description": "Overall Equipment Effectiveness",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "oee"
+                        }
+                      },
+                      {
+                        "id": "9806a264-ea57-4bf6-99d9-f1555d19dbc4",
+                        "name": "AvailabilityPct",
+                        "dataType": "Float",
+                        "unit": "%",
+                        "description": "Availability",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "availability"
+                        }
+                      },
+                      {
+                        "id": "ec375192-e274-4497-b2bd-b0c23b50b270",
+                        "name": "PerformancePct",
+                        "dataType": "Float",
+                        "unit": "%",
+                        "description": "Performance",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "performance"
+                        }
+                      },
+                      {
+                        "id": "e055c45e-874a-419a-939e-0e6903fd5dbf",
+                        "name": "QualityPct",
+                        "dataType": "Float",
+                        "unit": "%",
+                        "description": "Quality",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "quality"
+                        }
+                      },
+                      {
+                        "id": "2de4a284-c9b3-4707-832b-bd650dced280",
+                        "name": "GoodUnitsAcc",
+                        "dataType": "Float",
+                        "unit": "units",
+                        "description": "Cumulative good output",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "accumulator_good"
+                        }
+                      },
+                      {
+                        "id": "6d5cc234-70a9-4def-924b-50e27bcbc587",
+                        "name": "RejectedUnitsAcc",
+                        "dataType": "Float",
+                        "unit": "units",
+                        "description": "Cumulative rejects",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "accumulator_bad"
+                        }
+                      },
+                      {
+                        "id": "08c65d1c-5878-4e05-8ac2-f5b68c02d076",
+                        "name": "CycleCountAcc",
+                        "dataType": "Float",
+                        "unit": "",
+                        "description": "Total machine cycles",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "accumulator_generic"
+                        }
+                      },
+                      {
+                        "id": "fc36c328-6af1-49bb-8e5d-2986cc0babb5",
+                        "name": "SpeedUnitsPMin",
+                        "dataType": "Float",
+                        "unit": "u/min",
+                        "description": "Current production speed",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "speed_rpm"
+                        }
+                      },
+                      {
+                        "id": "0a2e34e2-76d7-4bbe-8825-8556eb187ae9",
+                        "name": "CurrentBatchID",
+                        "dataType": "String",
+                        "unit": "",
+                        "description": "Active batch identifier",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "batch_id"
+                        }
+                      },
+                      {
+                        "id": "a10d1f11-9cf5-42c8-bce0-d22053b4c448",
+                        "name": "PowerKW",
+                        "dataType": "Float",
+                        "unit": "kW",
+                        "description": "Power draw",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "power_kw"
+                        }
+                      },
+                      {
+                        "id": "b274d0c6-9fc0-42b5-9f35-375344cb0628",
+                        "name": "MTBFHours",
+                        "dataType": "Float",
+                        "unit": "h",
+                        "description": "Mean time between failures",
+                        "access": "R",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "mtbf"
+                        }
+                      }
+                    ],
+                    "children": []
                   }
                 ],
                 "description": "Main Chip Production Line",

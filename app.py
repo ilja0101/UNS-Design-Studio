@@ -853,6 +853,70 @@ def api_bridge_cfg_save():
     return jsonify({'ok': True, 'restarted': False})
 
 
+# ── Asset Library ─────────────────────────────────────────────────────────────
+ASSET_LIBRARY_FILE = os.path.join(BASE_DIR, 'asset_library.json')
+
+def _load_asset_library() -> dict:
+    try:
+        with open(ASSET_LIBRARY_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return {"assets": []}
+
+@app.route('/api/asset-library', methods=['GET'])
+def api_asset_library():
+    """Return the full asset library for the UNS designer."""
+    return jsonify(_load_asset_library())
+
+# ── Simulation Profile Catalogue ───────────────────────────────────────────────
+@app.route('/api/simulation-profiles', methods=['GET'])
+def api_simulation_profiles():
+    """
+    Return the simulation profile catalogue from factory.py as a grouped list
+    for rendering in the UNS designer tag editor dropdown.
+    Format: [{"group": "OT / Process", "profiles": [{"id": "oee", "label": "OEE (%)"}, ...]}, ...]
+    """
+    try:
+        factory_py = os.path.join(BASE_DIR, 'factory.py')
+        import importlib.util
+        spec   = importlib.util.spec_from_file_location("factory", factory_py)
+        mod    = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        profiles = getattr(mod, 'SIMULATION_PROFILES', {})
+    except Exception:
+        # Fallback: minimal set so the UI always renders
+        profiles = {
+            "oee":         {"label": "OEE (%)",              "group": "OT / Process"},
+            "availability":{"label": "Availability (%)",     "group": "OT / Process"},
+            "performance": {"label": "Performance (%)",      "group": "OT / Process"},
+            "quality":     {"label": "Quality (%)",          "group": "OT / Process"},
+            "power_kw":    {"label": "Active Power (kW)",    "group": "Energy / Utilities"},
+            "accumulator_good": {"label": "Accumulator: Good Output", "group": "Accumulators"},
+            "default":     {"label": "Generic Walk",         "group": "Other"},
+        }
+
+    # Group for UI consumption
+    grouped = {}
+    for pid, meta in profiles.items():
+        g = meta.get("group", "Other")
+        grouped.setdefault(g, []).append({"id": pid, "label": meta.get("label", pid)})
+
+    # Preserve a sensible group order
+    group_order = [
+        "OT / Process", "Accumulators", "Maintenance / CMMS",
+        "Quality / Lab", "Logistics", "ERP / Finance",
+        "Energy / Utilities", "Other"
+    ]
+    result = []
+    for g in group_order:
+        if g in grouped:
+            result.append({"group": g, "profiles": sorted(grouped[g], key=lambda x: x["label"])})
+    for g in grouped:
+        if g not in group_order:
+            result.append({"group": g, "profiles": sorted(grouped[g], key=lambda x: x["label"])})
+
+    return jsonify(result)
+
 # ── UNS Topic Designer ─────────────────────────────────────────────────────────
 @app.route('/uns')
 def uns_editor():

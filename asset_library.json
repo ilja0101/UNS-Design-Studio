@@ -1,0 +1,347 @@
+{
+  "version": "1.0",
+  "description": "Predefined asset templates for the Royal Farmers Collective UNS Designer. Each asset is a named bundle of tags with simulation profiles pre-configured. Drop any asset into any node in the UNS tree.",
+  "assets": [
+
+    {
+      "id": "centrifugal_pump",
+      "label": "Centrifugal Pump",
+      "icon": "💧",
+      "category": "Rotating Equipment",
+      "description": "Standard centrifugal pump with motor monitoring and flow measurement",
+      "tags": [
+        {"name": "Running",           "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_running"},     "description": "Pump running state"},
+        {"name": "Fault",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_fault"},       "description": "Fault active"},
+        {"name": "MotorCurrentA",     "dataType": "Float",  "unit": "A",     "simulation": {"profile": "motor_current"},       "description": "Motor current draw"},
+        {"name": "VibrationMmS",      "dataType": "Float",  "unit": "mm/s",  "simulation": {"profile": "vibration"},           "description": "Bearing vibration"},
+        {"name": "FlowM3H",           "dataType": "Float",  "unit": "m³/h",  "simulation": {"profile": "flow_rate"},           "description": "Process flow rate"},
+        {"name": "InletPressureBar",  "dataType": "Float",  "unit": "bar",   "simulation": {"profile": "pressure"},            "description": "Inlet pressure"},
+        {"name": "OutletPressureBar", "dataType": "Float",  "unit": "bar",   "simulation": {"profile": "pressure"},            "description": "Outlet pressure"},
+        {"name": "SpeedRPM",          "dataType": "Float",  "unit": "RPM",   "simulation": {"profile": "speed_rpm"},           "description": "Pump speed"},
+        {"name": "PowerKW",           "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Power consumption"},
+        {"name": "RemainingLifeH",    "dataType": "Float",  "unit": "h",     "simulation": {"profile": "remaining_useful_life"}, "description": "Estimated RUL"},
+        {"name": "RunHoursAcc",       "dataType": "Float",  "unit": "h",     "simulation": {"profile": "accumulator_generic"}, "description": "Cumulative run hours"}
+      ]
+    },
+
+    {
+      "id": "control_valve",
+      "label": "Control Valve",
+      "icon": "🔧",
+      "category": "Instrumentation",
+      "description": "Modulating control valve with position feedback and cycle counting",
+      "tags": [
+        {"name": "PositionPct",       "dataType": "Float",  "unit": "%",     "simulation": {"profile": "valve_position"},      "description": "Valve position setpoint/feedback"},
+        {"name": "FlowM3H",           "dataType": "Float",  "unit": "m³/h",  "simulation": {"profile": "flow_rate"},           "description": "Flow through valve"},
+        {"name": "DifferentialPressureBar", "dataType": "Float", "unit": "bar", "simulation": {"profile": "pressure"},         "description": "Differential pressure across valve"},
+        {"name": "Fault",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_fault"},       "description": "Valve fault"},
+        {"name": "CycleCountAcc",     "dataType": "Float",  "unit": "",      "simulation": {"profile": "accumulator_generic"}, "description": "Cumulative stroke count"},
+        {"name": "RemainingLifeH",    "dataType": "Float",  "unit": "h",     "simulation": {"profile": "remaining_useful_life"}, "description": "Estimated actuator RUL"}
+      ]
+    },
+
+    {
+      "id": "silo_tank",
+      "label": "Silo / Buffer Tank",
+      "icon": "🏗️",
+      "category": "Storage",
+      "description": "Raw material or intermediate product silo with level monitoring and truck intake",
+      "tags": [
+        {"name": "LevelPct",          "dataType": "Float",  "unit": "%",     "simulation": {"profile": "silo_level"},          "description": "Fill level"},
+        {"name": "DaysOfSupply",      "dataType": "Float",  "unit": "days",  "simulation": {"profile": "days_of_supply"},      "description": "Estimated days of supply remaining"},
+        {"name": "InboundTonsAcc",    "dataType": "Float",  "unit": "t",     "simulation": {"profile": "inbound_tons"},        "description": "Cumulative received tonnage"},
+        {"name": "OutboundTonsAcc",   "dataType": "Float",  "unit": "t",     "simulation": {"profile": "outbound_tons"},       "description": "Cumulative dispatched tonnage"},
+        {"name": "LastTruckID",       "dataType": "String", "unit": "",      "simulation": {"profile": "truck_id"},            "description": "Last inbound truck identifier"},
+        {"name": "LastLotID",         "dataType": "String", "unit": "",      "simulation": {"profile": "lot_id"},              "description": "Last inbound lot / batch ID"},
+        {"name": "TemperatureC",      "dataType": "Float",  "unit": "°C",    "simulation": {"profile": "temperature_ambient"}, "description": "Silo ambient temperature"}
+      ]
+    },
+
+    {
+      "id": "boiler",
+      "label": "Boiler / Steam Generator",
+      "icon": "♨️",
+      "category": "Utilities",
+      "description": "Industrial boiler with steam output, pressure and energy monitoring",
+      "tags": [
+        {"name": "Running",           "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_running"},     "description": "Burner on/running"},
+        {"name": "Alarm",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_alarm"},       "description": "Alarm active"},
+        {"name": "SteamTempC",        "dataType": "Float",  "unit": "°C",    "simulation": {"profile": "temperature_process"}, "description": "Steam outlet temperature"},
+        {"name": "SteamPressureBar",  "dataType": "Float",  "unit": "bar",   "simulation": {"profile": "pressure"},            "description": "Steam pressure"},
+        {"name": "SteamFlowKgH",      "dataType": "Float",  "unit": "kg/h",  "simulation": {"profile": "steam_flow"},          "description": "Steam output flow"},
+        {"name": "PowerKW",           "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Burner energy input"},
+        {"name": "CumulativeKWh",     "dataType": "Float",  "unit": "kWh",   "simulation": {"profile": "accumulator_energy"},  "description": "Cumulative energy consumed"},
+        {"name": "CO2KgAcc",          "dataType": "Float",  "unit": "kg",    "simulation": {"profile": "co2_kg"},              "description": "Cumulative CO₂ emitted"},
+        {"name": "FaultCount",        "dataType": "Float",  "unit": "",      "simulation": {"profile": "counter_faults"},      "description": "Cumulative fault events"}
+      ]
+    },
+
+    {
+      "id": "packing_machine",
+      "label": "Packing / Filling Machine",
+      "icon": "📦",
+      "category": "Packaging",
+      "description": "High-speed packaging line with full OEE, reject counting and batch traceability",
+      "tags": [
+        {"name": "Running",           "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_running"},     "description": "Machine running"},
+        {"name": "Fault",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_fault"},       "description": "Fault active"},
+        {"name": "OEEPct",            "dataType": "Float",  "unit": "%",     "simulation": {"profile": "oee"},                 "description": "Overall Equipment Effectiveness"},
+        {"name": "AvailabilityPct",   "dataType": "Float",  "unit": "%",     "simulation": {"profile": "availability"},        "description": "Availability"},
+        {"name": "PerformancePct",    "dataType": "Float",  "unit": "%",     "simulation": {"profile": "performance"},         "description": "Performance"},
+        {"name": "QualityPct",        "dataType": "Float",  "unit": "%",     "simulation": {"profile": "quality"},             "description": "Quality"},
+        {"name": "GoodUnitsAcc",      "dataType": "Float",  "unit": "units", "simulation": {"profile": "accumulator_good"},    "description": "Cumulative good output"},
+        {"name": "RejectedUnitsAcc",  "dataType": "Float",  "unit": "units", "simulation": {"profile": "accumulator_bad"},     "description": "Cumulative rejects"},
+        {"name": "CycleCountAcc",     "dataType": "Float",  "unit": "",      "simulation": {"profile": "accumulator_generic"}, "description": "Total machine cycles"},
+        {"name": "SpeedUnitsPMin",    "dataType": "Float",  "unit": "u/min", "simulation": {"profile": "speed_rpm"},           "description": "Current production speed"},
+        {"name": "CurrentBatchID",    "dataType": "String", "unit": "",      "simulation": {"profile": "batch_id"},            "description": "Active batch identifier"},
+        {"name": "PowerKW",           "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Power draw"},
+        {"name": "MTBFHours",         "dataType": "Float",  "unit": "h",     "simulation": {"profile": "mtbf"},                "description": "Mean time between failures"}
+      ]
+    },
+
+    {
+      "id": "iqf_tunnel",
+      "label": "IQF Freezer Tunnel",
+      "icon": "🧊",
+      "category": "Process Equipment",
+      "description": "Individual Quick Freezing tunnel with temperature, belt speed and energy monitoring",
+      "tags": [
+        {"name": "Running",           "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_running"},     "description": "Tunnel running"},
+        {"name": "Alarm",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_alarm"},       "description": "Temperature / process alarm"},
+        {"name": "ZoneTempC",         "dataType": "Float",  "unit": "°C",    "simulation": {"profile": "temperature_process"}, "description": "Freezing zone temperature"},
+        {"name": "BeltSpeedMMin",     "dataType": "Float",  "unit": "m/min", "simulation": {"profile": "speed_rpm"},           "description": "Belt speed"},
+        {"name": "ThroughputKgH",     "dataType": "Float",  "unit": "kg/h",  "simulation": {"profile": "flow_rate"},           "description": "Product throughput"},
+        {"name": "PowerKW",           "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Compressor + fan power"},
+        {"name": "CumulativeKWh",     "dataType": "Float",  "unit": "kWh",   "simulation": {"profile": "accumulator_energy"},  "description": "Cumulative energy"},
+        {"name": "CO2KgAcc",          "dataType": "Float",  "unit": "kg",    "simulation": {"profile": "co2_kg"},              "description": "Indirect CO₂ (energy-linked)"}
+      ]
+    },
+
+    {
+      "id": "conveyor",
+      "label": "Conveyor / Belt Transport",
+      "icon": "➡️",
+      "category": "Material Handling",
+      "description": "Belt or chain conveyor with motor health and throughput monitoring",
+      "tags": [
+        {"name": "Running",           "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_running"},     "description": "Conveyor running"},
+        {"name": "Fault",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_fault"},       "description": "Drive fault"},
+        {"name": "SpeedMMin",         "dataType": "Float",  "unit": "m/min", "simulation": {"profile": "speed_rpm"},           "description": "Belt speed"},
+        {"name": "MotorCurrentA",     "dataType": "Float",  "unit": "A",     "simulation": {"profile": "motor_current"},       "description": "Drive motor current"},
+        {"name": "VibrationMmS",      "dataType": "Float",  "unit": "mm/s",  "simulation": {"profile": "vibration"},           "description": "Drive bearing vibration"},
+        {"name": "ThroughputTH",      "dataType": "Float",  "unit": "t/h",   "simulation": {"profile": "flow_rate"},           "description": "Material throughput"},
+        {"name": "RunHoursAcc",       "dataType": "Float",  "unit": "h",     "simulation": {"profile": "accumulator_generic"}, "description": "Cumulative run hours"},
+        {"name": "FaultCountAcc",     "dataType": "Float",  "unit": "",      "simulation": {"profile": "counter_faults"},      "description": "Cumulative faults"}
+      ]
+    },
+
+    {
+      "id": "batch_reactor",
+      "label": "Batch Reactor / Vessel",
+      "icon": "⚗️",
+      "category": "Process Equipment",
+      "description": "Stirred batch reactor or process vessel with temperature, pressure and quality monitoring",
+      "tags": [
+        {"name": "Running",           "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_running"},     "description": "Agitator / process active"},
+        {"name": "Alarm",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_alarm"},       "description": "Process alarm"},
+        {"name": "TempC",             "dataType": "Float",  "unit": "°C",    "simulation": {"profile": "temperature_process"}, "description": "Vessel temperature"},
+        {"name": "PressureBar",       "dataType": "Float",  "unit": "bar",   "simulation": {"profile": "pressure"},            "description": "Vessel pressure"},
+        {"name": "LevelPct",          "dataType": "Float",  "unit": "%",     "simulation": {"profile": "level"},               "description": "Fill level"},
+        {"name": "AgitatorRPM",       "dataType": "Float",  "unit": "RPM",   "simulation": {"profile": "speed_rpm"},           "description": "Agitator speed"},
+        {"name": "CurrentBatchID",    "dataType": "String", "unit": "",      "simulation": {"profile": "batch_id"},            "description": "Active batch ID"},
+        {"name": "QualityMetric",     "dataType": "Float",  "unit": "",      "simulation": {"profile": "quality_metric_cont"}, "description": "In-process quality value"},
+        {"name": "QualityHold",       "dataType": "Bool",   "unit": "",      "simulation": {"profile": "quality_hold"},        "description": "Quality hold flag"},
+        {"name": "PowerKW",           "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Heating + agitation power"}
+      ]
+    },
+
+    {
+      "id": "weighbridge",
+      "label": "Weighbridge / Truck Scale",
+      "icon": "⚖️",
+      "category": "Logistics",
+      "description": "Inbound/outbound weighbridge for truck registration and tonnage tracking",
+      "tags": [
+        {"name": "LastTruckID",       "dataType": "String", "unit": "",      "simulation": {"profile": "truck_id"},            "description": "Last registered truck"},
+        {"name": "LastLotID",         "dataType": "String", "unit": "",      "simulation": {"profile": "lot_id"},              "description": "Associated lot ID"},
+        {"name": "InboundTonsAcc",    "dataType": "Float",  "unit": "t",     "simulation": {"profile": "inbound_tons"},        "description": "Cumulative inbound tonnage"},
+        {"name": "OutboundTonsAcc",   "dataType": "Float",  "unit": "t",     "simulation": {"profile": "outbound_tons"},       "description": "Cumulative outbound tonnage"},
+        {"name": "TransactionCount",  "dataType": "Float",  "unit": "",      "simulation": {"profile": "accumulator_generic"}, "description": "Total weighing transactions"}
+      ]
+    },
+
+    {
+      "id": "quality_lab",
+      "label": "Quality Lab Station",
+      "icon": "🔬",
+      "category": "Quality",
+      "description": "Inline or at-line quality measurement point with first-pass yield and hold management",
+      "tags": [
+        {"name": "FirstPassYieldPct", "dataType": "Float",  "unit": "%",     "simulation": {"profile": "quality_metric_pct"},  "description": "First-pass yield"},
+        {"name": "InSpecRatePct",     "dataType": "Float",  "unit": "%",     "simulation": {"profile": "quality"},             "description": "In-spec product rate"},
+        {"name": "QualityMetric1",    "dataType": "Float",  "unit": "",      "simulation": {"profile": "quality_metric_cont"}, "description": "Primary quality parameter"},
+        {"name": "QualityMetric2",    "dataType": "Float",  "unit": "",      "simulation": {"profile": "quality_metric_cont"}, "description": "Secondary quality parameter"},
+        {"name": "QualityHold",       "dataType": "Bool",   "unit": "",      "simulation": {"profile": "quality_hold"},        "description": "Product on quality hold"},
+        {"name": "CurrentLotID",      "dataType": "String", "unit": "",      "simulation": {"profile": "lot_id"},              "description": "Lot under inspection"},
+        {"name": "CurrentBatchID",    "dataType": "String", "unit": "",      "simulation": {"profile": "batch_id"},            "description": "Batch under inspection"}
+      ]
+    },
+
+    {
+      "id": "cmms_feed",
+      "label": "CMMS / Maintenance Feed",
+      "icon": "🔩",
+      "category": "Maintenance",
+      "description": "Maintenance KPI feed representing CMMS data for a functional location",
+      "tags": [
+        {"name": "MTBFHours",         "dataType": "Float",  "unit": "h",     "simulation": {"profile": "mtbf"},                "description": "Mean time between failures"},
+        {"name": "MTTRMinutes",       "dataType": "Float",  "unit": "min",   "simulation": {"profile": "mttr"},                "description": "Mean time to repair"},
+        {"name": "PMCompliancePct",   "dataType": "Float",  "unit": "%",     "simulation": {"profile": "pm_compliance"},       "description": "PM schedule compliance"},
+        {"name": "RemainingLifeH",    "dataType": "Float",  "unit": "h",     "simulation": {"profile": "remaining_useful_life"}, "description": "Estimated RUL"},
+        {"name": "OpenCorrectiveWOs", "dataType": "Float",  "unit": "",      "simulation": {"profile": "corrective_wo_count"}, "description": "Open corrective work orders"},
+        {"name": "MaintenanceCostEUR","dataType": "Float",  "unit": "EUR",   "simulation": {"profile": "maintenance_cost"},    "description": "Cumulative maintenance cost"},
+        {"name": "FaultCountAcc",     "dataType": "Float",  "unit": "",      "simulation": {"profile": "counter_faults"},      "description": "Cumulative fault events"}
+      ]
+    },
+
+    {
+      "id": "erp_order_feed",
+      "label": "ERP Production Order Feed",
+      "icon": "📋",
+      "category": "ERP / Finance",
+      "description": "ERP integration point showing live production order status and financial KPIs",
+      "tags": [
+        {"name": "ERPOrderID",        "dataType": "String", "unit": "",      "simulation": {"profile": "erp_order_id"},        "description": "Current production order number"},
+        {"name": "OrderStatus",       "dataType": "String", "unit": "",      "simulation": {"profile": "order_status"},        "description": "Order lifecycle status"},
+        {"name": "OrderQuantity",     "dataType": "Float",  "unit": "units", "simulation": {"profile": "order_quantity"},      "description": "Planned order quantity"},
+        {"name": "ProductionCostEUR", "dataType": "Float",  "unit": "EUR",   "simulation": {"profile": "production_cost_eur"}, "description": "Cumulative production cost"},
+        {"name": "WasteCostEUR",      "dataType": "Float",  "unit": "EUR",   "simulation": {"profile": "waste_cost_eur"},      "description": "Cumulative waste cost"},
+        {"name": "RevenueEUR",        "dataType": "Float",  "unit": "EUR",   "simulation": {"profile": "revenue_eur"},         "description": "Cumulative revenue"},
+        {"name": "MarginPct",         "dataType": "Float",  "unit": "%",     "simulation": {"profile": "margin_pct"},          "description": "Gross margin"}
+      ]
+    },
+
+    {
+      "id": "energy_meter",
+      "label": "Energy / Utility Meter",
+      "icon": "⚡",
+      "category": "Energy",
+      "description": "Electrical energy meter with power, cumulative kWh, steam, compressed air and CO₂",
+      "tags": [
+        {"name": "ActivePowerKW",     "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Active power demand"},
+        {"name": "CumulativeKWh",     "dataType": "Float",  "unit": "kWh",   "simulation": {"profile": "accumulator_energy"},  "description": "Cumulative energy consumed"},
+        {"name": "SteamFlowKgH",      "dataType": "Float",  "unit": "kg/h",  "simulation": {"profile": "steam_flow"},          "description": "Steam consumption"},
+        {"name": "CompressedAirM3H",  "dataType": "Float",  "unit": "m³/h",  "simulation": {"profile": "compressed_air"},      "description": "Compressed air consumption"},
+        {"name": "CO2KgAcc",          "dataType": "Float",  "unit": "kg",    "simulation": {"profile": "co2_kg"},              "description": "Indirect CO₂ (Scope 2)"}
+      ]
+    },
+
+    {
+      "id": "production_line_full",
+      "label": "Production Line (Full Bundle)",
+      "icon": "🏭",
+      "category": "Production",
+      "description": "Complete production line tag set covering OEE, energy, production, maintenance, quality, logistics and finance",
+      "tags": [
+        {"name": "Running",           "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_running"},     "description": "Line running"},
+        {"name": "Alarm",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_alarm"},       "description": "Any alarm active"},
+        {"name": "OEEPct",            "dataType": "Float",  "unit": "%",     "simulation": {"profile": "oee"},                 "description": "Overall OEE"},
+        {"name": "AvailabilityPct",   "dataType": "Float",  "unit": "%",     "simulation": {"profile": "availability"},        "description": "Availability"},
+        {"name": "PerformancePct",    "dataType": "Float",  "unit": "%",     "simulation": {"profile": "performance"},         "description": "Performance"},
+        {"name": "QualityPct",        "dataType": "Float",  "unit": "%",     "simulation": {"profile": "quality"},             "description": "Quality"},
+        {"name": "ActivePowerKW",     "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Power demand"},
+        {"name": "CumulativeKWh",     "dataType": "Float",  "unit": "kWh",   "simulation": {"profile": "accumulator_energy"},  "description": "Cumulative energy"},
+        {"name": "GoodOutputAcc",     "dataType": "Float",  "unit": "t",     "simulation": {"profile": "accumulator_good"},    "description": "Good output (cumulative)"},
+        {"name": "RejectedOutputAcc", "dataType": "Float",  "unit": "t",     "simulation": {"profile": "accumulator_bad"},     "description": "Rejected output (cumulative)"},
+        {"name": "CurrentBatchID",    "dataType": "String", "unit": "",      "simulation": {"profile": "batch_id"},            "description": "Active batch ID"},
+        {"name": "ERPOrderID",        "dataType": "String", "unit": "",      "simulation": {"profile": "erp_order_id"},        "description": "Active ERP order"},
+        {"name": "MTBFHours",         "dataType": "Float",  "unit": "h",     "simulation": {"profile": "mtbf"},                "description": "MTBF"},
+        {"name": "MTTRMinutes",       "dataType": "Float",  "unit": "min",   "simulation": {"profile": "mttr"},                "description": "MTTR"},
+        {"name": "PMCompliancePct",   "dataType": "Float",  "unit": "%",     "simulation": {"profile": "pm_compliance"},       "description": "PM compliance"},
+        {"name": "QualityMetric",     "dataType": "Float",  "unit": "",      "simulation": {"profile": "quality_metric_cont"}, "description": "Primary quality measurement"},
+        {"name": "QualityHold",       "dataType": "Bool",   "unit": "",      "simulation": {"profile": "quality_hold"},        "description": "Quality hold"},
+        {"name": "SiloLevelPct",      "dataType": "Float",  "unit": "%",     "simulation": {"profile": "silo_level"},          "description": "Raw material silo level"},
+        {"name": "DaysOfSupply",      "dataType": "Float",  "unit": "days",  "simulation": {"profile": "days_of_supply"},      "description": "Days of supply"},
+        {"name": "LastTruckID",       "dataType": "String", "unit": "",      "simulation": {"profile": "truck_id"},            "description": "Last delivery truck"},
+        {"name": "RevenueEUR",        "dataType": "Float",  "unit": "EUR",   "simulation": {"profile": "revenue_eur"},         "description": "Cumulative revenue"},
+        {"name": "MarginPct",         "dataType": "Float",  "unit": "%",     "simulation": {"profile": "margin_pct"},          "description": "Gross margin"},
+        {"name": "CO2KgAcc",          "dataType": "Float",  "unit": "kg",    "simulation": {"profile": "co2_kg"},              "description": "Cumulative CO₂"}
+      ]
+    },
+
+    {
+      "id": "fryer",
+      "label": "Fryer / Pre-Fryer",
+      "icon": "🍳",
+      "category": "Process Equipment",
+      "description": "Continuous fryer with oil temperature, belt speed and product quality monitoring",
+      "tags": [
+        {"name": "Running",           "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_running"},     "description": "Fryer running"},
+        {"name": "Alarm",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_alarm"},       "description": "Temperature / safety alarm"},
+        {"name": "OilTempC",          "dataType": "Float",  "unit": "°C",    "simulation": {"profile": "temperature_process"}, "description": "Oil temperature"},
+        {"name": "BeltSpeedMMin",     "dataType": "Float",  "unit": "m/min", "simulation": {"profile": "speed_rpm"},           "description": "Product belt speed"},
+        {"name": "ThroughputKgH",     "dataType": "Float",  "unit": "kg/h",  "simulation": {"profile": "flow_rate"},           "description": "Product throughput"},
+        {"name": "OilLevelPct",       "dataType": "Float",  "unit": "%",     "simulation": {"profile": "level"},               "description": "Oil level in fryer pan"},
+        {"name": "PowerKW",           "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Heating power"},
+        {"name": "QualityMetric",     "dataType": "Float",  "unit": "g/kg",  "simulation": {"profile": "quality_metric_cont"}, "description": "Free fat / colour measurement"},
+        {"name": "CumulativeKWh",     "dataType": "Float",  "unit": "kWh",   "simulation": {"profile": "accumulator_energy"},  "description": "Cumulative energy"}
+      ]
+    },
+
+    {
+      "id": "drum_dryer",
+      "label": "Drum Dryer",
+      "icon": "🥁",
+      "category": "Process Equipment",
+      "description": "Rotating drum dryer for flake or powder production with temperature and moisture control",
+      "tags": [
+        {"name": "Running",           "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_running"},     "description": "Dryer running"},
+        {"name": "Fault",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_fault"},       "description": "Drive / temperature fault"},
+        {"name": "DrumTempC",         "dataType": "Float",  "unit": "°C",    "simulation": {"profile": "temperature_process"}, "description": "Drum surface temperature"},
+        {"name": "DrumSpeedRPM",      "dataType": "Float",  "unit": "RPM",   "simulation": {"profile": "speed_rpm"},           "description": "Drum rotational speed"},
+        {"name": "SteamPressureBar",  "dataType": "Float",  "unit": "bar",   "simulation": {"profile": "pressure"},            "description": "Internal steam pressure"},
+        {"name": "MoisturePct",       "dataType": "Float",  "unit": "%",     "simulation": {"profile": "quality_metric_cont"}, "description": "Product moisture content"},
+        {"name": "ThroughputKgH",     "dataType": "Float",  "unit": "kg/h",  "simulation": {"profile": "flow_rate"},           "description": "Dried product throughput"},
+        {"name": "PowerKW",           "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Drive + heating power"},
+        {"name": "CumulativeKWh",     "dataType": "Float",  "unit": "kWh",   "simulation": {"profile": "accumulator_energy"},  "description": "Cumulative energy"}
+      ]
+    },
+
+    {
+      "id": "diffuser_extractor",
+      "label": "Diffuser / Extractor",
+      "icon": "🌀",
+      "category": "Process Equipment",
+      "description": "Continuous counter-current diffuser or extraction tower for juice / extract production",
+      "tags": [
+        {"name": "Running",           "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_running"},     "description": "Diffuser running"},
+        {"name": "Alarm",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_alarm"},       "description": "Process alarm"},
+        {"name": "InletTempC",        "dataType": "Float",  "unit": "°C",    "simulation": {"profile": "temperature_process"}, "description": "Feed inlet temperature"},
+        {"name": "ExtractionTempC",   "dataType": "Float",  "unit": "°C",    "simulation": {"profile": "temperature_process"}, "description": "Extraction zone temperature"},
+        {"name": "JuiceFlowM3H",      "dataType": "Float",  "unit": "m³/h",  "simulation": {"profile": "flow_rate"},           "description": "Juice / extract flow"},
+        {"name": "BrixPct",           "dataType": "Float",  "unit": "°Bx",   "simulation": {"profile": "quality_metric_cont"}, "description": "Extract concentration (Brix)"},
+        {"name": "DriveCurrentA",     "dataType": "Float",  "unit": "A",     "simulation": {"profile": "motor_current"},       "description": "Screw drive current"},
+        {"name": "PowerKW",           "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Total power consumption"}
+      ]
+    },
+
+    {
+      "id": "crystallizer",
+      "label": "Crystallizer / Evaporator",
+      "icon": "🔷",
+      "category": "Process Equipment",
+      "description": "Vacuum crystallizer or falling-film evaporator for sugar / concentrate production",
+      "tags": [
+        {"name": "Running",           "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_running"},     "description": "Running"},
+        {"name": "Alarm",             "dataType": "Bool",   "unit": "",      "simulation": {"profile": "boolean_alarm"},       "description": "Vacuum / temperature alarm"},
+        {"name": "TempC",             "dataType": "Float",  "unit": "°C",    "simulation": {"profile": "temperature_process"}, "description": "Process temperature"},
+        {"name": "VacuumMbar",        "dataType": "Float",  "unit": "mbar",  "simulation": {"profile": "pressure"},            "description": "Vacuum pressure"},
+        {"name": "BrixPct",           "dataType": "Float",  "unit": "°Bx",   "simulation": {"profile": "quality_metric_cont"}, "description": "Massecuite / concentrate Brix"},
+        {"name": "LevelPct",          "dataType": "Float",  "unit": "%",     "simulation": {"profile": "level"},               "description": "Vessel fill level"},
+        {"name": "SteamFlowKgH",      "dataType": "Float",  "unit": "kg/h",  "simulation": {"profile": "steam_flow"},          "description": "Heating steam consumption"},
+        {"name": "PowerKW",           "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Electrical power draw"}
+      ]
+    }
+
+  ]
+}

@@ -643,6 +643,59 @@
       }
     }
 
+    /* Asset picker */
+    .asset-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px;
+      max-height: 420px;
+      overflow-y: auto;
+      padding: 2px
+    }
+    .asset-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s
+    }
+    .asset-card:hover {
+      border-color: var(--accent);
+      background: var(--surface3)
+    }
+    .asset-card.sel {
+      border-color: var(--accent);
+      background: rgba(88,166,255,.08)
+    }
+    .asset-card-icon { font-size: 20px; margin-bottom: 4px }
+    .asset-card-label { font-size: 12px; font-weight: 600; margin-bottom: 2px }
+    .asset-card-cat { font-size: 10px; color: var(--muted) }
+    .asset-card-tags { font-size: 10px; color: var(--muted); margin-top: 4px }
+    .asset-filter-bar {
+      display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap
+    }
+    .asset-cat-btn {
+      padding: 3px 10px; font-size: 11px; border-radius: 10px;
+      background: var(--surface3); color: var(--muted);
+      border: 1px solid var(--border); cursor: pointer
+    }
+    .asset-cat-btn.on {
+      background: rgba(88,166,255,.15); color: var(--accent);
+      border-color: var(--accent)
+    }
+    .asset-preview {
+      margin-top: 10px; padding: 10px; background: var(--surface3);
+      border-radius: 6px; font-size: 11px; color: var(--muted);
+      max-height: 120px; overflow-y: auto; display: none
+    }
+    .asset-preview.on { display: block }
+    .asset-preview-tag {
+      display: inline-flex; gap: 5px; align-items: center;
+      padding: 2px 6px; margin: 2px; border-radius: 4px;
+      background: var(--surface2); font-size: 10px
+    }
+
     /* Scrollbar */
     ::-webkit-scrollbar {
       width: 5px;
@@ -736,8 +789,10 @@
         <div class="tab-body" id="tb-tags">
           <div class="tags-hdr">
             <h4>Tags / Data Points</h4>
-            <button class="btn btn-primary" style="font-size:11px;padding:4px 10px" onclick="addTag()">+ Add
-              Tag</button>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="showAssetPicker()">🧩 Insert Asset</button>
+              <button class="btn btn-primary" style="font-size:11px;padding:4px 10px" onclick="addTag()">+ Add Tag</button>
+            </div>
           </div>
           <div id="tags-wrap"></div>
         </div>
@@ -794,6 +849,23 @@
     </div>
   </div>
 
+  <!-- Asset Picker Modal -->
+  <div class="overlay" id="asset-modal" style="display:none">
+    <div class="modal" style="max-width:700px;width:95vw">
+      <h3>🧩 Insert Asset</h3>
+      <p style="color:var(--muted);font-size:12px;margin-bottom:12px">
+        Select a predefined asset to add its tags to the current node. Tags come pre-configured with simulation profiles.
+      </p>
+      <div class="asset-filter-bar" id="asset-cat-filters"></div>
+      <div class="asset-grid" id="asset-grid"></div>
+      <div class="asset-preview" id="asset-preview"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('asset-modal')">Cancel</button>
+        <button class="btn btn-primary" id="asset-insert-btn" onclick="doInsertAsset()" disabled>Insert Tags</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // ── Config ──────────────────────────────────────────────────────────────────────
     const NT = {
@@ -813,6 +885,9 @@
     let dirty = false;
     let activeTab = 'props';
     let editingTagIndex = null;
+    let _assetLibrary = [];
+    let _profileCatalogue = [];   // [{group, profiles:[{id,label}]}]
+    let _selectedAssetId = null;
 
     // ── Utilities ───────────────────────────────────────────────────────────────────
     function eid(id) { return document.getElementById(id); }
@@ -985,6 +1060,137 @@
       return opts.map(s => `<option value="${esc(s.id)}"${(current || '') === (s.id) ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
     }
 
+    // ── Profile catalogue ───────────────────────────────────────────────────────────
+    async function loadProfileCatalogue() {
+      try {
+        const r = await fetch('/api/simulation-profiles');
+        _profileCatalogue = await r.json();
+      } catch(e) {
+        // Fallback minimal set
+        _profileCatalogue = [
+          {group:'OT / Process', profiles:[{id:'oee',label:'OEE (%)'},{id:'availability',label:'Availability (%)'},{id:'performance',label:'Performance (%)'},{id:'quality',label:'Quality (%)'}]},
+          {group:'Energy / Utilities', profiles:[{id:'power_kw',label:'Active Power (kW)'},{id:'accumulator_energy',label:'Accumulator: Energy (kWh)'}]},
+          {group:'Other', profiles:[{id:'default',label:'Generic Walk (fallback)'}]}
+        ];
+      }
+    }
+
+    function profileLabel(profileId) {
+      if (!profileId) return '—';
+      for (const g of _profileCatalogue) {
+        const p = g.profiles.find(p => p.id === profileId);
+        if (p) return p.label;
+      }
+      return profileId;
+    }
+
+    function profileSelectOptions(current) {
+      let html = '<option value="">None (static value)</option>';
+      for (const g of _profileCatalogue) {
+        html += `<optgroup label="${esc(g.group)}">`;
+        for (const p of g.profiles) {
+          html += `<option value="${esc(p.id)}"${current === p.id ? ' selected' : ''}>${esc(p.label)}</option>`;
+        }
+        html += '</optgroup>';
+      }
+      return html;
+    }
+
+    // ── Asset library ───────────────────────────────────────────────────────────────
+    async function loadAssetLibrary() {
+      try {
+        const r = await fetch('/api/asset-library');
+        const d = await r.json();
+        _assetLibrary = d.assets || [];
+      } catch(e) { _assetLibrary = []; }
+    }
+
+    function showAssetPicker() {
+      if (!selId) { toast('Select a node first', 'err'); return; }
+      _selectedAssetId = null;
+      eid('asset-insert-btn').disabled = true;
+      eid('asset-preview').className = 'asset-preview';
+
+      // Build category filter buttons
+      const cats = [...new Set(_assetLibrary.map(a => a.category))];
+      let filterHTML = `<button class="asset-cat-btn on" onclick="filterAssets(null,this)">All</button>`;
+      cats.forEach(c => { filterHTML += `<button class="asset-cat-btn" onclick="filterAssets('${esc(c)}',this)">${esc(c)}</button>`; });
+      eid('asset-cat-filters').innerHTML = filterHTML;
+
+      renderAssetGrid(null);
+      eid('asset-modal').style.display = 'flex';
+    }
+
+    function filterAssets(cat, btn) {
+      document.querySelectorAll('.asset-cat-btn').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      renderAssetGrid(cat);
+    }
+
+    function renderAssetGrid(cat) {
+      const assets = cat ? _assetLibrary.filter(a => a.category === cat) : _assetLibrary;
+      eid('asset-grid').innerHTML = assets.map(a => `
+        <div class="asset-card${_selectedAssetId === a.id ? ' sel' : ''}" onclick="selectAsset('${esc(a.id)}')">
+          <div class="asset-card-icon">${a.icon || '📦'}</div>
+          <div class="asset-card-label">${esc(a.label)}</div>
+          <div class="asset-card-cat">${esc(a.category)}</div>
+          <div class="asset-card-tags">${a.tags.length} tag${a.tags.length !== 1 ? 's' : ''}</div>
+        </div>`).join('');
+    }
+
+    function selectAsset(id) {
+      _selectedAssetId = id;
+      const asset = _assetLibrary.find(a => a.id === id);
+      if (!asset) return;
+
+      // Highlight selected card
+      document.querySelectorAll('.asset-card').forEach(c => c.classList.remove('sel'));
+      event.currentTarget.classList.add('sel');
+
+      // Show preview
+      const preview = eid('asset-preview');
+      preview.innerHTML = `<strong style="color:var(--text)">${asset.icon} ${esc(asset.label)}</strong>
+        <span style="color:var(--muted);margin-left:8px;font-size:10px">${esc(asset.description || '')}</span><br><br>` +
+        asset.tags.map(t => `<span class="asset-preview-tag">
+          <span style="color:var(--accent)">${esc(t.name)}</span>
+          <span style="color:var(--muted)">${esc(t.dataType)}</span>
+          ${t.unit ? `<span style="color:var(--yellow)">${esc(t.unit)}</span>` : ''}
+          <span style="color:var(--green)">${esc(t.simulation?.profile || '—')}</span>
+        </span>`).join('');
+      preview.className = 'asset-preview on';
+
+      eid('asset-insert-btn').disabled = false;
+    }
+
+    function doInsertAsset() {
+      if (!_selectedAssetId || !selId) return;
+      const asset = _assetLibrary.find(a => a.id === _selectedAssetId);
+      const node  = find(selId);
+      if (!asset || !node) return;
+
+      if (!node.tags) node.tags = [];
+      let added = 0;
+      asset.tags.forEach(t => {
+        node.tags.push({
+          id: uid(),
+          name: t.name,
+          dataType: t.dataType || 'Float',
+          unit: t.unit || '',
+          description: t.description || '',
+          access: t.access || 'R',
+          payloadSchema: t.payloadSchema || '',
+          simulation: t.simulation ? { ...t.simulation } : null
+        });
+        added++;
+      });
+
+      setDirty();
+      closeModal('asset-modal');
+      renderTags(node.tags);
+      tab('tags');
+      toast(`Added ${added} tags from "${asset.label}"`, 'ok');
+    }
+
     // ── Tags ────────────────────────────────────────────────────────────────────────
     function renderTags(tags) {
       const w = eid('tags-wrap');
@@ -1009,18 +1215,10 @@
         const sim = t.simulation || {};
         let simDisplay = '—';
         if (sim.profile) {
-          const profileNames = {
-            oee: 'OEE %',
-            percent: 'Percent',
-            temperature: 'Temp',
-            accumulator: 'Accumulator',
-            boolean: 'Boolean',
-            truck_id: 'Truck ID',
-            default: 'Gauss Walk'
-          };
-          simDisplay = `<span style="color:var(--green);font-weight:500">${profileNames[sim.profile] || sim.profile}</span>`;
+          const label = profileLabel(sim.profile);
+          simDisplay = `<span style="color:var(--green);font-weight:500">${esc(label)}</span>`;
           if (sim.profile === 'default' && sim.base !== undefined) {
-            simDisplay += ` <small>(${sim.base}±${sim.std})</small>`;
+            simDisplay += ` <small style="color:var(--muted)">(${sim.base}±${sim.std})</small>`;
           }
         }
 
@@ -1030,7 +1228,7 @@
       <td><input class="ti" style="width:55px" value="${esc(t.unit || '')}" oninput="updTag(${i},'unit',this.value)"></td>
       <td><select class="ts" onchange="updTag(${i},'access',this.value)">${['R', 'RW', 'W'].map(x => `<option value="${x}"${t.access === x ? ' selected' : ''}>${x}</option>`).join('')}</select></td>
       <td><select class="ts" onchange="updTag(${i},'payloadSchema',this.value)">${schemaOptions(t.payloadSchema)}</select></td>
-      <td style="cursor:pointer" onclick="editSimulation(${i})">${simDisplay}</td>
+      <td style="cursor:pointer;white-space:nowrap" onclick="editSimulation(${i})" title="Click to edit">${simDisplay} <span style="color:var(--muted);font-size:10px">✏️</span></td>
       <td><input class="ti" value="${esc(t.description || '')}" oninput="updTag(${i},'description',this.value)"></td>
       <td><span class="ibtn del" onclick="delTag(${i})">×</span></td>
     </tr>`;
@@ -1081,71 +1279,56 @@
 
       const tag = node.tags[i];
       editingTagIndex = i;
+      const sim = tag.simulation || {};
 
       let modalHTML = `
     <div class="overlay" id="sim-modal">
-      <div class="modal" style="max-width:480px">
+      <div class="modal" style="max-width:500px">
         <h3>Simulation Profile — <span style="color:var(--accent)">${esc(tag.name)}</span></h3>
-        
+
         <div class="fg">
           <label>Profile <small style="color:var(--muted)">(optional — enables live simulation)</small></label>
           <select id="tag-simulation-profile" onchange="updateSimulationFields()" style="padding:8px">
-            <option value="">None (static value)</option>
-            <option value="oee">OEE / Percent (65-99.5%)</option>
-            <option value="percent">Generic Percent</option>
-            <option value="temperature">Temperature</option>
-            <option value="accumulator">Accumulator (slow increase)</option>
-            <option value="boolean">Boolean (on/off toggle)</option>
-            <option value="truck_id">Truck ID cycle</option>
-            <option value="default">Custom Gauss walk</option>
+            ${profileSelectOptions(sim.profile || '')}
           </select>
         </div>
 
-        <div id="custom-sim-fields" style="display:none; margin-top:16px; display:flex; gap:12px; flex-wrap:wrap">
-          <div style="flex:1; min-width:100px">
+        <div id="custom-sim-fields" style="margin-top:12px;display:none;gap:12px;flex-wrap:wrap">
+          <p style="font-size:11px;color:var(--muted);width:100%;margin-bottom:4px">
+            Generic walk parameters — used only when profile is <strong>default</strong>
+          </p>
+          <div style="flex:1;min-width:90px">
             <label style="font-size:11px;color:var(--muted)">Base</label>
-            <input id="tag-sim-base" type="number" step="0.01" class="ti" value="50">
+            <input id="tag-sim-base" type="number" step="0.01" class="ti" value="${sim.base ?? 50}">
           </div>
-          <div style="flex:1; min-width:100px">
+          <div style="flex:1;min-width:90px">
             <label style="font-size:11px;color:var(--muted)">Std Dev</label>
-            <input id="tag-sim-std" type="number" step="0.01" class="ti" value="8">
+            <input id="tag-sim-std" type="number" step="0.01" class="ti" value="${sim.std ?? 8}">
           </div>
-          <div style="flex:1; min-width:100px">
+          <div style="flex:1;min-width:90px">
             <label style="font-size:11px;color:var(--muted)">Min</label>
-            <input id="tag-sim-min" type="number" step="0.01" class="ti" value="0">
+            <input id="tag-sim-min" type="number" step="0.01" class="ti" value="${sim.min ?? 0}">
           </div>
-          <div style="flex:1; min-width:100px">
+          <div style="flex:1;min-width:90px">
             <label style="font-size:11px;color:var(--muted)">Max</label>
-            <input id="tag-sim-max" type="number" step="0.01" class="ti" value="100">
+            <input id="tag-sim-max" type="number" step="0.01" class="ti" value="${sim.max ?? 100}">
           </div>
         </div>
 
+        <div id="profile-hint" style="margin-top:12px;padding:8px 10px;background:var(--surface3);border-radius:6px;font-size:11px;color:var(--muted);display:none"></div>
+
         <div class="modal-actions">
           <button class="btn btn-ghost" onclick="closeSimModal()">Cancel</button>
-          <button class="btn btn-primary" onclick="saveSimulation()">Save Simulation Settings</button>
+          <button class="btn btn-primary" onclick="saveSimulation()">Save</button>
         </div>
       </div>
     </div>`;
 
-      // Remove previous modal if exists
       const oldModal = document.getElementById('sim-modal');
       if (oldModal) oldModal.remove();
-
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = modalHTML;
       document.body.appendChild(tempDiv.firstElementChild);
-
-      // Populate values
-      const profileSelect = document.getElementById('tag-simulation-profile');
-      const sim = tag.simulation || {};
-      profileSelect.value = sim.profile || '';
-
-      if (sim.profile === 'default') {
-        document.getElementById('tag-sim-base').value = sim.base ?? 50;
-        document.getElementById('tag-sim-std').value = sim.std ?? 8;
-        document.getElementById('tag-sim-min').value = sim.min ?? 0;
-        document.getElementById('tag-sim-max').value = sim.max ?? 100;
-      }
 
       updateSimulationFields();
     }
@@ -1153,8 +1336,36 @@
     function updateSimulationFields() {
       const profile = document.getElementById('tag-simulation-profile').value;
       const customDiv = document.getElementById('custom-sim-fields');
-      if (customDiv) {
-        customDiv.style.display = (profile === 'default') ? 'flex' : 'none';
+      const hintDiv   = document.getElementById('profile-hint');
+
+      customDiv.style.display = (profile === 'default') ? 'flex' : 'none';
+
+      // Show a short hint for the selected profile
+      const hintMap = {
+        'oee':                  'Correlated with plant state machine. Degrades on fault, recovers automatically.',
+        'availability':         'Drops sharply during fault, climbs during recovery.',
+        'boolean_running':      'TRUE only when the plant is in Running state.',
+        'boolean_fault':        'TRUE only during an active fault.',
+        'boolean_alarm':        'TRUE during fault and recovery phases.',
+        'accumulator_good':     'Monotonically increasing. Only advances when plant is running.',
+        'accumulator_energy':   'Increases proportionally to current power draw.',
+        'silo_level':           'Drains during production. Auto-refills when low (truck arrival).',
+        'truck_id':             'Cycles to a new truck ID on each silo refill event.',
+        'remaining_useful_life':'Counts down. Resets after a recovery / PM event.',
+        'vibration':            'Rises as a fault approaches, drops after recovery.',
+        'motor_current':        'Spikes during fault, normalises during recovery.',
+        'erp_order_id':         'Cycles to a new order ID on batch change events.',
+        'order_status':         'Progresses through Created → Released → In Progress → Completed → Closed.',
+        'default':              'Gaussian walk. Configure base value, std deviation and bounds below.',
+      };
+      if (hintMap[profile]) {
+        hintDiv.textContent = '💡 ' + hintMap[profile];
+        hintDiv.style.display = 'block';
+      } else if (profile) {
+        hintDiv.textContent = '💡 Plant-state-aware: paused during fault, slower during recovery.';
+        hintDiv.style.display = 'block';
+      } else {
+        hintDiv.style.display = 'none';
       }
     }
 
@@ -1436,7 +1647,7 @@
     });
 
     // ── Boot ────────────────────────────────────────────────────────────────────────
-    loadSchemas().then(loadConfig);
+    Promise.all([loadSchemas(), loadProfileCatalogue(), loadAssetLibrary()]).then(loadConfig);
   </script>
 </body>
 
