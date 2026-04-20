@@ -38,10 +38,17 @@ Built as a learning and demo tool for **ISA-95 hierarchy**, **UNS architecture**
 > **Dashboard** — factory status overview with OEE, power draw and running state per plant
 
 ```
-
-<img width="1920" height="931" alt="image" src="https://github.com/user-attachments/assets/080df3ed-ad06-422a-bde3-c68c91504c62" />
-
-
+┌─────────────────────────────────────────────────────────┐
+│  🏭 Royal Farmers Collective — Enterprise UNS Simulator │
+│  ● 13 factories  ● OPC-UA :4840  ● MQTT/NATS bridge    │
+├──────────┬──────────────────────┬────────────┬──────────┤
+│ Factory  │ Status               │ OEE        │ Power kW │
+├──────────┼──────────────────────┼────────────┼──────────┤
+│ Terneuzen│ ● Running            │ 87.4%      │ 714 kW   │
+│ Heerenv. │ ⚠ Fault              │ —          │ 98 kW    │
+│ Veendam  │ ● Running            │ 92.1%      │ 598 kW   │
+└──────────┴──────────────────────┴────────────┴──────────┘
+```
 
 > **UNS Topic Designer** — build your ISA-95 namespace visually
 
