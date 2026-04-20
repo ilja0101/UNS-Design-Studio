@@ -10,6 +10,7 @@
 [![MQTT](https://img.shields.io/badge/MQTT-1883-orange)](https://mqtt.org/)
 [![NATS](https://img.shields.io/badge/NATS-4222-purple)](https://nats.io/)
 [![Built by Ilja Bartels](https://img.shields.io/badge/Built%20by-Ilja%20Bartels-informational)](https://github.com/Ilja0101)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F1F11Y5F5R)
 
 *Simulate a complete multi-site food manufacturing enterprise — publishing realistic, stateful OT and IT data over OPC-UA, MQTT and NATS — without needing a single piece of real hardware.*
 
