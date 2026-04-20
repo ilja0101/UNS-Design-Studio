@@ -2,7 +2,7 @@
 title GlobalFoodCo – UNS Simulator Dashboard
 echo.
 echo  ╔══════════════════════════════════════════════════════════════╗
-echo  ║   Virtual UNS Enterprise Simulator       ║
+echo  ║   UNS Design Studio       ║
 echo  ║   Starting web dashboard on http://localhost:5000            ║
 echo  ╚══════════════════════════════════════════════════════════════╝
 echo.

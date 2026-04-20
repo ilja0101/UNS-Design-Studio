@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🏭 Virtual UNS Enterprise Simulator
+# 🏭 UNS Design Studio
 
 **A fully self-contained Unified Namespace simulator for industrial IoT demos, training and development.**
 
@@ -21,7 +21,7 @@
 
 ## 🎯 What is this?
 
-The **Virtual UNS Enterprise Simulator** is a hands-on learning and demo environment for anyone working with **Unified Namespace (UNS)** architecture, **ISA-95 hierarchy**, **OPC-UA**, **MQTT/NATS** and **industrial data modelling**.
+The **UNS Design Studio** is a hands-on learning and demo environment for anyone working with **Unified Namespace (UNS)** architecture, **ISA-95 hierarchy**, **OPC-UA**, **MQTT/NATS** and **industrial data modelling**.
 
 It ships with a fictional five-division food manufacturer — 13 factories across Europe — all producing coherent, realistic process data driven by a proper plant state machine. No random noise. No hardcoded tags. Everything is configurable through a visual browser-based designer.
 
@@ -55,9 +55,9 @@ It ships with a fictional five-division food manufacturer — 13 factories acros
 - Ports **5000** (dashboard), **4840** (OPC-UA) and **9999** (anomaly TCP) available
 
 ```bash
-git clone https://github.com/Ilja0101/virtual-uns-simulator.git
-cd virtual-uns-simulator
-docker build -t uns-simulator:latest .
+git clone https://github.com/Ilja0101/UNS-Design-Studio.git
+cd UNS-Design-Studio
+docker build -t uns-design-studio:latest .
 docker compose up -d
 ```
 
@@ -91,7 +91,6 @@ From here you can toggle the plant between Running and Stopped, and select the a
 
 Navigate to **http://localhost:5000/uns** to open the visual namespace editor.
 
-![UNS Topic Designer — node properties](docs/TopicTreeDesigner2.png)
 ![UNS Topic Designer — node properties](docs/TopicTreeDesigner.JPG)
 
 The left panel shows your full ISA-95 hierarchy. Click any node to edit its properties — name, type, description — and see the full MQTT/NATS topic path update live. Node types follow the ISA-95 levels: Enterprise → Business Unit → Site → Area → Work Center → Work Unit → Device.
@@ -250,7 +249,7 @@ The simulator ships with **GlobalFoodCo** — rename it to anything in the UNS d
 ## 📁 Project Structure
 
 ```
-virtual-uns-simulator/
+UNS-Design-Studio/
 ├── factory.py            # OPC-UA server + stateful simulation engine
 ├── bridge.py             # OPC-UA → MQTT / NATS bridge
 ├── app.py                # Flask web application + REST API
@@ -411,6 +410,6 @@ MIT — see [LICENSE](LICENSE) for details.
 
 *GlobalFoodCo and all associated divisions, factories and products are entirely fictional.*<br>
 *Built with ☕ to make UNS concepts tangible for engineers who learn by doing.*<br><br>
-**[⭐ Star on GitHub](https://github.com/Ilja0101/virtual-uns-simulator)** · **[👤 Ilja Bartels](https://github.com/Ilja0101)**
+**[⭐ Star on GitHub](https://github.com/Ilja0101/UNS-Design-Studio)** · **[👤 Ilja Bartels](https://github.com/Ilja0101)**
 
 </div>

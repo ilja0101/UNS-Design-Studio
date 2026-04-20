@@ -2,7 +2,7 @@
   "plants": {
     "CrispCraft|FactoryAntwerp": {
       "running": true,
-      "recipe": "Paprika Crunch",
+      "recipe": "Naturel Kettle",
       "recipes": [
         {
           "name": "Naturel Kettle",
@@ -343,6 +343,9 @@
       ]
     },
     "CrispCraft|FactoryAmsterdam": {
+      "running": true
+    },
+    "CrispCraft|FactoryNewSite": {
       "running": true
     }
   },

@@ -1,5 +1,5 @@
 {
-  "lastModified": "2026-04-20T11:29:40Z",
+  "lastModified": "2026-04-20T12:08:06Z",
   "namespaceUri": "http://VirtualUNS.com/uns",
   "tree": {
     "children": [
@@ -989,6 +989,171 @@
             "name": "Amsterdam",
             "tags": [],
             "type": "site"
+          },
+          {
+            "id": "303882f2-7409-4376-9167-1ada6d92bcb5",
+            "name": "NewSite",
+            "type": "site",
+            "description": "",
+            "tags": [
+              {
+                "id": "bda66ae5-d09f-47a1-a49e-31c6a028ba86",
+                "name": "Running",
+                "dataType": "Bool",
+                "unit": "",
+                "description": "Machine running",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "boolean_running"
+                }
+              },
+              {
+                "id": "d209739a-cc22-4e7a-a0c2-83b185afe2bc",
+                "name": "Fault",
+                "dataType": "Bool",
+                "unit": "",
+                "description": "Fault active",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "boolean_fault"
+                }
+              },
+              {
+                "id": "3062bee1-92d5-4768-a7ea-de89606f2a0a",
+                "name": "OEEPct",
+                "dataType": "Float",
+                "unit": "%",
+                "description": "Overall Equipment Effectiveness",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "oee"
+                }
+              },
+              {
+                "id": "e5e9a92c-4955-491b-9317-4cad5b2be9d3",
+                "name": "AvailabilityPct",
+                "dataType": "Float",
+                "unit": "%",
+                "description": "Availability",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "availability"
+                }
+              },
+              {
+                "id": "b6f02452-695d-4b3c-94e9-7bdc6d4a53bf",
+                "name": "PerformancePct",
+                "dataType": "Float",
+                "unit": "%",
+                "description": "Performance",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "performance"
+                }
+              },
+              {
+                "id": "e3c1bebf-5b9a-4e9c-beab-1ebd9bef8cc8",
+                "name": "QualityPct",
+                "dataType": "Float",
+                "unit": "%",
+                "description": "Quality",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "quality"
+                }
+              },
+              {
+                "id": "006d6ac1-afe0-4245-b2bf-19a210f349ea",
+                "name": "GoodUnitsAcc",
+                "dataType": "Float",
+                "unit": "units",
+                "description": "Cumulative good output",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "accumulator_good"
+                }
+              },
+              {
+                "id": "d836e898-f8fc-4f37-aab8-6f456cb13be6",
+                "name": "RejectedUnitsAcc",
+                "dataType": "Float",
+                "unit": "units",
+                "description": "Cumulative rejects",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "accumulator_bad"
+                }
+              },
+              {
+                "id": "a8ed0b83-f423-48a8-82ec-c26f846bb043",
+                "name": "CycleCountAcc",
+                "dataType": "Float",
+                "unit": "",
+                "description": "Total machine cycles",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "accumulator_generic"
+                }
+              },
+              {
+                "id": "b4ac69f2-a48e-4ece-b434-38b5eaed3297",
+                "name": "SpeedUnitsPMin",
+                "dataType": "Float",
+                "unit": "u/min",
+                "description": "Current production speed",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "speed_rpm"
+                }
+              },
+              {
+                "id": "dac1dd4a-1b92-489c-8335-53d7446ceffb",
+                "name": "CurrentBatchID",
+                "dataType": "String",
+                "unit": "",
+                "description": "Active batch identifier",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "batch_id"
+                }
+              },
+              {
+                "id": "3a6bdf3a-2892-4ecd-a605-1f93ac701731",
+                "name": "PowerKW",
+                "dataType": "Float",
+                "unit": "kW",
+                "description": "Power draw",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "power_kw"
+                }
+              },
+              {
+                "id": "24ad7134-4732-4716-9a0d-6738c3add3da",
+                "name": "MTBFHours",
+                "dataType": "Float",
+                "unit": "h",
+                "description": "Mean time between failures",
+                "access": "R",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "mtbf"
+                }
+              }
+            ],
+            "children": []
           }
         ],
         "description": "Chips & Snacks Division",

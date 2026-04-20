@@ -1,8 +1,8 @@
 # client.py
-# Virtual UNS Enterprise Simulator — CLI control client
+# UNS Design Studio — CLI control client
 #
 # Author : Ilja Bartels  |  https://github.com/Ilja0101
-# License: MIT  |  https://github.com/Ilja0101/virtual-uns-simulator
+# License: MIT  |  https://github.com/Ilja0101/UNS-Design-Studio
 #
 # Interactive command-line client for direct OPC-UA access and plant control.
 

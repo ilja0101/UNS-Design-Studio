@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Virtual UNS Enterprise Simulator — Web Dashboard & REST API
+UNS Design Studio — Web Dashboard & REST API
 
 Author : Ilja Bartels  |  https://github.com/Ilja0101
-License: MIT  |  https://github.com/Ilja0101/virtual-uns-simulator
+License: MIT  |  https://github.com/Ilja0101/UNS-Design-Studio
 """
 
 import os, sys, time, json, socket, threading, subprocess, hashlib
@@ -1141,7 +1141,7 @@ def api_schemas_save():
 if __name__ == '__main__':
     print()
     print("==============================================================")
-    print("Virtual UNS Enterprise Simulator")
+    print("UNS Design Studio")
     print("Dashboard: http://localhost:5000")
     print("==============================================================")
     print()

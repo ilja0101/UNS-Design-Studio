@@ -1,8 +1,8 @@
 # factory.py
-# Virtual UNS Enterprise Simulator — OPC-UA server + stateful simulation engine
+# UNS Design Studio — OPC-UA server + stateful simulation engine
 #
 # Author : Ilja Bartels  |  https://github.com/Ilja0101
-# License: MIT  |  https://github.com/Ilja0101/virtual-uns-simulator
+# License: MIT  |  https://github.com/Ilja0101/UNS-Design-Studio
 #
 # Design principles:
 #   - NO hardcoded tag names. Simulation is purely profile-driven.
@@ -829,7 +829,7 @@ async def main():
     global stop_flag
     server = Server()
     server.set_endpoint(SERVER_ENDPOINT)
-    server.set_server_name("Virtual UNS Enterprise Simulator | github.com/Ilja0101")
+    server.set_server_name("UNS Design Studio | github.com/Ilja0101")
 
     idx            = server.register_namespace(NAMESPACE_URI)
     objects        = server.get_objects_node()
@@ -844,7 +844,7 @@ async def main():
     asyncio.create_task(run_simulation(variables, anomaly_key_map))
 
     print("=" * 70)
-    print("    Virtual UNS Enterprise Simulator  |  github.com/Ilja0101")
+    print("    UNS Design Studio  |  github.com/Ilja0101")
     print(f"    Endpoint  : {SERVER_ENDPOINT}")
     print(f"    Profiles  : {len(SIMULATION_PROFILES)} available")
     print("=" * 70)
