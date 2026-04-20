@@ -55,6 +55,8 @@ It ships with a fictional five-division food manufacturer — 13 factories acros
 - [Docker](https://docs.docker.com/get-docker/) with Docker Compose
 - Ports **5000** (dashboard), **4840** (OPC-UA) and **9999** (anomaly TCP) available
 
+OR, simply start the .BAT file in the app folder and point the app at an (MQTT / NATS) broker or other data consumer!
+
 ```bash
 git clone https://github.com/Ilja0101/UNS-Design-Studio.git
 cd UNS-Design-Studio
