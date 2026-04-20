@@ -1,6 +1,10 @@
 # client.py
-# Virtual UNS Enterprise Simulator – fictional food manufacturing concern
-# CLI-besturingsclient voor de UNS / OPC UA simulator
+# Virtual UNS Enterprise Simulator — CLI control client
+#
+# Author : Ilja Bartels  |  https://github.com/Ilja0101
+# License: MIT  |  https://github.com/Ilja0101/virtual-uns-simulator
+#
+# Interactive command-line client for direct OPC-UA access and plant control.
 
 import time
 import socket
@@ -267,7 +271,7 @@ def print_banner():
     print("╔══════════════════════════════════════════════════════════════╗")
     print("║        GlobalFoodCo – Simulatorbesturing         ║")
     print("║   CrispCraft · FlakeMill · FrostLine                   ║")
-    print("║   RootCore · SugarWorks                              ║")
+    print("║   RootCore · De BietenBende                              ║")
     print("╚══════════════════════════════════════════════════════════════╝")
     print()
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Virtual UNS Enterprise Simulator
-Web-based Control Dashboard  (Flask backend)
+Virtual UNS Enterprise Simulator — Web Dashboard & REST API
+
+Author : Ilja Bartels  |  https://github.com/Ilja0101
+License: MIT  |  https://github.com/Ilja0101/virtual-uns-simulator
 """
 
 import os, sys, time, json, socket, threading, subprocess, hashlib
@@ -9,8 +11,6 @@ from flask import Flask, render_template, jsonify, request
 
 # ── Adjust path so recipe.py is importable ────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, BASE_DIR)
-from recipe import Recipe, recipe_data
 
 # ── Flask app ──────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -122,11 +122,22 @@ _locks = {
 def _endpoint():
     return f"opc.tcp://{_state['opc_host']}:{_state['opc_port']}/freeopcua/server/"
 
-def _default_recipe(group: str) -> str:
-    for r in Recipe:
-        if recipe_data.get(r, {}).get('group') == group:
-            return r.value
-    return '--NA--'
+def _default_recipe(group: str, plant: str = '') -> str:
+    """Return the first recipe name for a plant from sim_state.json, or empty string."""
+    try:
+        with open(SIM_STATE_FILE) as f:
+            sim = json.load(f)
+        plant_key = f"{group}|{plant}" if plant else None
+        if plant_key:
+            val = sim.get('plants', {}).get(plant_key, {})
+            if isinstance(val, dict):
+                recipes = val.get('recipes', [])
+                if recipes:
+                    r = recipes[0]
+                    return r['name'] if isinstance(r, dict) else str(r)
+        return ''
+    except Exception:
+        return ''
 
 def _send_anomaly(overrides: dict):
     try:
@@ -162,14 +173,11 @@ def _num(value, digits=1, default=0.0):
         return default
 
 def _collect_plant_data(ent, idx):
-    # Use sim_state.json as the authoritative running/stopped source.
-    # This works for ALL plants regardless of whether they have a ProcessState
-    # OPC node (some plants have custom ProcessControl tags without ProcessState).
     try:
         with open(SIM_STATE_FILE) as f:
-            sim_state = json.load(f).get('plants', {})
+            sim_state = json.load(f)
     except Exception:
-        sim_state = {}
+        sim_state = {'plants': {}}
 
     plants = {}
     for group, plant_names in _get_enterprise_structure().items():
@@ -185,55 +193,118 @@ def _collect_plant_data(ent, idx):
             except Exception:
                 continue
 
-            plant_key     = f"{group}|{plant}"
-            process_state = sim_state.get(plant_key, False)
-            recipe        = str(_read_opc(line, [f"{idx}:ProcessControl", f"{idx}:Recipe"], '--NA--'))
-            maint_status  = str(_read_opc(line, [f"{idx}:Maintenance", f"{idx}:FabriekStatus"], ''))
+            plant_key = f"{group}|{plant}"
+            plant_val = sim_state.get('plants', {}).get(plant_key, False)
+
+            # Support both old bool format and new dict format
+            if isinstance(plant_val, dict):
+                process_state = bool(plant_val.get('running', False))
+                recipe        = plant_val.get('recipe', '--NA--') or '--NA--'
+            else:
+                process_state = bool(plant_val)
+                recipe        = '--NA--'
+
+            maint_status = str(_read_opc(line, [f"{idx}:Maintenance", f"{idx}:FabriekStatus"], ''))
             if not maint_status:
                 maint_status = 'Running' if process_state else 'Stopped'
 
             plants[plant_key] = {
-                'group': group,
-                'plant': plant,
+                'group':         group,
+                'plant':         plant,
                 'process_state': process_state,
-                'recipe': recipe,
-                'maint_status': maint_status,
+                'recipe':        recipe,
+                'maint_status':  maint_status,
                 'oee':        _num(_read_opc(line, [f"{idx}:OEE", f"{idx}:OEEPercent"], 0.0)),
                 'power':      _num(_read_opc(line, [f"{idx}:Energy", f"{idx}:HuidigVermogenkW"], 0.0)),
                 'good_tons':  _num(_read_opc(line, [f"{idx}:Production", f"{idx}:GoodCountTons"], 0.0)),
-                'trucks_recv':_num(_read_opc(line, [f"{idx}:Logistics", f"{idx}:InkomendWeegbrug", f"{idx}:CumulatiefOntvangenTons"], 0.0)),
+                'trucks_recv':_num(_read_opc(line, [f"{idx}:Logistics", f"{idx}:InkomendWeegbrug",
+                                                    f"{idx}:CumulatiefOntvangenTons"], 0.0)),
             }
     return plants
 
 def _sim_state_plants(running: bool) -> dict:
-    """Return {plant_key: running} for every plant in the current UNS structure."""
-    return {
-        f"{group}|{plant}": running
-        for group, plants in _get_enterprise_structure().items()
-        for plant in plants
-    }
+    """Return {plant_key: {running: bool}} for every plant, preserving existing recipe data."""
+    try:
+        with open(SIM_STATE_FILE) as f:
+            current = json.load(f).get('plants', {})
+    except Exception:
+        current = {}
+
+    result = {}
+    for group, plants in _get_enterprise_structure().items():
+        for plant in plants:
+            pk = f"{group}|{plant}"
+            existing = current.get(pk, {})
+            if isinstance(existing, dict):
+                merged = dict(existing)
+                merged['running'] = running
+                result[pk] = merged
+            else:
+                result[pk] = {'running': running}
+    return result
+
+def _read_sim_state_raw() -> dict:
+    """Return raw sim_state.json content."""
+    try:
+        with open(SIM_STATE_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {'plants': {}, 'simulator_running': True}
+
+def _plant_running(plant_key: str, sim_state: dict) -> bool:
+    """Extract running bool from either old (bool) or new (dict) plant state format."""
+    v = sim_state.get('plants', {}).get(plant_key, False)
+    if isinstance(v, dict):
+        return bool(v.get('running', False))
+    return bool(v)
+
+def _plant_recipe(plant_key: str, sim_state: dict) -> str:
+    """Extract active recipe string from plant state."""
+    v = sim_state.get('plants', {}).get(plant_key, {})
+    if isinstance(v, dict):
+        return v.get('recipe', '')
+    return ''
+
+def _plant_recipes(plant_key: str, sim_state: dict) -> list:
+    """Extract recipe list for a plant."""
+    v = sim_state.get('plants', {}).get(plant_key, {})
+    if isinstance(v, dict):
+        return v.get('recipes', [])
+    return []
 
 def _write_sim_state(data: dict):
-    """Merge data into sim_state.json. Plant states go under 'plants', global state at top level."""
+    """Merge data into sim_state.json. Handles both old bool and new dict plant formats."""
     try:
         with open(SIM_STATE_FILE) as f:
             current = json.load(f)
     except Exception:
-        current = {'plants': {}}
-    
-    # Handle plant states
+        current = {'plants': {}, 'simulator_running': True}
+
+    if 'plants' not in current:
+        current['plants'] = {}
+
     if 'plants' in data:
-        current['plants'].update(data['plants'])
+        # Deep merge plant entries
+        for k, v in data['plants'].items():
+            if k in current['plants'] and isinstance(current['plants'][k], dict) and isinstance(v, dict):
+                current['plants'][k].update(v)
+            else:
+                current['plants'][k] = v
     else:
-        # Check if this is plant data (contains plant keys like "Group|Plant")
-        plant_data = {k: v for k, v in data.items() if '|' in k}
-        global_data = {k: v for k, v in data.items() if '|' not in k}
-        
-        if plant_data:
-            current['plants'].update(plant_data)
-        if global_data:
-            current.update(global_data)
-    
+        for k, v in data.items():
+            if k == 'simulator_running':
+                current['simulator_running'] = v
+            elif '|' in k:
+                if k in current['plants'] and isinstance(current['plants'][k], dict):
+                    if isinstance(v, bool):
+                        current['plants'][k]['running'] = v
+                    elif isinstance(v, dict):
+                        current['plants'][k].update(v)
+                else:
+                    current['plants'][k] = {'running': bool(v)} if isinstance(v, bool) else v
+            else:
+                current[k] = v
+
     with open(SIM_STATE_FILE, 'w') as f:
         json.dump(current, f, indent=2)
 
@@ -428,9 +499,8 @@ def api_opc_test():
 
 
 def _start_all_plants(idx, ent):
-    """Set ProcessState=True and default recipe for every known plant. Called after restarts."""
+    """Set ProcessState=True for every known plant. Called after restarts."""
     for group, plants in _get_enterprise_structure().items():
-        recipe = _default_recipe(group)
         try:
             site = ent.get_child([f"{idx}:{group}"])
         except Exception:
@@ -441,7 +511,6 @@ def _start_all_plants(idx, ent):
                           .get_child([f"{idx}:ProductionLine"])
                           .get_child([f"{idx}:ProcessControl"]))
                 pc.get_child([f"{idx}:ProcessState"]).set_value(True)
-                pc.get_child([f"{idx}:Recipe"]).set_value(recipe)
             except Exception:
                 pass
 
@@ -650,7 +719,6 @@ def api_stop_all():
                               .get_child([f"{idx}:ProductionLine"])
                               .get_child([f"{idx}:ProcessControl"]))
                     pc.get_child([f"{idx}:ProcessState"]).set_value(False)
-                    pc.get_child([f"{idx}:Recipe"]).set_value('--NA--')
                     results.append(f"✓ {plant}")
                 except Exception as e:
                     results.append(f"✗ {plant}: {e}")
@@ -669,41 +737,70 @@ def api_plant_control():
 
     if action == 'set_state':
         plant_key = f"{group}|{plant}"
-        _write_sim_state({plant_key: bool(value)})
-        
-        # Update global simulator state
+        _write_sim_state({plant_key: {'running': bool(value)}})
+
+        # Update global simulator running flag
         try:
             with open(SIM_STATE_FILE) as f:
-                current = json.load(f).get('plants', {})
+                current_plants = json.load(f).get('plants', {})
         except Exception:
-            current = {}
-        
-        # If starting a plant, set simulator to running
+            current_plants = {}
+
         if bool(value):
             _write_sim_state({'simulator_running': True})
         else:
-            # If stopping a plant, check if any plants are still running
-            any_running = any(state for key, state in current.items() if key != plant_key and state)
+            any_running = any(
+                (v.get('running', False) if isinstance(v, dict) else bool(v))
+                for k, v in current_plants.items() if k != plant_key
+            )
             _write_sim_state({'simulator_running': any_running})
 
+    elif action == 'set_recipe':
+        plant_key = f"{group}|{plant}"
+        # Write recipe to sim_state.json — factory.py picks it up on next tick
+        _write_sim_state({plant_key: {'recipe': str(value)}})
+        return jsonify({'ok': True, 'msg': f'Recipe set to {value}'})
+
     def fn(_, idx, ent):
-        pc = (ent.get_child([f"{idx}:{group}"])
-                 .get_child([f"{idx}:{plant}"])
-                 .get_child([f"{idx}:ProductionLine"])
-                 .get_child([f"{idx}:ProcessControl"]))
-        if action == 'set_state':
-            pc.get_child([f"{idx}:ProcessState"]).set_value(bool(value))
-        elif action == 'set_recipe':
-            pc.get_child([f"{idx}:Recipe"]).set_value(str(value))
+        try:
+            pc = (ent.get_child([f"{idx}:{group}"])
+                     .get_child([f"{idx}:{plant}"])
+                     .get_child([f"{idx}:ProductionLine"])
+                     .get_child([f"{idx}:ProcessControl"]))
+            if action == 'set_state':
+                pc.get_child([f"{idx}:ProcessState"]).set_value(bool(value))
+        except Exception:
+            pass
 
     ok, msg = _opc_write(fn)
     return jsonify({'ok': ok, 'msg': msg})
 
-# ─ Recipes & equipment metadata ───────────────────────────────────────────────
-@app.route('/api/recipes/<group>')
-def api_recipes(group):
-    recipes = [r.value for r in Recipe if recipe_data.get(r, {}).get('group') == group]
-    return jsonify({'recipes': recipes + ['--NA--']})
+# ─ Recipes ────────────────────────────────────────────────────────────────────
+@app.route('/api/recipes/<group>/<plant>')
+def api_recipes(group, plant):
+    """Return recipe list for a specific plant from sim_state.json."""
+    plant_key = f"{group}|{plant}"
+    try:
+        with open(SIM_STATE_FILE) as f:
+            sim_state = json.load(f)
+        plant_val = sim_state.get('plants', {}).get(plant_key, {})
+        if isinstance(plant_val, dict):
+            recipes     = [r['name'] for r in plant_val.get('recipes', []) if isinstance(r, dict)]
+            active      = plant_val.get('recipe', '')
+        else:
+            recipes, active = [], ''
+    except Exception:
+        recipes, active = [], ''
+    return jsonify({'recipes': recipes, 'active': active})
+
+@app.route('/api/recipes/<group>/<plant>', methods=['POST'])
+def api_recipes_save(group, plant):
+    """Save the recipe list for a plant to sim_state.json."""
+    data      = request.json or {}
+    plant_key = f"{group}|{plant}"
+    recipes   = data.get('recipes', [])   # list of {name, params} dicts
+    _write_sim_state({plant_key: {'recipes': recipes}})
+    return jsonify({'ok': True})
 
 @app.route('/api/equipment/<group>')
 def api_equipment(group):
@@ -880,31 +977,76 @@ def api_asset_library():
 @app.route('/api/simulation-profiles', methods=['GET'])
 def api_simulation_profiles():
     """
-    Return the simulation profile catalogue from factory.py as a grouped list
-    for rendering in the UNS designer tag editor dropdown.
+    Return the simulation profile catalogue as a grouped list for the UNS designer dropdown.
+    Defined inline here — no dynamic import of factory.py needed.
+    Keep in sync with SIMULATION_PROFILES in factory.py.
     """
-    try:
-        factory_py = os.path.join(BASE_DIR, 'factory.py')
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("factory", factory_py)
-        mod  = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        profiles = getattr(mod, 'SIMULATION_PROFILES', {})
-    except Exception:
-        profiles = {
-            "oee":              {"label": "OEE (%)",              "group": "OT / Process"},
-            "availability":     {"label": "Availability (%)",     "group": "OT / Process"},
-            "performance":      {"label": "Performance (%)",      "group": "OT / Process"},
-            "quality":          {"label": "Quality (%)",          "group": "OT / Process"},
-            "power_kw":         {"label": "Active Power (kW)",    "group": "Energy / Utilities"},
-            "accumulator_good": {"label": "Accumulator: Good Output", "group": "Accumulators"},
-            "default":          {"label": "Generic Walk",         "group": "Other"},
-        }
+    profiles = {
+        # OT / Process
+        "oee":                   {"label": "OEE (%)",                       "group": "OT / Process"},
+        "availability":          {"label": "Availability (%)",              "group": "OT / Process"},
+        "performance":           {"label": "Performance (%)",               "group": "OT / Process"},
+        "quality":               {"label": "Quality (%)",                   "group": "OT / Process"},
+        "temperature_process":   {"label": "Process Temperature",           "group": "OT / Process"},
+        "temperature_ambient":   {"label": "Ambient Temperature",           "group": "OT / Process"},
+        "pressure":              {"label": "Pressure",                      "group": "OT / Process"},
+        "flow_rate":             {"label": "Flow Rate (zero when stopped)", "group": "OT / Process"},
+        "level":                 {"label": "Tank / Silo Level (%)",         "group": "OT / Process"},
+        "motor_current":         {"label": "Motor Current (A)",             "group": "OT / Process"},
+        "vibration":             {"label": "Vibration (mm/s)",              "group": "OT / Process"},
+        "valve_position":        {"label": "Valve Position (%)",            "group": "OT / Process"},
+        "speed_rpm":             {"label": "Speed (RPM)",                   "group": "OT / Process"},
+        "boolean_running":       {"label": "Boolean: Running",              "group": "OT / Process"},
+        "boolean_fault":         {"label": "Boolean: Fault",                "group": "OT / Process"},
+        "boolean_alarm":         {"label": "Boolean: Alarm",                "group": "OT / Process"},
+        # Accumulators
+        "accumulator_good":      {"label": "Accumulator: Good Output",      "group": "Accumulators"},
+        "accumulator_bad":       {"label": "Accumulator: Rejected Output",  "group": "Accumulators"},
+        "accumulator_energy":    {"label": "Accumulator: Energy (kWh)",     "group": "Accumulators"},
+        "accumulator_generic":   {"label": "Accumulator: Generic Counter",  "group": "Accumulators"},
+        "counter_faults":        {"label": "Counter: Fault Events",         "group": "Accumulators"},
+        # Maintenance / CMMS
+        "mtbf":                  {"label": "MTBF (hours)",                  "group": "Maintenance / CMMS"},
+        "mttr":                  {"label": "MTTR (minutes)",                "group": "Maintenance / CMMS"},
+        "pm_compliance":         {"label": "PM Compliance (%)",             "group": "Maintenance / CMMS"},
+        "remaining_useful_life": {"label": "Remaining Useful Life (h)",     "group": "Maintenance / CMMS"},
+        "corrective_wo_count":   {"label": "Corrective Work Orders (open)", "group": "Maintenance / CMMS"},
+        "maintenance_cost":      {"label": "Maintenance Cost (EUR, acc.)",  "group": "Maintenance / CMMS"},
+        # Quality / Lab
+        "quality_metric_pct":    {"label": "Quality Metric (%)",            "group": "Quality / Lab"},
+        "quality_metric_cont":   {"label": "Quality Metric (continuous)",   "group": "Quality / Lab"},
+        "quality_hold":          {"label": "Quality Hold (boolean)",        "group": "Quality / Lab"},
+        "batch_id":              {"label": "Batch ID (string)",             "group": "Quality / Lab"},
+        "lot_id":                {"label": "Lot / Inbound ID (string)",     "group": "Quality / Lab"},
+        # Logistics
+        "silo_level":            {"label": "Silo / Tank Level (%)",         "group": "Logistics"},
+        "inbound_tons":          {"label": "Inbound Tonnage (acc.)",        "group": "Logistics"},
+        "outbound_tons":         {"label": "Outbound Tonnage (acc.)",       "group": "Logistics"},
+        "truck_id":              {"label": "Last Truck / Delivery ID",      "group": "Logistics"},
+        "days_of_supply":        {"label": "Days of Supply",                "group": "Logistics"},
+        "order_quantity":        {"label": "Order Quantity",                "group": "Logistics"},
+        "order_status":          {"label": "Order Status (string)",         "group": "Logistics"},
+        # ERP / Finance
+        "erp_order_id":          {"label": "ERP Order ID (string)",         "group": "ERP / Finance"},
+        "production_cost_eur":   {"label": "Production Cost (EUR, acc.)",   "group": "ERP / Finance"},
+        "waste_cost_eur":        {"label": "Waste Cost (EUR, acc.)",        "group": "ERP / Finance"},
+        "revenue_eur":           {"label": "Revenue (EUR, acc.)",           "group": "ERP / Finance"},
+        "margin_pct":            {"label": "Margin (%)",                    "group": "ERP / Finance"},
+        # Energy / Utilities
+        "power_kw":              {"label": "Active Power (kW)",             "group": "Energy / Utilities"},
+        "steam_flow":            {"label": "Steam Flow (kg/h)",             "group": "Energy / Utilities"},
+        "compressed_air":        {"label": "Compressed Air (m\u00b3/h)",   "group": "Energy / Utilities"},
+        "co2_kg":                {"label": "CO\u2082 Emissions (kg, acc.)", "group": "Energy / Utilities"},
+        # Recipe
+        "recipe":                {"label": "Active Recipe (string)",        "group": "Recipe"},
+        # Fallback
+        "default":               {"label": "Generic Walk (fallback)",       "group": "Other"},
+    }
 
     group_order = [
         "OT / Process", "Accumulators", "Maintenance / CMMS",
         "Quality / Lab", "Logistics", "ERP / Finance",
-        "Energy / Utilities", "Other"
+        "Energy / Utilities", "Recipe", "Other"
     ]
     grouped = {}
     for pid, meta in profiles.items():

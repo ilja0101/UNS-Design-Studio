@@ -1,5 +1,5 @@
 {
-  "lastModified": "2026-04-20T10:22:31Z",
+  "lastModified": "2026-04-20T11:29:40Z",
   "namespaceUri": "http://VirtualUNS.com/uns",
   "tree": {
     "children": [
@@ -388,6 +388,66 @@
                         "name": "CumulativeEnergykWh",
                         "opcNodeName": "CumulatiefEnergieverbruikkWh",
                         "unit": "kWh"
+                      },
+                      {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Active power demand",
+                        "id": "f5b95b6a-ee08-4251-9962-ccfa2514fe23",
+                        "name": "ActivePowerKW",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "power_kw"
+                        },
+                        "unit": "kW"
+                      },
+                      {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Cumulative energy consumed",
+                        "id": "899fce18-4392-42b1-bc44-744a08e9eaa9",
+                        "name": "CumulativeKWh",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "accumulator_energy"
+                        },
+                        "unit": "kWh"
+                      },
+                      {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Steam consumption",
+                        "id": "0573ff33-7887-42e1-9268-811c532304f0",
+                        "name": "SteamFlowKgH",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "steam_flow"
+                        },
+                        "unit": "kg/h"
+                      },
+                      {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Compressed air consumption",
+                        "id": "627c2078-6b4e-45dc-becd-0d0ec16fb184",
+                        "name": "CompressedAirM3H",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "compressed_air"
+                        },
+                        "unit": "m³/h"
+                      },
+                      {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Indirect CO₂ (Scope 2)",
+                        "id": "e25bc4b1-e491-46dc-b723-2bf65fc4bb92",
+                        "name": "CO2KgAcc",
+                        "payloadSchema": "",
+                        "simulation": {
+                          "profile": "co2_kg"
+                        },
+                        "unit": "kg"
                       }
                     ],
                     "type": "workCenter"
@@ -659,7 +719,32 @@
             "description": "Antwerp Production Facility",
             "id": "site-tern",
             "name": "Antwerp",
-            "tags": [],
+            "tags": [
+              {
+                "access": "R",
+                "dataType": "String",
+                "description": "",
+                "id": "7557d17e-3eae-4cad-a6ac-ecaa16c00dab",
+                "name": "RecipActive",
+                "payloadSchema": "standard",
+                "simulation": {
+                  "profile": "recipe"
+                },
+                "unit": ""
+              },
+              {
+                "access": "R",
+                "dataType": "Float",
+                "description": "",
+                "id": "add63305-a091-4e64-b785-1fb76f60329e",
+                "name": "MotorCurrent",
+                "payloadSchema": "",
+                "simulation": {
+                  "profile": "motor_current"
+                },
+                "unit": ""
+              }
+            ],
             "type": "site"
           },
           {
@@ -682,36 +767,6 @@
                         "simulation": {
                           "profile": "oee"
                         },
-                        "unit": ""
-                      },
-                      {
-                        "access": "R",
-                        "dataType": "Float",
-                        "description": "",
-                        "id": "e7828e7e-d0ca-4405-92df-3db4e0ae97e3",
-                        "name": "NewTag2",
-                        "payloadSchema": "pi",
-                        "simulation": null,
-                        "unit": ""
-                      },
-                      {
-                        "access": "R",
-                        "dataType": "Float",
-                        "description": "",
-                        "id": "107504ae-71c9-4140-96db-540b9a862620",
-                        "name": "NewTag3",
-                        "payloadSchema": "isa95",
-                        "simulation": null,
-                        "unit": ""
-                      },
-                      {
-                        "access": "R",
-                        "dataType": "Float",
-                        "description": "",
-                        "id": "3477765c-73b1-4d49-9258-e527f0fcc117",
-                        "name": "NewTag4",
-                        "payloadSchema": "",
-                        "simulation": null,
                         "unit": ""
                       }
                     ],
@@ -777,163 +832,163 @@
             "type": "site"
           },
           {
-            "id": "9a0d9825-069d-4b7e-a92d-147d2db882bd",
-            "name": "Amsterdam",
-            "type": "site",
-            "description": "",
-            "tags": [],
             "children": [
               {
-                "id": "54438e58-231d-4653-84a0-e0294b6cf8c0",
-                "name": "Bijlmer",
-                "type": "area",
-                "description": "",
-                "tags": [],
                 "children": [
                   {
+                    "children": [],
+                    "description": "",
                     "id": "3c92306c-4c1e-432b-a9e4-0af4e94dc599",
                     "name": "afwalwaterinstallatie",
-                    "type": "workCenter",
-                    "description": "",
                     "tags": [
                       {
+                        "access": "R",
+                        "dataType": "Bool",
+                        "description": "Pump running state",
                         "id": "42c2f95e-105d-4951-8f73-16565473e9f9",
                         "name": "Running",
-                        "dataType": "Bool",
-                        "unit": "",
-                        "description": "Pump running state",
-                        "access": "R",
                         "payloadSchema": "",
                         "simulation": {
                           "profile": "boolean_running"
-                        }
+                        },
+                        "unit": ""
                       },
                       {
+                        "access": "R",
+                        "dataType": "Bool",
+                        "description": "Fault active",
                         "id": "d0e995cd-0794-4a06-8e2d-3a323cb6a372",
                         "name": "Fault",
-                        "dataType": "Bool",
-                        "unit": "",
-                        "description": "Fault active",
-                        "access": "R",
                         "payloadSchema": "",
                         "simulation": {
                           "profile": "boolean_fault"
-                        }
+                        },
+                        "unit": ""
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Motor current draw",
                         "id": "e4079d4e-59ee-4d0e-9f1e-753cb293f050",
                         "name": "MotorCurrentA",
-                        "dataType": "Float",
-                        "unit": "A",
-                        "description": "Motor current draw",
-                        "access": "R",
                         "payloadSchema": "",
                         "simulation": {
                           "profile": "motor_current"
-                        }
+                        },
+                        "unit": "A"
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Bearing vibration",
                         "id": "c87c4928-fc3a-4d3d-a76d-0211ee21282d",
                         "name": "VibrationMmS",
-                        "dataType": "Float",
-                        "unit": "mm/s",
-                        "description": "Bearing vibration",
-                        "access": "R",
                         "payloadSchema": "",
                         "simulation": {
                           "profile": "vibration"
-                        }
+                        },
+                        "unit": "mm/s"
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Process flow rate",
                         "id": "010b47e2-86e5-4037-92aa-f715561aeb8c",
                         "name": "FlowM3H",
-                        "dataType": "Float",
-                        "unit": "m³/h",
-                        "description": "Process flow rate",
-                        "access": "R",
                         "payloadSchema": "",
                         "simulation": {
                           "profile": "flow_rate"
-                        }
+                        },
+                        "unit": "m³/h"
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Inlet pressure",
                         "id": "a341a3cc-e029-4b26-8a2e-5962b438f47d",
                         "name": "InletPressureBar",
-                        "dataType": "Float",
-                        "unit": "bar",
-                        "description": "Inlet pressure",
-                        "access": "R",
                         "payloadSchema": "",
                         "simulation": {
                           "profile": "pressure"
-                        }
+                        },
+                        "unit": "bar"
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Outlet pressure",
                         "id": "0f66126c-82fd-4fe7-ae66-af27f8a7c345",
                         "name": "OutletPressureBar",
-                        "dataType": "Float",
-                        "unit": "bar",
-                        "description": "Outlet pressure",
-                        "access": "R",
                         "payloadSchema": "",
                         "simulation": {
                           "profile": "pressure"
-                        }
+                        },
+                        "unit": "bar"
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Pump speed",
                         "id": "e9021ffb-51b9-4e89-8514-617ef7f4fdb4",
                         "name": "SpeedRPM",
-                        "dataType": "Float",
-                        "unit": "RPM",
-                        "description": "Pump speed",
-                        "access": "R",
                         "payloadSchema": "",
                         "simulation": {
                           "profile": "speed_rpm"
-                        }
+                        },
+                        "unit": "RPM"
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Power consumption",
                         "id": "c6d9cd23-21fb-49ee-a4db-fca8a4d55b89",
                         "name": "PowerKW",
-                        "dataType": "Float",
-                        "unit": "kW",
-                        "description": "Power consumption",
-                        "access": "R",
                         "payloadSchema": "",
                         "simulation": {
                           "profile": "power_kw"
-                        }
+                        },
+                        "unit": "kW"
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Estimated RUL",
                         "id": "5cd024e3-2014-4929-9730-4ca4dfde89dd",
                         "name": "RemainingLifeH",
-                        "dataType": "Float",
-                        "unit": "h",
-                        "description": "Estimated RUL",
-                        "access": "R",
                         "payloadSchema": "",
                         "simulation": {
                           "profile": "remaining_useful_life"
-                        }
+                        },
+                        "unit": "h"
                       },
                       {
+                        "access": "R",
+                        "dataType": "Float",
+                        "description": "Cumulative run hours",
                         "id": "7705d54a-a1e0-475a-9339-edbad2f61660",
                         "name": "RunHoursAcc",
-                        "dataType": "Float",
-                        "unit": "h",
-                        "description": "Cumulative run hours",
-                        "access": "R",
                         "payloadSchema": "",
                         "simulation": {
                           "profile": "accumulator_generic"
-                        }
+                        },
+                        "unit": "h"
                       }
                     ],
-                    "children": []
+                    "type": "workCenter"
                   }
-                ]
+                ],
+                "description": "",
+                "id": "54438e58-231d-4653-84a0-e0294b6cf8c0",
+                "name": "Bijlmer",
+                "tags": [],
+                "type": "area"
               }
-            ]
+            ],
+            "description": "",
+            "id": "9a0d9825-069d-4b7e-a92d-147d2db882bd",
+            "name": "Amsterdam",
+            "tags": [],
+            "type": "site"
           }
         ],
         "description": "Chips & Snacks Division",

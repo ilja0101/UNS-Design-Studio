@@ -1,19 +1,350 @@
 {
   "plants": {
-    "CrispCraft|FactoryAntwerp": false,
-    "CrispCraft|FactoryGhent": false,
-    "FlakeMill|FactoryLeiden": false,
-    "FlakeMill|FactoryGroningen": false,
-    "FrostLine|FactoryDortmund": false,
-    "FrostLine|FactoryBremen": false,
-    "FrostLine|FactoryHanover": false,
-    "FrostLine|FactoryLeipzig": false,
-    "FrostLine|FactoryCologne": false,
-    "FrostLine|FactoryDresden": false,
-    "RootCore|FactoryLille": true,
-    "SugarWorks|FactoryBruges": true,
-    "SugarWorks|FactoryLiege": true,
-    "CrispCraft|FactoryAmsterdam": false
+    "CrispCraft|FactoryAntwerp": {
+      "running": true,
+      "recipe": "Paprika Crunch",
+      "recipes": [
+        {
+          "name": "Naturel Kettle",
+          "params": {}
+        },
+        {
+          "name": "Paprika Crunch",
+          "params": {}
+        },
+        {
+          "name": "Sea Salt & Vinegar",
+          "params": {}
+        },
+        {
+          "name": "New Recipe",
+          "params": {}
+        }
+      ]
+    },
+    "CrispCraft|FactoryGhent": {
+      "running": true,
+      "recipe": "Naturel Kettle",
+      "recipes": [
+        {
+          "name": "Naturel Kettle",
+          "params": {
+            "infeed_rate": 25,
+            "base_power": 720,
+            "qual_target": 98.5
+          }
+        },
+        {
+          "name": "Paprika Crunch",
+          "params": {
+            "infeed_rate": 23,
+            "base_power": 730,
+            "qual_target": 98.0
+          }
+        },
+        {
+          "name": "Sea Salt & Vinegar",
+          "params": {
+            "infeed_rate": 24,
+            "base_power": 710,
+            "qual_target": 97.5
+          }
+        }
+      ]
+    },
+    "FlakeMill|FactoryLeiden": {
+      "running": true,
+      "recipe": "Classic Flake",
+      "recipes": [
+        {
+          "name": "Classic Flake",
+          "params": {
+            "infeed_rate": 35,
+            "base_power": 610,
+            "qual_target": 99.0
+          }
+        },
+        {
+          "name": "Instant Fine",
+          "params": {
+            "infeed_rate": 32,
+            "base_power": 585,
+            "qual_target": 99.2
+          }
+        }
+      ]
+    },
+    "FlakeMill|FactoryGroningen": {
+      "running": true,
+      "recipe": "Classic Flake",
+      "recipes": [
+        {
+          "name": "Classic Flake",
+          "params": {
+            "infeed_rate": 35,
+            "base_power": 610,
+            "qual_target": 99.0
+          }
+        },
+        {
+          "name": "Instant Fine",
+          "params": {
+            "infeed_rate": 32,
+            "base_power": 585,
+            "qual_target": 99.2
+          }
+        }
+      ]
+    },
+    "FrostLine|FactoryDortmund": {
+      "running": true,
+      "recipe": "Classic Frite 10mm",
+      "recipes": [
+        {
+          "name": "Classic Frite 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "base_power": 820,
+            "qual_target": 98.0
+          }
+        },
+        {
+          "name": "Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "base_power": 860,
+            "qual_target": 98.5
+          }
+        },
+        {
+          "name": "Seasoned Wedge",
+          "params": {
+            "infeed_rate": 26,
+            "base_power": 780,
+            "qual_target": 97.0
+          }
+        }
+      ]
+    },
+    "FrostLine|FactoryBremen": {
+      "running": true,
+      "recipe": "Classic Frite 10mm",
+      "recipes": [
+        {
+          "name": "Classic Frite 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "base_power": 820,
+            "qual_target": 98.0
+          }
+        },
+        {
+          "name": "Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "base_power": 860,
+            "qual_target": 98.5
+          }
+        },
+        {
+          "name": "Seasoned Wedge",
+          "params": {
+            "infeed_rate": 26,
+            "base_power": 780,
+            "qual_target": 97.0
+          }
+        }
+      ]
+    },
+    "FrostLine|FactoryHanover": {
+      "running": true,
+      "recipe": "Classic Frite 10mm",
+      "recipes": [
+        {
+          "name": "Classic Frite 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "base_power": 820,
+            "qual_target": 98.0
+          }
+        },
+        {
+          "name": "Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "base_power": 860,
+            "qual_target": 98.5
+          }
+        },
+        {
+          "name": "Seasoned Wedge",
+          "params": {
+            "infeed_rate": 26,
+            "base_power": 780,
+            "qual_target": 97.0
+          }
+        }
+      ]
+    },
+    "FrostLine|FactoryLeipzig": {
+      "running": true,
+      "recipe": "Classic Frite 10mm",
+      "recipes": [
+        {
+          "name": "Classic Frite 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "base_power": 820,
+            "qual_target": 98.0
+          }
+        },
+        {
+          "name": "Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "base_power": 860,
+            "qual_target": 98.5
+          }
+        },
+        {
+          "name": "Seasoned Wedge",
+          "params": {
+            "infeed_rate": 26,
+            "base_power": 780,
+            "qual_target": 97.0
+          }
+        }
+      ]
+    },
+    "FrostLine|FactoryCologne": {
+      "running": true,
+      "recipe": "Classic Frite 10mm",
+      "recipes": [
+        {
+          "name": "Classic Frite 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "base_power": 820,
+            "qual_target": 98.0
+          }
+        },
+        {
+          "name": "Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "base_power": 860,
+            "qual_target": 98.5
+          }
+        },
+        {
+          "name": "Seasoned Wedge",
+          "params": {
+            "infeed_rate": 26,
+            "base_power": 780,
+            "qual_target": 97.0
+          }
+        }
+      ]
+    },
+    "FrostLine|FactoryDresden": {
+      "running": true,
+      "recipe": "Classic Frite 10mm",
+      "recipes": [
+        {
+          "name": "Classic Frite 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "base_power": 820,
+            "qual_target": 98.0
+          }
+        },
+        {
+          "name": "Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "base_power": 860,
+            "qual_target": 98.5
+          }
+        },
+        {
+          "name": "Seasoned Wedge",
+          "params": {
+            "infeed_rate": 26,
+            "base_power": 780,
+            "qual_target": 97.0
+          }
+        }
+      ]
+    },
+    "RootCore|FactoryLille": {
+      "running": true,
+      "recipe": "Inulin Standard",
+      "recipes": [
+        {
+          "name": "Inulin Standard",
+          "params": {
+            "infeed_rate": 40,
+            "base_power": 710,
+            "qual_target": 98.0
+          }
+        },
+        {
+          "name": "Inulin HP",
+          "params": {
+            "infeed_rate": 35,
+            "base_power": 660,
+            "qual_target": 98.5
+          }
+        }
+      ]
+    },
+    "SugarWorks|FactoryBruges": {
+      "running": true,
+      "recipe": "Crystal White",
+      "recipes": [
+        {
+          "name": "Crystal White",
+          "params": {
+            "infeed_rate": 100,
+            "base_power": 1250,
+            "qual_target": 99.0
+          }
+        },
+        {
+          "name": "Fine Castor",
+          "params": {
+            "infeed_rate": 90,
+            "base_power": 1120,
+            "qual_target": 98.5
+          }
+        }
+      ]
+    },
+    "SugarWorks|FactoryLiege": {
+      "running": true,
+      "recipe": "Crystal White",
+      "recipes": [
+        {
+          "name": "Crystal White",
+          "params": {
+            "infeed_rate": 100,
+            "base_power": 1250,
+            "qual_target": 99.0
+          }
+        },
+        {
+          "name": "Fine Castor",
+          "params": {
+            "infeed_rate": 90,
+            "base_power": 1120,
+            "qual_target": 98.5
+          }
+        }
+      ]
+    },
+    "CrispCraft|FactoryAmsterdam": {
+      "running": true
+    }
   },
-  "simulator_running": false
+  "simulator_running": true
 }

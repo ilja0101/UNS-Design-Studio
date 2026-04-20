@@ -748,6 +748,34 @@
       background: var(--surface2); font-size: 10px
     }
 
+    /* Recipe editor */
+    .recipe-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 5px;
+      background: var(--surface2);
+      font-size: 12px
+    }
+    .recipe-row input {
+      flex: 1;
+      font-size: 12px;
+      padding: 4px 8px
+    }
+    .recipe-row-name { font-weight: 500; color: var(--text) }
+    .recipe-active-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      background: rgba(63,185,80,.15);
+      color: var(--green);
+      border: 1px solid rgba(63,185,80,.3);
+      white-space: nowrap
+    }
+
     /* Scrollbar */
     ::-webkit-scrollbar {
       width: 5px;
@@ -768,8 +796,9 @@
 <body>
 
   <header>
-    <div class="hlogo">🌐 <span>UNS Topic Designer</span><span class="hsub">— GlobalFoodCo</span></div>
+    <div class="hlogo">🌐 <span>UNS Topic Designer</span><span class="hsub">— Virtual UNS Enterprise Simulator</span></div>
     <div class="hspacer"></div>
+    <span style="font-size:11px;color:var(--muted)">by <a href="https://github.com/Ilja0101" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:none">Ilja Bartels</a></span>
     <span id="save-ind" class="saved">● Saved</span>
     <button class="btn btn-ghost" onclick="showImport()">📂 Import</button>
     <button class="btn btn-ghost" onclick="doExportJSON()">📤 Export JSON</button>
@@ -806,6 +835,7 @@
         <div class="tabs">
           <button class="tab on" data-tab="props" onclick="tab('props')">Properties</button>
           <button class="tab" data-tab="tags" onclick="tab('tags')">Tags</button>
+          <button class="tab" data-tab="recipes" onclick="tab('recipes')">🍽️ Recipes</button>
           <button class="tab" data-tab="paths" onclick="tab('paths')">Topic Paths</button>
         </div>
 
@@ -845,6 +875,25 @@
             <button class="btn btn-primary" onclick="addTag()">＋ Add Tag</button>
           </div>
           <div id="tags-wrap"></div>
+        </div>
+
+        <!-- Recipes tab -->
+        <div class="tab-body" id="tb-recipes">
+          <div id="recipes-site-only" style="display:none;padding:20px;text-align:center;color:var(--muted);font-size:12px">
+            <div style="font-size:32px;margin-bottom:8px">🍽️</div>
+            Recipes are configured on <strong>Site</strong> nodes only.<br>
+            Select a site node to manage its recipe list.
+          </div>
+          <div id="recipes-editor" style="display:none">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
+              <span style="font-size:12px;font-weight:600;flex:1">🍽️ Recipe List</span>
+              <button class="btn btn-primary" style="font-size:11px;padding:4px 10px" onclick="addRecipe()">＋ Add Recipe</button>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+              Recipes defined here appear in the dashboard Control panel. Tags with the <code style="color:var(--green)">recipe</code> simulation profile publish the active recipe name.
+            </div>
+            <div id="recipes-list"></div>
+          </div>
         </div>
 
         <!-- Paths tab -->
@@ -1092,6 +1141,7 @@
 
       renderTags(node.tags || []);
       renderPaths(node);
+      if (activeTab === 'recipes') loadRecipes(node);
       tab(activeTab);
     }
 
@@ -1336,7 +1386,114 @@
       renderTags(n.tags);
     }
 
-    // ── Simulation Profile Modal ────────────────────────────────────────────────────
+    // ── Recipes tab ─────────────────────────────────────────────────────────────
+    // Recipes are stored in sim_state.json server-side, not in uns_config.json.
+    // We load/save them via /api/recipes/<group>/<plant>.
+    let _recipeNodeKey  = null;   // "Group|FactorySite" for the selected site node
+    let _recipeList     = [];     // [{name, params}]
+    let _recipeActive   = '';
+
+    function _plantKeyFromNode(node) {
+      // Walk up from a site node to find businessUnit name → build plant_key
+      const map = {};
+      function bm(n) { map[n.id] = n; (n.children||[]).forEach(bm); }
+      bm(uns.tree);
+      const pmap = {};
+      function bp(n, p=null) { pmap[n.id] = p; (n.children||[]).forEach(c => bp(c, n.id)); }
+      bp(uns.tree);
+
+      if (node.type !== 'site') return null;
+      const parentId  = pmap[node.id];
+      const parentNode = map[parentId];
+      if (!parentNode) return null;
+      return `${parentNode.name}|Factory${node.name}`;
+    }
+
+    async function loadRecipes(node) {
+      const siteOnly  = eid('recipes-site-only');
+      const editor    = eid('recipes-editor');
+
+      if (!node || node.type !== 'site') {
+        siteOnly.style.display = 'flex';
+        editor.style.display   = 'none';
+        siteOnly.style.flexDirection = 'column';
+        siteOnly.style.alignItems    = 'center';
+        return;
+      }
+
+      siteOnly.style.display = 'none';
+      editor.style.display   = 'block';
+
+      _recipeNodeKey = _plantKeyFromNode(node);
+      if (!_recipeNodeKey) {
+        eid('recipes-list').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Cannot determine plant key — check node hierarchy.</div>';
+        return;
+      }
+
+      const [group, plant] = _recipeNodeKey.split('|');
+      try {
+        const r = await fetch(`/api/recipes/${group}/${plant}`);
+        const d = await r.json();
+        _recipeList   = (d.recipes || []).map(name =>
+          typeof name === 'string' ? {name, params:{}} : name
+        );
+        _recipeActive = d.active || '';
+      } catch(e) {
+        _recipeList   = [];
+        _recipeActive = '';
+      }
+      renderRecipes();
+    }
+
+    function renderRecipes() {
+      const list = eid('recipes-list');
+      if (!_recipeList.length) {
+        list.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">
+          No recipes defined.<br><small>Click <strong>＋ Add Recipe</strong> to add the first one.</small>
+        </div>`;
+        return;
+      }
+      list.innerHTML = _recipeList.map((r, i) => {
+        const isActive = r.name === _recipeActive;
+        return `<div class="recipe-row">
+          <input class="ti" value="${esc(r.name)}" placeholder="Recipe name"
+                 oninput="updateRecipeName(${i}, this.value)" style="flex:2">
+          ${isActive ? '<span class="recipe-active-badge">● active</span>' : ''}
+          <span class="ibtn del" onclick="deleteRecipe(${i})" title="Remove recipe">×</span>
+        </div>`;
+      }).join('');
+    }
+
+    function addRecipe() {
+      _recipeList.push({name: 'New Recipe', params: {}});
+      renderRecipes();
+      saveRecipes();
+    }
+
+    function deleteRecipe(i) {
+      _recipeList.splice(i, 1);
+      renderRecipes();
+      saveRecipes();
+    }
+
+    function updateRecipeName(i, val) {
+      _recipeList[i].name = val;
+      saveRecipes();
+    }
+
+    async function saveRecipes() {
+      if (!_recipeNodeKey) return;
+      const [group, plant] = _recipeNodeKey.split('|');
+      try {
+        await fetch(`/api/recipes/${group}/${plant}`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({recipes: _recipeList})
+        });
+      } catch(e) {
+        toast('Failed to save recipes', 'err');
+      }
+    }
     function editSimulation(i) {
       const node = find(selId);
       if (!node || !node.tags[i]) return;
@@ -1494,6 +1651,7 @@
       activeTab = name;
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
       document.querySelectorAll('.tab-body').forEach(t => t.classList.toggle('on', t.id === `tb-${name}`));
+      if (name === 'recipes' && selId) loadRecipes(find(selId));
     }
 
     // ── Property changes ────────────────────────────────────────────────────────────
