@@ -45,15 +45,9 @@ Built as a learning and demo tool for **ISA-95 hierarchy**, **UNS architecture**
 > **UNS Topic Designer** — build your ISA-95 namespace visually
 
 ```
-🌐 RoyalFarmersCollective
- └─ 🏭 KnappertjesBV
-     └─ 🏗️  Terneuzen2
-         └─ 📐 ProductionLine
-             ├─ ⚙️  OEE              [4 tags]
-             ├─ ⚙️  Energy           [2 tags]
-             ├─ ⚙️  Maintenance      [5 tags]
-             └─ ⚙️  Quality          [4 tags]
+
 ```
+![alt text](image-1.png)
 
 > **Asset Picker** — insert pre-configured asset bundles into any node
 
