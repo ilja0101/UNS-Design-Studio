@@ -62,7 +62,7 @@ docker build -t uns-design-studio:latest .
 docker compose up -d
 ```
 
-Open **http://localhost:5000** — all 13 factories start in Running state immediately.
+Open **http://localhost:5000** fire up the virtual plants and start streaming data!.
 
 ---
 
