@@ -66,19 +66,12 @@ Built as a learning and demo tool for **ISA-95 hierarchy**, **UNS architecture**
 > **Asset Picker** — insert pre-configured asset bundles into any node
 
 ```
-🧩 Insert Asset
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│ 💧 Pump      │ │ 📦 Packing   │ │ ♨️  Boiler    │
-│ Rotating Eq. │ │ Packaging    │ │ Utilities    │
-│ 11 tags      │ │ 13 tags      │ │ 9 tags       │
-└──────────────┘ └──────────────┘ └──────────────┘
-```
+
 <img width="716" height="661" alt="image" src="https://github.com/user-attachments/assets/6afa89de-c1ca-49d1-ac0c-be878a354ea5" />
 
 Tags with simulation profiles are automatically added!
 
 <img width="1917" height="938" alt="image" src="https://github.com/user-attachments/assets/9f27d331-8288-4e24-9a2c-22d908f43bbd" />
-
 
 ---
 
