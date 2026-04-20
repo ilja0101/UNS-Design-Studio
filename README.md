@@ -91,6 +91,7 @@ From here you can toggle the plant between Running and Stopped, and select the a
 
 Navigate to **http://localhost:5000/uns** to open the visual namespace editor.
 
+![UNS Topic Designer — node properties](docs/TopicTreeDesigner2.JPG)
 ![UNS Topic Designer — node properties](docs/TopicTreeDesigner.JPG)
 
 The left panel shows your full ISA-95 hierarchy. Click any node to edit its properties — name, type, description — and see the full MQTT/NATS topic path update live. Node types follow the ISA-95 levels: Enterprise → Business Unit → Site → Area → Work Center → Work Unit → Device.
