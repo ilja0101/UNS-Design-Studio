@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python3 -c ':*)",
-      "Bash(rm client.py recipe.py)",
-      "Bash(rm -rf __pycache__)"
-    ]
-  }
-}
