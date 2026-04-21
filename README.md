@@ -217,7 +217,20 @@ The simulator ships with **GlobalFoodCo** — rename it to anything in the UNS d
 
 Ready-to-import enterprise templates are in `example_UNS_jsons_to_import/`.
 
-> All names, divisions and locations are entirely fictional.
+### Import Templates
+
+| File | Industry | Description |
+|---|---|---|
+| `Atomcraft_Energy_Nuclear_PWR.json` | Nuclear Energy | Twin-unit PWR station with reactor core, turbine hall, spent-fuel pool, safety system and capacity-factor KPIs |
+| `Cleanflow_Water_Treatment.json` | Water & Utilities | Municipal drinking water treatment (coagulation → UV → chlorination) and activated-sludge wastewater plant |
+| `Frostbite_Fantasy_Foods.json` | Frozen Food | IQF spiral freezer, blanching, VFFS packaging, cold store and cold-chain compliance KPIs |
+| `Pillcraft_Co_Pharma.json` | Pharmaceuticals (GMP) | API synthesis, high-shear granulation, tablet compression, ISO 8 cleanroom packaging, LIMS lot-release data |
+| `VaultChem_Industries_Fallout.json` | Pharma / Chem (Parody) | Fallout-universe parody — StimPak biomed-gel, RadAway IV bags, Nuka-Cola Quantum bottling, Jet & Buffout R&D vault |
+| `Policy_Food_Processing.json` | Food Processing | Topic Policy v1.2 reference — fryer line, packaging, steam utilities with `_kpi`, `_energy`, `_maint`, `_mes` functional branches |
+| `Policy_Process_Manufacturing.json` | Process Manufacturing | Topic Policy v1.2 reference — extraction, spray drying, evaporation with `_lims`, `_quality`, `_kpi`, `_maint` functional branches |
+| `Walker_Reynolds_Clean_UNS.json` | Discrete / Mixed | Walker Reynolds "clean UNS" approach — flat physical hierarchy, no functional branches, simple self-describing tag names |
+
+> All company names, divisions and locations are entirely fictional.
 
 ---
 
