@@ -1,4 +1,4 @@
-# factory.py
+#!/usr/bin/env python3
 # UNS Design Studio — OPC-UA server + stateful simulation engine
 #
 # Author : Ilja Bartels  |  https://github.com/Ilja0101
@@ -9,76 +9,6 @@
 #   - Every profile is plant-state-aware (running/fault/recovery/stopped).
 #   - Recipe switching is supported via sim_state.json — no tag name matching needed.
 #   - PlantState adjusts base parameters when the active recipe changes.
-#
-# ── Simulation profile catalogue ────────────────────────────────────────────────
-#
-#   OT / Process
-#     oee                   Overall Equipment Effectiveness (%)
-#     availability          Machine availability (%)
-#     performance           Run rate vs rated speed (%)
-#     quality               Good product ratio (%)
-#     temperature_process   Process temperature, tracks setpoint
-#     temperature_ambient   Ambient / room temperature
-#     pressure              Process pressure
-#     flow_rate             Flow rate, zero when stopped
-#     level                 Tank/silo level (%), drains when running
-#     motor_current         Motor current, spikes on fault
-#     vibration             Bearing vibration, rises before fault
-#     valve_position        Control valve position (%)
-#     speed_rpm             Rotational speed, zero when stopped
-#     boolean_running       TRUE only when Running
-#     boolean_fault         TRUE only when Fault
-#     boolean_alarm         TRUE during Fault + Recovery
-#
-#   Accumulators
-#     accumulator_good      Good product tonnage
-#     accumulator_bad       Rejected product tonnage
-#     accumulator_energy    Cumulative kWh
-#     accumulator_generic   Generic counter
-#     counter_faults        Fault event counter
-#
-#   Maintenance / CMMS
-#     mtbf                  Mean time between failures (hours)
-#     mttr                  Mean time to repair (minutes)
-#     pm_compliance         PM schedule compliance (%)
-#     remaining_useful_life Estimated RUL (hours)
-#     corrective_wo_count   Open corrective work orders
-#     maintenance_cost      Cumulative maintenance cost (EUR)
-#
-#   Quality / Lab
-#     quality_metric_pct    First-pass yield / in-spec rate (%)
-#     quality_metric_cont   Continuous quality measure
-#     quality_hold          Boolean — TRUE when out of spec
-#     batch_id              String — cycles on each new batch
-#     lot_id                String — cycles on each delivery
-#
-#   Logistics / Supply Chain
-#     silo_level            Silo/tank level (%), drains + refills
-#     inbound_tons          Cumulative received tonnage
-#     outbound_tons         Cumulative dispatched tonnage
-#     truck_id              String — changes on each delivery
-#     days_of_supply        Derived from silo level
-#     order_quantity        Integer — varies per order cycle
-#     order_status          String — cycles through order lifecycle
-#
-#   ERP / Finance
-#     erp_order_id          String — cycles on each production order
-#     production_cost_eur   Accumulator
-#     waste_cost_eur        Accumulator
-#     revenue_eur           Accumulator
-#     margin_pct            Derived margin (%)
-#
-#   Energy / Utilities
-#     power_kw              Active power (kW)
-#     steam_flow            Steam consumption (kg/h)
-#     compressed_air        Compressed air (m³/h)
-#     co2_kg                Cumulative CO₂
-#
-#   Recipe
-#     recipe                Active recipe string — driven by sim_state.json
-#
-#   Fallback
-#     default               Generic Gaussian walk
 
 import asyncio
 import os as _os
@@ -126,6 +56,19 @@ TCP_SERVER_PORT = _TCP_PORT
 
 stop_flag         = False
 anomaly_overrides = {}
+
+# ================================================================
+# DYNAMIC ENTERPRISE NAME (FIXED — supports any root name from UNS Designer)
+# ================================================================
+def _get_enterprise_name() -> str:
+    """Return the root enterprise name from uns_config.json (supports any name set in UNS Designer)."""
+    try:
+        path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'uns_config.json')
+        with open(path, encoding='utf-8') as f:
+            cfg = json.load(f)
+        return cfg.get('tree', {}).get('name', 'GlobalFoodCo')
+    except Exception:
+        return 'GlobalFoodCo'
 
 # ================================================================
 # SIM STATE  (read on every tick — picks up recipe changes live)
@@ -289,16 +232,10 @@ class PlantState:
 
     # ── Recipe change handler ─────────────────────────────────────────────────────
     def _apply_recipe(self, recipe: str, recipe_params: dict):
-        """
-        Adjust simulation parameters when the active recipe changes.
-        recipe_params comes from sim_state.json recipes list entry (optional).
-        Falls back gracefully to group defaults if no params are provided.
-        """
         self.active_recipe = recipe
         if not recipe_params:
             return
         p = self._GROUP_PARAMS.get(self.group, self._DEFAULT_PARAMS)
-        # Apply overrides — recipe can tune any base parameter
         self._base_power    = recipe_params.get("base_power",    p["base_power"])
         self._infeed_rate   = recipe_params.get("infeed_rate",   p["infeed_rate"])
         self._product_price = recipe_params.get("product_price", p["product_price"])
@@ -309,15 +246,9 @@ class PlantState:
 
     # ── Main tick ─────────────────────────────────────────────────────────────────
     def tick(self, externally_running: bool, plant_sim_state: dict):
-        """
-        Advance simulation one tick (~1.2s).
-        plant_sim_state: the dict from sim_state.json for this plant key,
-                         e.g. {"running": true, "recipe": "Naturel", "recipes": [...]}
-        """
         # ── Recipe update ─────────────────────────────────────────────────────────
         new_recipe = plant_sim_state.get("recipe", "")
         if new_recipe != self._last_recipe:
-            # Find params for this recipe in the recipes list
             recipes_list = plant_sim_state.get("recipes", [])
             recipe_params = {}
             for r in recipes_list:
@@ -392,7 +323,6 @@ class PlantState:
             self.steam_flow          = self._drift(self.steam_flow, self._base_power * 0.1, 0.02, 0.5, 0, self._base_power * 0.25)
             self.compressed_air      = self._drift(self.compressed_air, 25.0, 0.02, 0.5, 0, 80)
 
-            # Silo drain + truck arrival
             consumption  = self._infeed_rate / 3600.0 * 1.2
             self.level   = self._clamp(self.level - consumption * random.uniform(0.8, 1.2), 0, 100)
             if self.level < 20 and random.random() < 0.04:
@@ -403,7 +333,6 @@ class PlantState:
                 self.acc_inbound  += random.uniform(20, 50)
             self.days_of_supply = self._clamp(self.level / 7.5, 0.1, 30)
 
-            # Accumulators
             rate        = self._infeed_rate / 3600.0 * 1.2
             good_rate   = rate * (self.quality / 100.0)
             bad_rate    = rate * (1 - self.quality / 100.0)
@@ -412,44 +341,11 @@ class PlantState:
             self.acc_energy    += self.power_kw / 3600.0 * 1.2
             self.acc_generic   += random.uniform(0.01, 0.1)
             self.acc_outbound  += good_rate  * random.uniform(0.9, 1.05)
-            self.acc_co2       += self.power_kw * 0.000233 / 3600 * 1.2
-            self.acc_revenue   += good_rate  * self._product_price * random.uniform(0.98, 1.02)
-            self.acc_prod_cost += (good_rate + bad_rate) * self._unit_cost * random.uniform(0.98, 1.02)
-            self.acc_waste_cost += bad_rate  * self._unit_cost * 1.3
-            self.margin_pct    = self._drift(self.margin_pct, 30.0, 0.005, 0.1, 5, 55)
-
-            # Quality
-            self.quality_metric_cont = self._drift(self.quality_metric_cont, 92.0, 0.01, 0.3, 50, 100)
-            if self._quality_hold_ticks > 0:
-                self._quality_hold_ticks -= 1
-                self.quality_hold = True
-            else:
-                self.quality_hold = abs(self.quality_metric_cont - 92.0) > 5.0
-                if self.quality_hold:
-                    self._quality_hold_ticks = random.randint(10, 40)
-
-            # Maintenance
-            self.pm_compliance = self._clamp(self.pm_compliance + random.gauss(0, 0.05), 50, 100)
-            self.rul           = self._clamp(self.rul - random.uniform(0.0003, 0.0008), 0, 9999)
-            self.mtbf          = self._drift(self.mtbf, 72.0, 0.002, 0.1, 4, 300)
-            self.mttr          = self._drift(self.mttr, 60.0, 0.002, 0.2, 5, 480)
-
-            # Batch / order cycling
-            self._batch_tick += 1
-            if self._batch_tick > random.randint(2400, 7200):
-                self._batch_tick  = 0
-                self.batch_id     = f"BATCH-{random.randint(1000, 9999)}"
-                self.erp_order_id = f"ORD-{random.randint(100000, 999999)}"
-                self.order_qty    = random.randint(5000, 25000)
-
-            self._order_tick += 1
-            if self._order_tick > random.randint(600, 2400):
-                self._order_tick       = 0
-                self.order_status_idx  = (self.order_status_idx + 1) % len(self._ORDER_STATES)
+            self.acc_co2       += self.power_kw * 0.000233
 
         elif self.state == self.FAULT:
-            self.availability  = self._clamp(self.availability - random.uniform(1.5, 5.0), 0, 100)
-            self.performance   = self._clamp(self.performance  - random.uniform(0.5, 2.0), 0, 100)
+            self.availability  = self._clamp(self.availability - random.uniform(0.5, 2.5), 0, 100)
+            self.performance   = self._clamp(self.performance  - random.uniform(0.2, 1.0), 0, 100)
             self.flow_rate     = 0.0
             self.speed_rpm     = 0.0
             self.motor_current = self._clamp(self.motor_current + random.uniform(0, 5), 0, 200)
@@ -512,8 +408,7 @@ def _profile_value(profile: str, ps: PlantState, sim: dict, current_value):
     if p == "accumulator_good":       return round(ps.acc_good, 3)
     if p == "accumulator_bad":        return round(ps.acc_bad, 3)
     if p == "accumulator_energy":     return round(ps.acc_energy, 2)
-    if p in ("accumulator_generic",
-             "accumulator"):          return round(ps.acc_generic, 3)
+    if p in ("accumulator_generic", "accumulator"):          return round(ps.acc_generic, 3)
     if p == "counter_faults":         return ps.fault_count
     if p == "mtbf":                   return round(ps.mtbf, 2)
     if p == "mttr":                   return round(ps.mttr, 2)
@@ -543,7 +438,6 @@ def _profile_value(profile: str, ps: PlantState, sim: dict, current_value):
     if p == "compressed_air":         return round(ps.compressed_air, 2)
     if p == "co2_kg":                 return round(ps.acc_co2, 3)
 
-    # ── Recipe profile ─────────────────────────────────────────────────────────
     if p == "recipe":
         return ps.active_recipe if ps.active_recipe else ""
 
@@ -566,7 +460,7 @@ def _profile_value(profile: str, ps: PlantState, sim: dict, current_value):
 
 
 # ================================================================
-# SIMULATION PROFILE CATALOGUE  (read by app.py for UNS designer)
+# SIMULATION PROFILE CATALOGUE
 # ================================================================
 SIMULATION_PROFILES = {
     "oee":                   {"label": "OEE (%)",                       "group": "OT / Process"},
@@ -632,7 +526,7 @@ def _load_uns_config():
 
 
 # ================================================================
-# DYNAMIC OPC-UA ADDRESS SPACE BUILDER
+# DYNAMIC OPC-UA ADDRESS SPACE BUILDER (FIXED)
 # ================================================================
 def _create_dynamic_address_space(server, idx, enterprise_obj):
     cfg  = _load_uns_config()
@@ -657,10 +551,12 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
         new_opc  = opc_parts + [opc_name]
         new_area = new_opc if ntype == 'area' else area_opc_parts
 
+        # FIXED: plant_key uses logical site name (no "Factory" prefix) to match sim_state.json
         new_plant_key = plant_key
         if ntype == 'site':
             bu_name       = opc_parts[-1] if opc_parts else ''
-            new_plant_key = f"{bu_name}|{opc_name}"
+            site_logical  = name
+            new_plant_key = f"{bu_name}|{site_logical}"
 
         tags = node.get('tags', [])
         if not tags and name in canonical and ntype in ('workCenter', 'area', 'workUnit'):
@@ -833,12 +729,15 @@ async def main():
 
     idx            = server.register_namespace(NAMESPACE_URI)
     objects        = server.get_objects_node()
-    enterprise_obj = objects.add_object(idx, "GlobalFoodCo")
+
+    # DYNAMIC ROOT NAME — this was the main bug that broke custom namespace roots
+    enterprise_name = _get_enterprise_name()
+    enterprise_obj  = objects.add_object(idx, enterprise_name)
 
     variables, anomaly_key_map = _create_dynamic_address_space(server, idx, enterprise_obj)
 
     server.start()
-    print(f"[factory] OPC UA Server started on {SERVER_ENDPOINT}")
+    print(f"[factory] OPC UA Server started on {SERVER_ENDPOINT} (root: {enterprise_name})")
     await asyncio.sleep(1.5)
 
     asyncio.create_task(run_simulation(variables, anomaly_key_map))
@@ -846,7 +745,7 @@ async def main():
     print("=" * 70)
     print("    UNS Design Studio  |  github.com/Ilja0101")
     print(f"    Endpoint  : {SERVER_ENDPOINT}")
-    print(f"    Profiles  : {len(SIMULATION_PROFILES)} available")
+    print(f"    Root      : {enterprise_name}")
     print("=" * 70)
 
     try:

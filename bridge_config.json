@@ -5,7 +5,7 @@
   "broker_host": "127.0.0.1",
   "broker_port": 1883,
   "topic_prefix": "",
-  "interval": 2,
+  "interval": 5,
   "username": "",
   "password": ""
 }

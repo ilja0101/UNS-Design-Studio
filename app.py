@@ -45,7 +45,12 @@ _ENTERPRISE_FALLBACK = {
 }
 
 def _get_enterprise_structure() -> dict:
-    """Return {businessUnitName: [FactorySiteName, …]} from uns_config.json."""
+    """Return {businessUnitName: [siteName, …]} from uns_config.json.
+    
+    NOTE: Site names are used as-is (no 'Factory' prefix). This ensures
+    plant_key = f"{group}|{plant}" matches sim_state.json keys correctly,
+    and respects the actual naming in imported templates.
+    """
     try:
         with open(UNS_CONFIG_FILE) as f:
             cfg = json.load(f)
@@ -53,7 +58,7 @@ def _get_enterprise_structure() -> dict:
         for bu in cfg.get('tree', {}).get('children', []):
             if bu.get('type') == 'businessUnit':
                 plants = [
-                    'Factory' + s['name']
+                    s['name']  # Use actual site name, no prefix
                     for s in bu.get('children', [])
                     if s.get('type') == 'site'
                 ]
@@ -70,26 +75,117 @@ def _get_namespace_uri() -> str:
     except Exception:
         return NAMESPACE_URI
 
-DIVISION_META = {
-    "CrispCraft":  {"label": "Chips & Snacks",    "icon": "🥔", "color": "#f4900c"},
-    "FlakeMill":    {"label": "Potato Flakes",      "icon": "🌾", "color": "#c8a96e"},
-    "FrostLine":      {"label": "Frozen Frites",      "icon": "🍟", "color": "#f5c518"},
-    "RootCore":   {"label": "Chicory & Inulin",   "icon": "🌿", "color": "#4caf50"},
-    "SugarWorks":  {"label": "Sugar Beet",         "icon": "🍬", "color": "#a371f7"},
-}
+# ── DYNAMIC ENTERPRISE NAME (FIXED) ───────────────────────────────────────────
+def _get_enterprise_name() -> str:
+    """Return the root enterprise name from uns_config.json.
+    This is the critical fix that makes any custom namespace root (AcmeEnterprise, MyCompany, etc.)
+    work with the dashboard, polling loop, and OPC-UA client."""
+    try:
+        with open(UNS_CONFIG_FILE, encoding='utf-8') as f:
+            cfg = json.load(f)
+        return cfg.get('tree', {}).get('name', 'GlobalFoodCo')
+    except Exception:
+        return 'GlobalFoodCo'
 
-# var_key values (lowercase) → these get .capitalize() applied when building anomaly keys
-EQUIPMENT_OPTIONS = {
-    "CrispCraft":  {"Cutter Speed": "cutter_speed", "Blancher Temp": "blancher_temperature",
-                       "Fryer Temp": "fryer_temperature", "Cooler Temp": "freezer_temperature"},
-    "FlakeMill":    {"Drum Speed": "drum_speed", "Drum Temp": "drum_temperature"},
-    "FrostLine":      {"Cutter Speed": "cutter_speed", "Blancher Temp": "blancher_temperature",
-                       "Pre-Fryer Temp": "fryer_temperature", "IQF Tunnel Temp": "freezer_temperature"},
-    "RootCore":   {"Extraction Temp": "extraction_temperature"},
-    "SugarWorks":  {"Diffusion Temp": "diffusion_temperature",
-                       "Evaporator Temp": "evaporator_temperature",
-                       "Crystallizer Temp": "crystallizer_temperature"},
-}
+def _get_site_recipes(site_node: dict) -> list:
+    """Return the recipe definitions stored directly on a site node.
+    Recipes are defined in uns_config.json as site.recipes = [{name, params}, ...]
+    and edited via the Recipes tab in the UNS designer."""
+    raw = site_node.get('recipes', [])
+    return [
+        r if isinstance(r, dict) else {'name': str(r), 'params': {}}
+        for r in raw
+    ]
+
+def _ensure_sim_state_synced():
+    """Ensure sim_state.json has all plants from current uns_config.json.
+    FIXED: Now ALWAYS refreshes the 'recipes' list for every plant when the UNS Designer saves changes.
+    This solves the "recipes added in designer are not persisted / not selectable" issue."""
+    try:
+        with open(UNS_CONFIG_FILE) as f:
+            cfg = json.load(f)
+    except Exception:
+        return  # Can't sync without config
+    
+    try:
+        with open(SIM_STATE_FILE) as f:
+            sim_state = json.load(f)
+    except Exception:
+        sim_state = {'plants': {}, 'simulator_running': False}
+    
+    if 'plants' not in sim_state:
+        sim_state['plants'] = {}
+    
+    # Walk the current enterprise structure and ensure all plants exist + refresh recipes
+    for bu in cfg.get('tree', {}).get('children', []):
+        if bu.get('type') != 'businessUnit':
+            continue
+        
+        bu_name = bu.get('name')
+        
+        for site in bu.get('children', []):
+            if site.get('type') != 'site':
+                continue
+            
+            site_name = site.get('name')
+            plant_key = f"{bu_name}|{site_name}"
+            
+            # Recipes come from site.recipes in uns_config.json (set via UNS designer Recipes tab)
+            recipes = _get_site_recipes(site)
+            
+            if plant_key not in sim_state['plants']:
+                sim_state['plants'][plant_key] = {
+                    'running': False,
+                    'recipe': recipes[0]['name'] if recipes else '--NA--',
+                    'recipes': recipes,
+                }
+            else:
+                # Plant exists — make sure it has the latest recipes list
+                plant_state = sim_state['plants'][plant_key]
+                if 'recipes' not in plant_state or plant_state['recipes'] != recipes:
+                    plant_state['recipes'] = recipes
+                if 'recipe' not in plant_state or not any(r.get('name') == plant_state.get('recipe') for r in recipes):
+                    plant_state['recipe'] = recipes[0]['name'] if recipes else '--NA--'
+    
+    # Remove plants that no longer exist in enterprise structure
+    current_enterprise_keys = set()
+    for bu in cfg.get('tree', {}).get('children', []):
+        if bu.get('type') == 'businessUnit':
+            for site in bu.get('children', []):
+                if site.get('type') == 'site':
+                    current_enterprise_keys.add(f"{bu['name']}|{site['name']}")
+    
+    plants_to_remove = [k for k in sim_state['plants'].keys() if k not in current_enterprise_keys]
+    for k in plants_to_remove:
+        del sim_state['plants'][k]
+    
+    # Save updated sim_state
+    try:
+        with open(SIM_STATE_FILE, 'w') as f:
+            json.dump(sim_state, f, indent=2)
+    except Exception as e:
+        print(f"Warning: Could not write sim_state.json: {e}")
+
+def _get_division_meta() -> dict:
+    """Return {buName: {color, icon, label}} from uns_config.json BU nodes.
+    Falls back to generic defaults for any group not found."""
+    _DEFAULT = {'color': '#58a6ff', 'icon': '🏭', 'label': ''}
+    result = {}
+    try:
+        with open(UNS_CONFIG_FILE, encoding='utf-8') as f:
+            cfg = json.load(f)
+        for bu in cfg.get('tree', {}).get('children', []):
+            if bu.get('type') == 'businessUnit':
+                name = bu.get('name', '')
+                result[name] = {
+                    'color': bu.get('color', _DEFAULT['color']),
+                    'icon':  bu.get('icon',  _DEFAULT['icon']),
+                    'label': bu.get('description', bu.get('label', '')),
+                }
+    except Exception:
+        pass
+    return result
+
 
 NAMESPACE_URI = "http://VirtualUNS.com/uns"
 
@@ -117,8 +213,19 @@ _locks = {
     'bridge': threading.Lock(),
 }
 
-# ── Helper functions ───────────────────────────────────────────────────────────
+def _start_periodic_sync(interval: int = 10):
+    """Start a background thread that periodically calls _ensure_sim_state_synced()."""
+    def _worker():
+        while True:
+            try:
+                _ensure_sim_state_synced()
+            except Exception:
+                pass
+            time.sleep(interval)
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
 
+# ── Helper functions ───────────────────────────────────────────────────────────
 def _endpoint():
     return f"opc.tcp://{_state['opc_host']}:{_state['opc_port']}/freeopcua/server/"
 
@@ -172,12 +279,94 @@ def _num(value, digits=1, default=0.0):
     except Exception:
         return default
 
+# ── Dashboard metric path discovery ──────────────────────────────────────────
+# Maps simulation profile → dashboard field name
+_DASH_PROFILES = {
+    'oee':              'oee',
+    'power_kw':         'power',
+    'accumulator_good': 'good_tons',
+    'inbound_tons':     'trucks_recv',
+}
+_metric_path_cache: dict = {}
+_metric_path_cache_ts: float = 0.0
+
+def _find_dashboard_metric_paths(group: str, plant: str) -> dict:
+    """Return {field: [opc_path_from_enterprise_root]} for each dashboard metric.
+    Scans uns_config.json once per cache TTL (30s).  Uses same OPC naming as
+    factory.py — site nodes get a 'Factory' prefix."""
+    global _metric_path_cache, _metric_path_cache_ts
+    cache_key = f"{group}|{plant}"
+    now = time.time()
+    if now - _metric_path_cache_ts > 30:
+        _metric_path_cache = {}
+        _metric_path_cache_ts = now
+    if cache_key in _metric_path_cache:
+        return _metric_path_cache[cache_key]
+
+    result = {}
+    found  = set()
+    try:
+        with open(UNS_CONFIG_FILE, encoding='utf-8') as f:
+            cfg = json.load(f)
+    except Exception:
+        _metric_path_cache[cache_key] = result
+        return result
+
+    def _walk(node, opc_parts, area_opc_parts):
+        if len(found) == len(_DASH_PROFILES):
+            return
+        ntype    = node.get('type', '')
+        name     = node.get('name', '')
+        opc_name = ('Factory' + name) if ntype == 'site' else name
+        new_opc  = opc_parts + [opc_name]
+        new_area = new_opc if ntype == 'area' else area_opc_parts
+        for tag in node.get('tags', []):
+            sim     = tag.get('simulation', {})
+            profile = (sim.get('profile', '') if isinstance(sim, dict) else '').lower()
+            if profile in _DASH_PROFILES and profile not in found:
+                t_opc = tag.get('opcNodeName', tag.get('name', ''))
+                if 'opcPath' in tag:
+                    path = new_area + tag['opcPath'].split('/')
+                else:
+                    path = new_opc + [t_opc]
+                result[_DASH_PROFILES[profile]] = path
+                found.add(profile)
+        for child in node.get('children', []):
+            _walk(child, new_opc, new_area)
+
+    for bu in cfg.get('tree', {}).get('children', []):
+        if bu.get('name') == group:
+            for site in bu.get('children', []):
+                if site.get('name') == plant:
+                    _walk(site, [group], [])
+            break
+
+    _metric_path_cache[cache_key] = result
+    return result
+
+
 def _collect_plant_data(ent, idx):
+    """Collect plant data.
+    • Running/recipe state — authoritative from sim_state.json
+    • Metrics (OEE, power, etc.) — dynamically resolved via uns_config.json profiles,
+      navigated from OPC.  Fails gracefully to 0.0 for any missing node.
+    """
     try:
         with open(SIM_STATE_FILE) as f:
             sim_state = json.load(f)
     except Exception:
         sim_state = {'plants': {}}
+
+    def _read_path(path):
+        """Read an OPC value given a path list starting from enterprise root."""
+        try:
+            node = ent
+            for part in path:
+                node = node.get_child([f"{idx}:{part}"])
+            val = node.get_value()
+            return float(val) if val is not None else 0.0
+        except Exception:
+            return 0.0
 
     plants = {}
     for group, plant_names in _get_enterprise_structure().items():
@@ -187,16 +376,9 @@ def _collect_plant_data(ent, idx):
             continue
 
         for plant in plant_names:
-            try:
-                site = group_node.get_child([f"{idx}:{plant}"])
-                line = site.get_child([f"{idx}:ProductionLine"])
-            except Exception:
-                continue
-
             plant_key = f"{group}|{plant}"
             plant_val = sim_state.get('plants', {}).get(plant_key, False)
 
-            # Support both old bool format and new dict format
             if isinstance(plant_val, dict):
                 process_state = bool(plant_val.get('running', False))
                 recipe        = plant_val.get('recipe', '--NA--') or '--NA--'
@@ -204,21 +386,39 @@ def _collect_plant_data(ent, idx):
                 process_state = bool(plant_val)
                 recipe        = '--NA--'
 
-            maint_status = str(_read_opc(line, [f"{idx}:Maintenance", f"{idx}:FabriekStatus"], ''))
-            if not maint_status:
-                maint_status = 'Running' if process_state else 'Stopped'
+            # Verify site node exists (try Factory{plant} first — factory.py convention,
+            # then fall back to bare plant name for any future convention changes)
+            site_exists = False
+            for site_name in (f"Factory{plant}", plant):
+                try:
+                    group_node.get_child([f"{idx}:{site_name}"])
+                    site_exists = True
+                    break
+                except Exception:
+                    pass
 
+            if not site_exists:
+                # Site not in OPC tree yet (server still starting) — use sim_state only
+                plants[plant_key] = {
+                    'group': group, 'plant': plant,
+                    'process_state': process_state, 'recipe': recipe,
+                    'maint_status': 'Running' if process_state else 'Stopped',
+                    'oee': 0.0, 'power': 0.0, 'good_tons': 0.0, 'trucks_recv': 0.0,
+                }
+                continue
+
+            # Discover metric OPC paths from uns_config and read live values
+            metric_paths = _find_dashboard_metric_paths(group, plant)
             plants[plant_key] = {
                 'group':         group,
                 'plant':         plant,
                 'process_state': process_state,
                 'recipe':        recipe,
-                'maint_status':  maint_status,
-                'oee':        _num(_read_opc(line, [f"{idx}:OEE", f"{idx}:OEEPercent"], 0.0)),
-                'power':      _num(_read_opc(line, [f"{idx}:Energy", f"{idx}:HuidigVermogenkW"], 0.0)),
-                'good_tons':  _num(_read_opc(line, [f"{idx}:Production", f"{idx}:GoodCountTons"], 0.0)),
-                'trucks_recv':_num(_read_opc(line, [f"{idx}:Logistics", f"{idx}:InkomendWeegbrug",
-                                                    f"{idx}:CumulatiefOntvangenTons"], 0.0)),
+                'maint_status':  'Running' if process_state else 'Stopped',
+                'oee':        _num(_read_path(metric_paths.get('oee',        []))),
+                'power':      _num(_read_path(metric_paths.get('power',      []))),
+                'good_tons':  _num(_read_path(metric_paths.get('good_tons',  []))),
+                'trucks_recv':_num(_read_path(metric_paths.get('trucks_recv', []))),
             }
     return plants
 
@@ -284,7 +484,6 @@ def _write_sim_state(data: dict):
         current['plants'] = {}
 
     if 'plants' in data:
-        # Deep merge plant entries
         for k, v in data['plants'].items():
             if k in current['plants'] and isinstance(current['plants'][k], dict) and isinstance(v, dict):
                 current['plants'][k].update(v)
@@ -314,7 +513,6 @@ def _server_alive() -> bool:
         return p is not None and p.poll() is None
 
 # ── Server process management ──────────────────────────────────────────────────
-
 def _capture_output(proc):
     try:
         for line in iter(proc.stdout.readline, ''):
@@ -342,10 +540,8 @@ def start_factory_server():
             _state['server_proc'] = proc
             threading.Thread(target=_capture_output, args=(proc,), daemon=True).start()
 
-            # Give the process a short moment to fail fast if something is wrong
             time.sleep(0.8)
             if proc.poll() is not None:
-                # Process exited quickly — attempt to capture any available output
                 try:
                     remaining = proc.stdout.read() or ''
                 except Exception:
@@ -374,54 +570,49 @@ def stop_factory_server():
         return True, "Server stopped"
 
 # ── OPC UA node-cache polling ──────────────────────────────────────────────────
-
 def _poll_loop():
-    """Robust polling for dynamic factory.py structure
-
-    Improves resilience: wait for the server namespace to appear after connect
-    before declaring the connection usable. This avoids race conditions when
-    factory.py starts and the dynamic address space isn't yet ready.
-    """
+    """Robust polling for dynamic factory.py structure.
+    FIXED: Fully dynamic enterprise name from uns_config.json.
+    This solves the root namespace change breaking the simulator/dashboard."""
     from opcua import Client
     last_endpoint = None
+    last_enterprise = None
 
     while True:
         current_endpoint = _endpoint()
-        if current_endpoint != last_endpoint:
+        current_enterprise = _get_enterprise_name()
+
+        if current_endpoint != last_endpoint or current_enterprise != last_enterprise:
             last_endpoint = current_endpoint
-            _log(f"[poll] Endpoint changed → {current_endpoint}")
+            last_enterprise = current_enterprise
+            _log(f"[poll] Endpoint or enterprise changed → {current_endpoint} | Root: {current_enterprise}")
 
         try:
             client = Client(current_endpoint)
             client.connect()
 
-                    # Wait briefly for the server to finish registering namespaces / nodes.
             ns_idx = None
             ent = None
             for attempt in range(12):
                 try:
                     ns_idx = client.get_namespace_index(NAMESPACE_URI)
                 except Exception as e:
-                    # Namespace may not be registered yet; retry
                     if "BadNoMatch" in str(e):
                         time.sleep(0.5)
                         continue
                     raise
 
-                # If we got a namespace index, also verify the expected root object exists
                 try:
                     root = client.get_root_node()
-                    ent = root.get_child(["0:Objects", f"{ns_idx}:GlobalFoodCo"])
+                    ent = root.get_child(["0:Objects", f"{ns_idx}:{current_enterprise}"])
                     break
                 except Exception:
-                    # Node not ready yet — wait and retry
                     time.sleep(0.5)
                     continue
 
             if ent is None:
-                # Namespace or expected node not ready yet — treat as transient and retry
                 _state['opc_connected'] = False
-                _log("[poll] OPC UA available but namespace/objects not ready yet; retrying")
+                _log(f"[poll] OPC UA available but root node '{current_enterprise}' not ready yet")
                 try:
                     client.disconnect()
                 except Exception:
@@ -429,9 +620,8 @@ def _poll_loop():
                 time.sleep(1)
                 continue
 
-            # Namespace and GlobalFoodCo object found → consider connection healthy
             _state['opc_connected'] = True
-            _log("[poll] Successfully connected to OPC UA server")
+            _log(f"[poll] Successfully connected to OPC UA server — Enterprise: {current_enterprise}")
 
             with _locks['data']:
                 _state['plant_data'] = _collect_plant_data(ent, ns_idx)
@@ -441,8 +631,6 @@ def _poll_loop():
                     with _locks['data']:
                         _state['plant_data'] = _collect_plant_data(ent, ns_idx)
                 except Exception as e:
-                    # Node structure may have changed (e.g., factory restart with UNS edits)
-                    # Force reconnect by breaking out of polling loop
                     _log(f"[poll] Data collection error (triggering reconnect): {e}")
                     _state['opc_connected'] = False
                     break
@@ -459,70 +647,25 @@ def _poll_loop():
             if "10061" in err_str or "ConnectionRefused" in err_str or "Connection refused" in err_str:
                 _log("[poll] OPC UA unavailable: Connection refused - Is the factory server running?")
             elif "BadNoMatch" in err_str:
-                _log("[poll] OPC UA unavailable: BadNoMatch - Node structure mismatch (normal with dynamic server)")
+                _log(f"[poll] OPC UA unavailable: BadNoMatch (root node '{current_enterprise}' not found)")
             else:
                 _log(f"[poll] OPC UA unavailable: {type(e).__name__} - {err_str}")
             time.sleep(4)
+
 threading.Thread(target=_poll_loop, daemon=True, name="opc-poll").start()
 
 # ── OPC UA write helper (one-shot client per command) ─────────────────────────
-
-# Diagnostic: test OPC UA connection and return namespace / root children
-@app.route('/api/opc/test')
-def api_opc_test():
-    from opcua import Client
-    try:
-        client = Client(_endpoint())
-        if hasattr(client, 'set_timeout'):
-            client.set_timeout(3)
-        client.connect()
-        try:
-            ns_array = client.get_namespace_array()
-        except Exception:
-            ns_array = None
-        try:
-            idx = client.get_namespace_index(NAMESPACE_URI)
-        except Exception as e:
-            idx = None
-            idx_err = repr(e)
-        else:
-            idx_err = None
-        try:
-            root = client.get_root_node()
-            children = [str(n) for n in root.get_children()[:20]]
-        except Exception:
-            children = []
-        client.disconnect()
-        return jsonify({'ok': True, 'endpoint': _endpoint(), 'namespace_array': ns_array, 'namespace_index': idx, 'namespace_error': idx_err, 'root_children_sample': children})
-    except Exception as e:
-        return jsonify({'ok': False, 'endpoint': _endpoint(), 'error': repr(e)})
-
-
-def _start_all_plants(idx, ent):
-    """Set ProcessState=True for every known plant. Called after restarts."""
-    for group, plants in _get_enterprise_structure().items():
-        try:
-            site = ent.get_child([f"{idx}:{group}"])
-        except Exception:
-            continue
-        for plant in plants:
-            try:
-                pc = (site.get_child([f"{idx}:{plant}"])
-                          .get_child([f"{idx}:ProductionLine"])
-                          .get_child([f"{idx}:ProcessControl"]))
-                pc.get_child([f"{idx}:ProcessState"]).set_value(True)
-            except Exception:
-                pass
-
 def _opc_write(fn):
-    """Connect, call fn(client, idx, enterprise), disconnect. Returns (ok, msg)."""
+    """Connect, call fn(client, idx, enterprise), disconnect. Returns (ok, msg).
+    Enterprise name is read dynamically from uns_config.json tree root."""
     from opcua import Client
     try:
+        enterprise_name = _get_enterprise_name()
         client = Client(_endpoint())
         client.connect()
         idx  = client.get_namespace_index(NAMESPACE_URI)
         root = client.get_root_node()
-        ent  = root.get_child(["0:Objects", f"{idx}:GlobalFoodCo"])
+        ent  = root.get_child(["0:Objects", f"{idx}:{enterprise_name}"])
         result = fn(client, idx, ent)
         client.disconnect()
         return True, result or "OK"
@@ -530,28 +673,15 @@ def _opc_write(fn):
         return False, str(e)
 
 # ── Plant tag introspection (for dynamic anomaly UI) ─────────────────────────
-
 def _get_plant_tags(group: str, plant: str) -> list:
-    """
-    Return [{name, anomalyKey, dataType, unit, workCenter}] for every tag
-    defined under <group>/<plant> in uns_config.json.
-
-    anomalyKey matches exactly what factory.py stores in anomaly_key_map:
-        "".join(target_opc_parts)
-    where target_opc_parts follows the same rules as _create_dynamic_address_space.
-    """
     try:
         with open(UNS_CONFIG_FILE) as f:
             cfg = json.load(f)
     except Exception:
         return []
-
     tree     = cfg.get('tree', {})
-    # plant is "FactoryAntwerp" → site name is "Antwerp"
     site_name = plant[len('Factory'):] if plant.startswith('Factory') else plant
-
     results = []
-
     def _walk(node, opc_parts, area_opc_parts, wc_label):
         ntype    = node.get('type', '')
         name     = node.get('name', '')
@@ -559,16 +689,14 @@ def _get_plant_tags(group: str, plant: str) -> list:
         new_opc  = opc_parts + [opc_name]
         new_area = new_opc if ntype == 'area' else area_opc_parts
         new_wc   = name    if ntype == 'workCenter' else wc_label
-
         for tag in node.get('tags', []):
             t_name     = tag['name']
             t_opc_name = tag.get('opcNodeName', t_name)
             if 'opcPath' in tag:
-                rel        = tag['opcPath'].split('/')
+                rel     = tag['opcPath'].split('/')
                 target_opc = list(new_area) + rel
             else:
                 target_opc = new_opc + [t_opc_name]
-
             results.append({
                 'name':        t_name,
                 'anomalyKey':  ''.join(target_opc),
@@ -577,33 +705,25 @@ def _get_plant_tags(group: str, plant: str) -> list:
                 'workCenter':  new_wc,
                 'access':      tag.get('access', 'R'),
             })
-
         for child in node.get('children', []):
             _walk(child, new_opc, new_area, new_wc)
-
-    # Walk only the target business-unit → target site subtree, using the same
-    # starting opc_parts as factory.py (bu name first, then site adds Factory prefix).
     for bu in tree.get('children', []):
         if bu.get('name') == group:
             for site in bu.get('children', []):
                 if site.get('name') == site_name:
                     _walk(site, [group], [], '')
             break
-
     return results
 
-
 # ── Flask routes ───────────────────────────────────────────────────────────────
-
 @app.route('/')
 def index():
     return render_template(
         'index.html',
         structure=_get_enterprise_structure(),
-        division_meta=DIVISION_META,
+        division_meta=_get_division_meta(),
     )
 
-# ─ Status ─────────────────────────────────────────────────────────────────────
 @app.route('/api/status')
 def api_status():
     with _locks['data']:
@@ -614,13 +734,7 @@ def api_status():
     cfg.pop('password', None)
     struct = _get_enterprise_structure()
     struct_hash = hashlib.md5(json.dumps(struct, sort_keys=True).encode()).hexdigest()[:8]
-    # Read enterprise name dynamically from uns_config.json tree root
-    try:
-        with open(UNS_CONFIG_FILE) as f:
-            uns = json.load(f)
-        enterprise_name = uns.get('tree', {}).get('name', 'Enterprise')
-    except Exception:
-        enterprise_name = 'Enterprise'
+    enterprise_name = _get_enterprise_name()
     return jsonify(dict(
         server_running=_server_alive(),
         opc_connected=_state['opc_connected'],
@@ -635,14 +749,12 @@ def api_status():
         ts=time.time(),
     ))
 
-# ─ Server logs ────────────────────────────────────────────────────────────────
 @app.route('/api/logs')
 def api_logs():
     with _locks['logs']:
         logs = list(_state['server_logs'][-150:])
     return jsonify({'logs': logs})
 
-# ─ Server process ─────────────────────────────────────────────────────────────
 @app.route('/api/server/start', methods=['POST'])
 def api_server_start():
     ok, msg = start_factory_server()
@@ -653,7 +765,6 @@ def api_server_stop():
     ok, msg = stop_factory_server()
     return jsonify({'ok': ok, 'msg': msg})
 
-# ─ Connection config (legacy — kept for backwards compatibility) ──────────────
 @app.route('/api/config', methods=['POST'])
 def api_config():
     data = request.json or {}
@@ -663,7 +774,6 @@ def api_config():
         _state['opc_port'] = int(data['port'])
     return jsonify({'ok': True, 'host': _state['opc_host'], 'port': _state['opc_port']})
 
-# ─ Server / network config ────────────────────────────────────────────────────
 @app.route('/api/server-config', methods=['GET'])
 def api_server_config_get():
     cfg = _load_server_cfg()
@@ -685,48 +795,24 @@ def api_server_config_save():
         if key in data:
             cfg[key] = int(data[key])
     _save_server_cfg(cfg)
-    # Apply OPC-UA client settings live so the poll loop reconnects
     _state['opc_host'] = cfg.get('opc_client_host', _state['opc_host'])
     _state['opc_port'] = int(cfg.get('opc_port',    _state['opc_port']))
     _state['tcp_port'] = int(cfg.get('tcp_port',    _state['tcp_port']))
     return jsonify({'ok': True})
 
-# ─ Bulk plant control ──────────────────────────────────────────────────────────
 @app.route('/api/plants/start-all', methods=['POST'])
 def api_start_all():
+    # sim_state.json is the authoritative control source — no OPC writes needed
     _write_sim_state(_sim_state_plants(True))
-    _write_sim_state({'simulator_running': True})  # Global simulator state
-    def fn(_, idx, ent):
-        _start_all_plants(idx, ent)
-        return "Started all plants"
-    ok, msg = _opc_write(fn)
-    return jsonify({'ok': ok, 'msg': msg})
+    _write_sim_state({'simulator_running': True})
+    return jsonify({'ok': True, 'msg': 'All plants started'})
 
 @app.route('/api/plants/stop-all', methods=['POST'])
 def api_stop_all():
     _write_sim_state(_sim_state_plants(False))
-    _write_sim_state({'simulator_running': False})  # Global simulator state
-    def fn(_, idx, ent):
-        results = []
-        for group, plants in _get_enterprise_structure().items():
-            try:
-                site = ent.get_child([f"{idx}:{group}"])
-            except Exception:
-                continue
-            for plant in plants:
-                try:
-                    pc = (site.get_child([f"{idx}:{plant}"])
-                              .get_child([f"{idx}:ProductionLine"])
-                              .get_child([f"{idx}:ProcessControl"]))
-                    pc.get_child([f"{idx}:ProcessState"]).set_value(False)
-                    results.append(f"✓ {plant}")
-                except Exception as e:
-                    results.append(f"✗ {plant}: {e}")
-        return "; ".join(results)
-    ok, msg = _opc_write(fn)
-    return jsonify({'ok': ok, 'msg': msg})
+    _write_sim_state({'simulator_running': False})
+    return jsonify({'ok': True, 'msg': 'All plants stopped'})
 
-# ─ Individual plant control ───────────────────────────────────────────────────
 @app.route('/api/plant/control', methods=['POST'])
 def api_plant_control():
     data   = request.json or {}
@@ -734,18 +820,14 @@ def api_plant_control():
     plant  = data['plant']
     action = data['action']
     value  = data['value']
-
     if action == 'set_state':
         plant_key = f"{group}|{plant}"
         _write_sim_state({plant_key: {'running': bool(value)}})
-
-        # Update global simulator running flag
         try:
             with open(SIM_STATE_FILE) as f:
                 current_plants = json.load(f).get('plants', {})
         except Exception:
             current_plants = {}
-
         if bool(value):
             _write_sim_state({'simulator_running': True})
         else:
@@ -754,80 +836,88 @@ def api_plant_control():
                 for k, v in current_plants.items() if k != plant_key
             )
             _write_sim_state({'simulator_running': any_running})
-
     elif action == 'set_recipe':
         plant_key = f"{group}|{plant}"
-        # Write recipe to sim_state.json — factory.py picks it up on next tick
         _write_sim_state({plant_key: {'recipe': str(value)}})
-        return jsonify({'ok': True, 'msg': f'Recipe set to {value}'})
 
-    def fn(_, idx, ent):
-        try:
-            pc = (ent.get_child([f"{idx}:{group}"])
-                     .get_child([f"{idx}:{plant}"])
-                     .get_child([f"{idx}:ProductionLine"])
-                     .get_child([f"{idx}:ProcessControl"]))
-            if action == 'set_state':
-                pc.get_child([f"{idx}:ProcessState"]).set_value(bool(value))
-        except Exception:
-            pass
+    return jsonify({'ok': True, 'msg': f'{action} applied'})
 
-    ok, msg = _opc_write(fn)
-    return jsonify({'ok': ok, 'msg': msg})
-
-# ─ Recipes ────────────────────────────────────────────────────────────────────
 @app.route('/api/recipes/<group>/<plant>')
 def api_recipes(group, plant):
-    """Return recipe list for a specific plant from sim_state.json."""
+    """Return available recipes (from uns_config.json site node) and active recipe (from sim_state.json)."""
     plant_key = f"{group}|{plant}"
+
+    # Recipe definitions come from uns_config.json site.recipes
+    recipes = []
+    try:
+        with open(UNS_CONFIG_FILE, encoding='utf-8') as f:
+            cfg = json.load(f)
+        for bu in cfg.get('tree', {}).get('children', []):
+            if bu.get('name') == group:
+                for site in bu.get('children', []):
+                    if site.get('name') == plant and site.get('type') == 'site':
+                        recipes = [
+                            r['name'] if isinstance(r, dict) else str(r)
+                            for r in site.get('recipes', [])
+                        ]
+                        break
+                break
+    except Exception:
+        pass
+
+    # Active selection comes from sim_state.json
+    active = ''
     try:
         with open(SIM_STATE_FILE) as f:
-            sim_state = json.load(f)
-        plant_val = sim_state.get('plants', {}).get(plant_key, {})
-        if isinstance(plant_val, dict):
-            recipes     = [r['name'] for r in plant_val.get('recipes', []) if isinstance(r, dict)]
-            active      = plant_val.get('recipe', '')
-        else:
-            recipes, active = [], ''
+            plant_val = json.load(f).get('plants', {}).get(plant_key, {})
+        active = plant_val.get('recipe', '') if isinstance(plant_val, dict) else ''
     except Exception:
-        recipes, active = [], ''
-    return jsonify({'recipes': recipes, 'active': active})
+        pass
 
-@app.route('/api/recipes/<group>/<plant>', methods=['POST'])
-def api_recipes_save(group, plant):
-    """Save the recipe list for a plant to sim_state.json."""
-    data      = request.json or {}
-    plant_key = f"{group}|{plant}"
-    recipes   = data.get('recipes', [])   # list of {name, params} dicts
-    _write_sim_state({plant_key: {'recipes': recipes}})
-    return jsonify({'ok': True})
+    return jsonify({'recipes': recipes, 'active': active})
 
 @app.route('/api/equipment/<group>')
 def api_equipment(group):
-    return jsonify({'equipment': EQUIPMENT_OPTIONS.get(group, {})})
+    # Equipment options are now dynamically built from plant tags in uns_config.json
+    # Return tags that are writable (access=RW) for the given group as equipment options
+    result = {}
+    try:
+        with open(UNS_CONFIG_FILE, encoding='utf-8') as f:
+            cfg = json.load(f)
+        for bu in cfg.get('tree', {}).get('children', []):
+            if bu.get('name') == group:
+                for site in bu.get('children', []):
+                    if site.get('type') == 'site':
+                        def _collect(node):
+                            for tag in node.get('tags', []):
+                                if str(tag.get('access', 'R')).upper() == 'RW':
+                                    result[tag.get('name', '')] = tag.get('name', '').lower().replace(' ', '_').replace('-', '_')
+                            for child in node.get('children', []):
+                                _collect(child)
+                        _collect(site)
+                        break  # first site is representative
+                break
+    except Exception:
+        pass
+    return jsonify({'equipment': result})
 
 @app.route('/api/plant/tags/<group>/<plant>')
 def api_plant_tags(group, plant):
-    """Return all UNS tags for a plant with their anomaly keys (for dynamic anomaly UI)."""
     tags = _get_plant_tags(group, plant)
     return jsonify({'tags': tags})
 
-# ─ Anomaly injection ──────────────────────────────────────────────────────────
 @app.route('/api/anomaly/inject', methods=['POST'])
 def api_anomaly():
     data      = request.json or {}
     overrides = data.get('overrides', {})
     duration  = float(data.get('duration', 30))
-
     if not overrides:
         return jsonify({'ok': False, 'msg': 'No overrides specified'})
-
     def _run():
         _send_anomaly(overrides)
         if duration > 0:
             time.sleep(duration)
             _send_anomaly({k: None for k in overrides})
-
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({'ok': True, 'tags': len(overrides), 'duration': duration})
 
@@ -835,24 +925,20 @@ def api_anomaly():
 BRIDGE_CONFIG_FILE = os.path.join(BASE_DIR, 'bridge_config.json')
 BRIDGE_PY          = os.path.join(BASE_DIR, 'bridge.py')
 
-
 def _load_bridge_cfg() -> dict:
     if os.path.exists(BRIDGE_CONFIG_FILE):
         with open(BRIDGE_CONFIG_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
     return {}
 
-
 def _save_bridge_cfg(data: dict):
     with open(BRIDGE_CONFIG_FILE, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
-
 
 def _bridge_alive() -> bool:
     with _locks['bridge']:
         p = _state['bridge_proc']
         return p is not None and p.poll() is None
-
 
 def _capture_bridge_output(proc):
     try:
@@ -872,14 +958,12 @@ def _capture_bridge_output(proc):
     except Exception:
         pass
 
-
 def start_bridge():
     with _locks['bridge']:
         if _state['bridge_proc'] and _state['bridge_proc'].poll() is None:
             return False, "Bridge is already running"
         if not os.path.exists(BRIDGE_PY):
             return False, f"bridge.py not found at {BRIDGE_PY}"
-        # Inject current OPC host/port into bridge config before starting
         try:
             cfg = _load_bridge_cfg()
             cfg['opc_host'] = _state['opc_host']
@@ -901,7 +985,6 @@ def start_bridge():
         except Exception as e:
             return False, str(e)
 
-
 def stop_bridge():
     with _locks['bridge']:
         proc = _state['bridge_proc']
@@ -920,26 +1003,21 @@ def stop_bridge():
             })
         return True, "Bridge stopped"
 
-
-# Bridge routes
 @app.route('/api/bridge/start', methods=['POST'])
 def api_bridge_start():
     ok, msg = start_bridge()
     return jsonify({'ok': ok, 'msg': msg})
-
 
 @app.route('/api/bridge/stop', methods=['POST'])
 def api_bridge_stop():
     ok, msg = stop_bridge()
     return jsonify({'ok': ok, 'msg': msg})
 
-
 @app.route('/api/bridge/config', methods=['GET'])
 def api_bridge_cfg_get():
     cfg = _load_bridge_cfg()
-    cfg.pop('password', None)   # never send password back to browser
+    cfg.pop('password', None)
     return jsonify(cfg)
-
 
 @app.route('/api/bridge/config', methods=['POST'])
 def api_bridge_cfg_save():
@@ -950,13 +1028,11 @@ def api_bridge_cfg_save():
         if key in data:
             cfg[key] = data[key]
     _save_bridge_cfg(cfg)
-    # If bridge is running, restart it so new config takes effect
     if _bridge_alive():
         stop_bridge()
         ok, msg = start_bridge()
         return jsonify({'ok': ok, 'restarted': True, 'msg': msg})
     return jsonify({'ok': True, 'restarted': False})
-
 
 # ── Asset Library ──────────────────────────────────────────────────────────────
 ASSET_LIBRARY_FILE = os.path.join(BASE_DIR, 'asset_library.json')
@@ -970,19 +1046,12 @@ def _load_asset_library() -> dict:
 
 @app.route('/api/asset-library', methods=['GET'])
 def api_asset_library():
-    """Return the full asset library for the UNS designer."""
     return jsonify(_load_asset_library())
 
 # ── Simulation Profile Catalogue ───────────────────────────────────────────────
 @app.route('/api/simulation-profiles', methods=['GET'])
 def api_simulation_profiles():
-    """
-    Return the simulation profile catalogue as a grouped list for the UNS designer dropdown.
-    Defined inline here — no dynamic import of factory.py needed.
-    Keep in sync with SIMULATION_PROFILES in factory.py.
-    """
     profiles = {
-        # OT / Process
         "oee":                   {"label": "OEE (%)",                       "group": "OT / Process"},
         "availability":          {"label": "Availability (%)",              "group": "OT / Process"},
         "performance":           {"label": "Performance (%)",               "group": "OT / Process"},
@@ -999,26 +1068,22 @@ def api_simulation_profiles():
         "boolean_running":       {"label": "Boolean: Running",              "group": "OT / Process"},
         "boolean_fault":         {"label": "Boolean: Fault",                "group": "OT / Process"},
         "boolean_alarm":         {"label": "Boolean: Alarm",                "group": "OT / Process"},
-        # Accumulators
         "accumulator_good":      {"label": "Accumulator: Good Output",      "group": "Accumulators"},
         "accumulator_bad":       {"label": "Accumulator: Rejected Output",  "group": "Accumulators"},
         "accumulator_energy":    {"label": "Accumulator: Energy (kWh)",     "group": "Accumulators"},
         "accumulator_generic":   {"label": "Accumulator: Generic Counter",  "group": "Accumulators"},
         "counter_faults":        {"label": "Counter: Fault Events",         "group": "Accumulators"},
-        # Maintenance / CMMS
         "mtbf":                  {"label": "MTBF (hours)",                  "group": "Maintenance / CMMS"},
         "mttr":                  {"label": "MTTR (minutes)",                "group": "Maintenance / CMMS"},
         "pm_compliance":         {"label": "PM Compliance (%)",             "group": "Maintenance / CMMS"},
         "remaining_useful_life": {"label": "Remaining Useful Life (h)",     "group": "Maintenance / CMMS"},
         "corrective_wo_count":   {"label": "Corrective Work Orders (open)", "group": "Maintenance / CMMS"},
         "maintenance_cost":      {"label": "Maintenance Cost (EUR, acc.)",  "group": "Maintenance / CMMS"},
-        # Quality / Lab
         "quality_metric_pct":    {"label": "Quality Metric (%)",            "group": "Quality / Lab"},
         "quality_metric_cont":   {"label": "Quality Metric (continuous)",   "group": "Quality / Lab"},
         "quality_hold":          {"label": "Quality Hold (boolean)",        "group": "Quality / Lab"},
         "batch_id":              {"label": "Batch ID (string)",             "group": "Quality / Lab"},
         "lot_id":                {"label": "Lot / Inbound ID (string)",     "group": "Quality / Lab"},
-        # Logistics
         "silo_level":            {"label": "Silo / Tank Level (%)",         "group": "Logistics"},
         "inbound_tons":          {"label": "Inbound Tonnage (acc.)",        "group": "Logistics"},
         "outbound_tons":         {"label": "Outbound Tonnage (acc.)",       "group": "Logistics"},
@@ -1026,23 +1091,18 @@ def api_simulation_profiles():
         "days_of_supply":        {"label": "Days of Supply",                "group": "Logistics"},
         "order_quantity":        {"label": "Order Quantity",                "group": "Logistics"},
         "order_status":          {"label": "Order Status (string)",         "group": "Logistics"},
-        # ERP / Finance
         "erp_order_id":          {"label": "ERP Order ID (string)",         "group": "ERP / Finance"},
         "production_cost_eur":   {"label": "Production Cost (EUR, acc.)",   "group": "ERP / Finance"},
         "waste_cost_eur":        {"label": "Waste Cost (EUR, acc.)",        "group": "ERP / Finance"},
         "revenue_eur":           {"label": "Revenue (EUR, acc.)",           "group": "ERP / Finance"},
         "margin_pct":            {"label": "Margin (%)",                    "group": "ERP / Finance"},
-        # Energy / Utilities
         "power_kw":              {"label": "Active Power (kW)",             "group": "Energy / Utilities"},
         "steam_flow":            {"label": "Steam Flow (kg/h)",             "group": "Energy / Utilities"},
-        "compressed_air":        {"label": "Compressed Air (m\u00b3/h)",   "group": "Energy / Utilities"},
-        "co2_kg":                {"label": "CO\u2082 Emissions (kg, acc.)", "group": "Energy / Utilities"},
-        # Recipe
+        "compressed_air":        {"label": "Compressed Air (m³/h)",        "group": "Energy / Utilities"},
+        "co2_kg":                {"label": "CO₂ Emissions (kg, acc.)",      "group": "Energy / Utilities"},
         "recipe":                {"label": "Active Recipe (string)",        "group": "Recipe"},
-        # Fallback
         "default":               {"label": "Generic Walk (fallback)",       "group": "Other"},
     }
-
     group_order = [
         "OT / Process", "Accumulators", "Maintenance / CMMS",
         "Quality / Lab", "Logistics", "ERP / Finance",
@@ -1052,7 +1112,6 @@ def api_simulation_profiles():
     for pid, meta in profiles.items():
         g = meta.get("group", "Other")
         grouped.setdefault(g, []).append({"id": pid, "label": meta.get("label", pid)})
-
     result = []
     for g in group_order:
         if g in grouped:
@@ -1060,7 +1119,6 @@ def api_simulation_profiles():
     for g in grouped:
         if g not in group_order:
             result.append({"group": g, "profiles": sorted(grouped[g], key=lambda x: x["label"])})
-
     return jsonify(result)
 
 # ── UNS Live View ──────────────────────────────────────────────────────────────
@@ -1088,39 +1146,26 @@ def api_uns_save():
         json.dump(data, f, indent=2, ensure_ascii=False)
     restarted = []
     factory_was_running = _server_alive()
-    # Restart factory server so it re-reads the updated structure
     if factory_was_running:
-        # Signal polling loop to disconnect before we stop the server
         _state['opc_connected'] = False
-        time.sleep(1)  # Give polling loop time to disconnect
+        time.sleep(1)
         stop_factory_server()
         ok, _ = start_factory_server()
         if ok:
             restarted.append('factory')
-            # After factory restarts all ProcessState nodes default to False.
-            # Restore running state by starting all plants after a short startup delay.
-            def _delayed_start_all():
-                time.sleep(6)   # wait for OPC-UA server to finish booting (increased from 4)
-                # Try to write OPC state (retry once if it fails)
-                for attempt in range(2):
-                    try:
-                        _opc_write(lambda _, idx, ent: _start_all_plants(idx, ent))
-                        break  # Success, exit retry loop
-                    except Exception:
-                        if attempt == 0:
-                            time.sleep(2)  # Wait a bit more before retry
-                        pass
-                # Always update sim_state.json regardless of OPC write success,
-                # so the dashboard reflects the intended state
-                _write_sim_state(_sim_state_plants(True))
-                # Now restart the bridge after the factory is fully ready
-                time.sleep(1)  # Brief pause before bridge restart
+            # Invalidate metric path cache so new UNS structure is picked up
+            global _metric_path_cache, _metric_path_cache_ts
+            _metric_path_cache = {}
+            _metric_path_cache_ts = 0.0
+            # Sync sim_state.json with new UNS structure (preserves running states,
+            # adds new plants as stopped, removes deleted plants)
+            _ensure_sim_state_synced()
+            def _delayed_bridge_restart():
+                time.sleep(4)
                 if _bridge_alive():
                     stop_bridge()
-                    ok, _ = start_bridge()
-                    if ok:
-                        restarted.append('bridge')
-            threading.Thread(target=_delayed_start_all, daemon=True).start()
+                    start_bridge()
+            threading.Thread(target=_delayed_bridge_restart, daemon=True).start()
     return jsonify({'ok': True, 'restarted': restarted})
 
 # ── Payload Schema Designer ───────────────────────────────────────────────────
@@ -1144,6 +1189,10 @@ def api_schemas_save():
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
+    # Ensure sim_state.json is synced with current uns_config.json
+    _ensure_sim_state_synced()
+    # Start periodic background sync to pick up changes made in the UNS Designer
+    _start_periodic_sync(interval=10)
     print()
     print("==============================================================")
     print("UNS Design Studio")

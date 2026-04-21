@@ -1387,14 +1387,15 @@
     }
 
     // ── Recipes tab ─────────────────────────────────────────────────────────────
-    // Recipes are stored in sim_state.json server-side, not in uns_config.json.
-    // We load/save them via /api/recipes/<group>/<plant>.
-    let _recipeNodeKey  = null;   // "Group|FactorySite" for the selected site node
-    let _recipeList     = [];     // [{name, params}]
+    // Recipes are stored in uns_config.json on the site node (site.recipes = [{name, params}]).
+    // They are edited in-memory (uns object) and persisted with the normal UNS Save button.
+    // sim_state.json only tracks the *active* recipe selection per plant.
+    let _recipeNodeKey  = null;   // "Group|site" for the selected site node
+    let _recipeList     = [];     // live reference to node.recipes array
     let _recipeActive   = '';
 
     function _plantKeyFromNode(node) {
-      // Walk up from a site node to find businessUnit name → build plant_key
+      // Build plant_key = "BusinessUnit|siteName" — matches sim_state.json format exactly.
       const map = {};
       function bm(n) { map[n.id] = n; (n.children||[]).forEach(bm); }
       bm(uns.tree);
@@ -1403,15 +1404,15 @@
       bp(uns.tree);
 
       if (node.type !== 'site') return null;
-      const parentId  = pmap[node.id];
+      const parentId   = pmap[node.id];
       const parentNode = map[parentId];
       if (!parentNode) return null;
-      return `${parentNode.name}|Factory${node.name}`;
+      return `${parentNode.name}|${node.name}`;   // no "Factory" prefix
     }
 
     async function loadRecipes(node) {
-      const siteOnly  = eid('recipes-site-only');
-      const editor    = eid('recipes-editor');
+      const siteOnly = eid('recipes-site-only');
+      const editor   = eid('recipes-editor');
 
       if (!node || node.type !== 'site') {
         siteOnly.style.display = 'flex';
@@ -1426,20 +1427,21 @@
 
       _recipeNodeKey = _plantKeyFromNode(node);
       if (!_recipeNodeKey) {
-        eid('recipes-list').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Cannot determine plant key — check node hierarchy.</div>';
+        eid('recipes-list').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Cannot determine plant key.</div>';
         return;
       }
 
+      // Recipes live in the in-memory UNS node — no API call needed to load them
+      if (!node.recipes) node.recipes = [];
+      _recipeList = node.recipes;
+
+      // Active recipe comes from sim_state via API
       const [group, plant] = _recipeNodeKey.split('|');
       try {
         const r = await fetch(`/api/recipes/${group}/${plant}`);
         const d = await r.json();
-        _recipeList   = (d.recipes || []).map(name =>
-          typeof name === 'string' ? {name, params:{}} : name
-        );
         _recipeActive = d.active || '';
       } catch(e) {
-        _recipeList   = [];
         _recipeActive = '';
       }
       renderRecipes();
@@ -1465,34 +1467,21 @@
     }
 
     function addRecipe() {
+      // _recipeList is a live reference to node.recipes — modifying it updates the uns object
       _recipeList.push({name: 'New Recipe', params: {}});
       renderRecipes();
-      saveRecipes();
+      setDirty();   // mark UNS as unsaved; user saves via the Save button
     }
 
     function deleteRecipe(i) {
       _recipeList.splice(i, 1);
       renderRecipes();
-      saveRecipes();
+      setDirty();
     }
 
     function updateRecipeName(i, val) {
       _recipeList[i].name = val;
-      saveRecipes();
-    }
-
-    async function saveRecipes() {
-      if (!_recipeNodeKey) return;
-      const [group, plant] = _recipeNodeKey.split('|');
-      try {
-        await fetch(`/api/recipes/${group}/${plant}`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({recipes: _recipeList})
-        });
-      } catch(e) {
-        toast('Failed to save recipes', 'err');
-      }
+      setDirty();
     }
     function editSimulation(i) {
       const node = find(selId);
