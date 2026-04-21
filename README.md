@@ -4,6 +4,7 @@
 
 **A fully self-contained Unified Namespace simulator for industrial IoT demos, training and development.**
 
+[![Version](https://img.shields.io/badge/version-v3.1-blue)](FEATURES.md#release-notes)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
 [![OPC-UA](https://img.shields.io/badge/OPC--UA-4840-green)](https://opcfoundation.org/)
@@ -11,10 +12,9 @@
 [![NATS](https://img.shields.io/badge/NATS-4222-purple)](https://nats.io/)
 [![Built by Ilja Bartels](https://img.shields.io/badge/Built%20by-Ilja%20Bartels-informational)](https://github.com/Ilja0101)
 
-
 *Simulate a complete multi-site food manufacturing enterprise — publishing realistic, stateful OT and IT data over OPC-UA, MQTT and NATS — without needing a single piece of real hardware.*
 
-[Quick Start](#-quick-start) · [Dashboard](#-dashboard) · [UNS Designer](#-uns-topic-designer) · [Simulation Engine](#-simulation-engine) · [Recipes](#-recipe-system) · [API Reference](#-api-reference) · [Release Notes](#-release-notes)
+[Quick Start](#-quick-start) · [Features](#-features-at-a-glance) · [Pages](#-dashboard) · [Release Notes](#-release-notes) · [Full Docs](FEATURES.md)
 
 </div>
 
@@ -38,25 +38,69 @@ It ships with a fictional five-division food manufacturer — 13 factories acros
 
 | Feature | Description |
 |---|---|
-|  **Stateful simulation** | Per-plant state machine: Running → Fault → Recovery → Stopped |
-|  **44 simulation profiles** | OEE, process variables, CMMS, quality, logistics, ERP, energy, recipes |
-|  **Asset library** | 16 predefined asset bundles — drop onto any UNS node in one click |
-|  **UNS Topic Designer** | Visual ISA-95 hierarchy editor in the browser |
-|  **Recipe system** | Per-plant recipe lists — switching recipes shifts simulation parameters live |
-|  **MQTT + NATS bridge** | Configurable payload schemas, topic prefixes and publish intervals |
-|  **Payload Schema Designer** | Design your own message formats — Sparkplug B, ISA-95, PI, InfluxDB and more |
-|  **Live UNS Viewer** | Real-time namespace monitor via external broker + WebSocket |
-|  **Docker-first** | Single `docker compose up` gets everything running |
+| **Stateful simulation** | Per-plant state machine: Running → Fault → Recovery → Stopped |
+| **44 simulation profiles** | OEE, process variables, CMMS, quality, logistics, ERP, energy, recipes |
+| **16-asset library** | Predefined asset bundles — drop onto any UNS node in one click |
+| **UNS Topic Designer** | Visual ISA-95 hierarchy editor in the browser |
+| **Recipe system** | Per-plant recipe lists — switching recipes shifts simulation parameters live |
+| **MQTT + NATS bridge** | Configurable payload schemas, topic prefixes and publish intervals |
+| **Payload Schema Designer** | Design your own message formats — Sparkplug B, ISA-95, PI, InfluxDB and more |
+| **Live UNS Viewer** | Real-time namespace monitor via external broker + WebSocket |
+| **Example templates** | Ready-to-import enterprise UNS JSON templates |
+| **Docker-first** | Single `docker compose up` gets everything running |
+
+> Full architecture, API reference, simulation profiles and configuration docs → **[FEATURES.md](FEATURES.md)**
 
 ---
 
-##  Quick Start
+## Prerequisites
 
-### Prerequisites
-- [Docker](https://docs.docker.com/get-docker/) with Docker Compose
-- Ports **5000** (dashboard), **4840** (OPC-UA) and **9999** (anomaly TCP) available
+### Option A — Docker (recommended)
 
-- OR, simply start the .BAT file in the app folder and point the app at an (MQTT / NATS) broker or other data consumer!
+| Requirement | Notes |
+|---|---|
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Includes Docker Compose. Windows, Mac or Linux. |
+| Free ports | **5000** (dashboard), **4840** (OPC-UA), **9999** (anomaly TCP) |
+
+No Python or other dependencies needed — everything runs inside the container.
+
+### Option B — Local (Python)
+
+| Requirement | Version | Notes |
+|---|---|---|
+| [Python](https://www.python.org/downloads/) | 3.10 or newer | Add to PATH during install |
+| pip | bundled with Python | Used to install dependencies |
+| Free ports | — | Same as above: 5000, 4840, 9999 |
+
+Python dependencies installed automatically via `pip install -r requirements.txt`:
+
+| Package | Purpose |
+|---|---|
+| `flask` ≥ 3.0 | Web dashboard and REST API |
+| `opcua` ≥ 0.98 | OPC-UA server |
+| `paho-mqtt` ≥ 2.0 | MQTT broker bridge |
+| `nats-py` ≥ 2.3 | NATS native bridge |
+| `inquirer` ≥ 3.1 | CLI prompts (optional client) |
+
+### Optional — external broker
+
+To publish data via MQTT or NATS you'll need a running broker. Any of these work:
+
+| Broker | Quick start |
+|---|---|
+| [Mosquitto](https://mosquitto.org/) | `docker run -p 1883:1883 eclipse-mosquitto` |
+| [EMQX](https://www.emqx.io/) | `docker run -p 1883:1883 emqx/emqx` |
+| [HiveMQ CE](https://www.hivemq.com/hivemq/community-edition/) | `docker run -p 1883:1883 hivemq/hivemq-ce` |
+| [NATS Server](https://nats.io/) | `docker run -p 4222:4222 nats` |
+| Any cloud MQTT broker | Set host/port/credentials in the bridge config |
+
+The OPC-UA server and dashboard work without a broker — you only need one if you want to publish data.
+
+---
+
+## Quick Start
+
+### Option A — Docker
 
 ```bash
 git clone https://github.com/Ilja0101/UNS-Design-Studio.git
@@ -65,206 +109,125 @@ docker build -t uns-design-studio:latest .
 docker compose up -d
 ```
 
-Open **http://localhost:5000** fire up the virtual plants and start streaming data!.
+### Option B — Local
+
+```bash
+pip install -r requirements.txt
+start_dashboard.bat        # Windows
+# or: bash start_dashboard.sh
+```
+
+Open **http://localhost:5000**, start the virtual plants and begin streaming data.
 
 ---
 
-##  Dashboard
+## Dashboard
 
 ![Dashboard with live MQTT data](docs/1.JPG)
 
-The main dashboard gives you a live overview of every factory across all divisions. Each plant card shows:
-- Running / Fault / Stopped status with colour-coded LED indicator
-- Current OEE and power draw
-- Active recipe name
-- Good output tonnage and truck deliveries
+The main dashboard gives you a live overview of every factory across all divisions. Each plant card shows running state, OEE, power draw, active recipe, good output and truck deliveries.
 
-The **Broker Bridge** bar at the top shows protocol, broker address, connection state and live publish rate. In the screenshot above the bridge is publishing at **956 msg/s** with **1,577 messages** delivered, and MQTT Explorer on the right shows the full ISA-95 topic tree with live values flowing.
-
-### Plant Control
-
-Click **Control** on any factory card to open the control panel:
+The **Broker Bridge** bar shows protocol, broker address, connection state and live publish rate. Click **Control** on any card to toggle the plant or switch its active recipe.
 
 ![Plant control with recipe selection](docs/PlantRecipeSelection.JPG)
 
-From here you can toggle the plant between Running and Stopped, and select the active recipe from the configured list. Changes take effect on the next simulation tick (~1.2 seconds).
-
 ---
 
-##  UNS Topic Designer
+## UNS Topic Designer
 
-Navigate to **http://localhost:5000/uns** to open the visual namespace editor.
+Navigate to **http://localhost:5000/uns**
 
 ![UNS Topic Designer — node properties](docs/TopicTreeDesigner2.png)
-![UNS Topic Designer — node properties](docs/TopicTreeDesigner.JPG)
 
-The left panel shows your full ISA-95 hierarchy. Click any node to edit its properties — name, type, description — and see the full MQTT/NATS topic path update live. Node types follow the ISA-95 levels: Enterprise → Business Unit → Site → Area → Work Center → Work Unit → Device.
+Visual ISA-95 hierarchy editor. Click any node to edit name, type and description — the full MQTT/NATS topic path updates live. Node types: Enterprise → Business Unit → Site → Area → Work Center → Work Unit → Device.
 
-### Tags / Data Points
-
-Select a node and click the **Tags** tab to manage its data points:
+### Tags
 
 ![Tags tab with full production line](docs/SimTags.JPG)
 
-Each tag has a name, data type, unit, access level, payload schema and simulation profile. The simulation profile column shows the assigned profile in green and is clickable to change it. The tag table scrolls — a production line node can carry dozens of tags covering OEE, energy, production, maintenance, quality, logistics, traceability and finance in a single view.
+Each tag carries a name, data type, unit, access level, payload schema and simulation profile. A production line node can hold dozens of tags covering OEE, energy, production, CMMS, quality, logistics and finance in a single view.
 
-### Assigning Simulation Profiles
-
-Click the pencil icon on any simulation profile cell to open the profile editor:
+### Simulation Profiles
 
 ![Simulation profile dropdown — full list](docs/AddSimulationProfilesToTags.JPG)
 
-Profiles are grouped by domain in an `<optgroup>` dropdown — OT / Process, Accumulators, Maintenance / CMMS, Quality / Lab, Logistics, ERP / Finance, Energy / Utilities, Recipe and Other. Each profile shows a contextual hint explaining its behaviour when selected.
-
-The **Active Recipe** profile is in its own **Recipe** group at the bottom of the list:
-
-![Active Recipe profile selected](docs/TagForLogingSelectedRecipe.JPG)
-
-Any tag with the `recipe` profile will publish the name of the currently active recipe as a string — flowing through to MQTT/NATS like any other tag. Set the tag data type to **String** as shown.
+44 profiles grouped by domain — OT / Process, Accumulators, CMMS, Quality, Logistics, ERP, Energy, Recipe. Each profile shows a contextual hint when selected. See the [full profile list in FEATURES.md](FEATURES.md#simulation-profiles).
 
 ---
 
-##  Asset Library
-
-The fastest way to populate a node with a realistic, pre-wired set of tags is the **Insert Asset Bundle** button:
+## Asset Library
 
 ![Asset library picker](docs/Add_simulation_tags_in_bulk_by_Asset_Library.JPG)
 
-Filter by category (Rotating Equipment, Instrumentation, Storage, Utilities, Packaging, Process Equipment, Material Handling, Logistics, Quality, Maintenance, ERP/Finance, Energy, Production), click a card to select it, then click **Insert Tags**. The full bundle drops in with simulation profiles, data types and units already configured.
+Click **Insert Asset Bundle** to drop a fully pre-wired set of tags onto any node — simulation profiles, data types and units already configured. 16 assets available including pumps, valves, freezers, reactors, conveyors, quality labs and ERP feeds.
 
-Available assets include:
-
-| Asset | Tags | Category |
-|---|---|---|
-| Centrifugal Pump | 11 | Rotating Equipment |
-| Control Valve | 6 | Instrumentation |
-| Silo / Buffer Tank | 7 | Storage |
-| Boiler / Steam Generator | 9 | Utilities |
-| Packing / Filling Machine | 13 | Packaging |
-| IQF Freezer Tunnel | 8 | Process Equipment |
-| Conveyor / Belt Transport | 8 | Material Handling |
-| Batch Reactor / Vessel | 10 | Process Equipment |
-| Weighbridge / Truck Scale | 5 | Logistics |
-| Quality Lab Station | 7 | Quality |
-| CMMS / Maintenance Feed | 7 | Maintenance |
-| ERP Production Order Feed | 7 | ERP / Finance |
-| Energy / Utility Meter | 5 | Energy |
-| Fryer / Pre-Fryer | 9 | Process Equipment |
-| Drum Dryer | 9 | Process Equipment |
-| Crystallizer / Evaporator | 8 | Process Equipment |
+→ [Full asset list in FEATURES.md](FEATURES.md#asset-library)
 
 ---
 
-##  Recipe System
-
-Recipes are configured per plant in the **Recipes** tab — visible when a **Site** node is selected:
+## Recipe System
 
 ![Recipes tab on a site node](docs/AddRecipesAtPlantLevel.JPG)
 
-Each recipe in the list has a name and optional simulation parameters. The currently active recipe is marked with a green **● active** badge. Click **＋ Add Recipe** to add new ones, click the × to remove. Changes save to `sim_state.json` immediately via the API.
+Recipes are configured per plant in the **Recipes** tab on any Site node. The active recipe is shown with a green **● active** badge. Switching recipes on the dashboard adjusts power draw, infeed rate, quality and availability targets live on the next tick — not just the label.
 
-When a recipe is selected in the dashboard Control panel, `factory.py` picks it up on the next tick and adjusts its base simulation parameters — power draw, infeed rate, quality targets and availability targets — to match the recipe definition. So switching from *Naturel Kettle* to *Paprika Crunch* at a CrispCraft factory actually changes the numbers, not just the label.
-
-Any tag with the `recipe` simulation profile publishes the active recipe name as a string topic:
-
-![Tag with Active Recipe profile](docs/TagForLogingSelectedRecipe.JPG)
+Any tag with the `recipe` profile publishes the active recipe name as a string to MQTT/NATS.
 
 ---
 
-##  Broker Bridge
-
-Click **Configure** in the bridge bar to open the broker configuration:
+## Broker Bridge
 
 ![Broker Bridge configuration](docs/BrokerBridge.JPG)
 
-Switch between **MQTT** (port 1883) and **NATS native** (port 4222) with the toggle. Set broker host, port, optional credentials, topic/subject prefix and publish interval. The note at the bottom updates live to show the exact topic format that will be used based on your settings.
+Toggle between **MQTT** and **NATS native**, set broker host/port/credentials, topic prefix and publish interval. The topic format preview updates live as you type.
 
 ---
 
-##  Payload Schema Designer
+## Payload Schema Designer
 
-Navigate to **http://localhost:5000/payload-schemas** to design your message formats:
+Navigate to **http://localhost:5000/payload-schemas**
 
 ![Payload Schema Designer — Sparkplug B-like](docs/Payload_Designer.JPG)
 
-Each schema defines a set of key-value mappings from source fields (value, timestamp, quality, unit, tag path, site name, data type) to output JSON keys. The **Live JSON Preview** at the bottom shows exactly what a published message will look like. Built-in schemas include Standard, Simple Value, Sparkplug B-like, ISA-95 Extended, OSIsoft PI-like and InfluxDB-like. Add as many custom schemas as you need.
-
-Per-tag payload schema assignment is done in the Tags tab of the UNS designer — each tag can use a different schema.
+Design message formats with key-value mappings from source fields to output JSON keys. A live JSON preview shows exactly what each published message will look like. Built-in presets: Standard, Simple Value, Sparkplug B-like, ISA-95 Extended, OSIsoft PI-like, InfluxDB-like.
 
 ---
 
-##  Live UNS viewer (requires external broker + Websocket)
+## Live UNS Viewer
+
+Navigate to **http://localhost:5000/live**
 
 ![Live UNS Viewer](docs/Live_Uns_viewer_via_broker.JPG)
 
----
-##  Network & Server Settings
-
-Click the **Settings** button in the dashboard header:
-
-![Network and Server Settings](docs/Network_Settings.JPG)
-
-Configure the OPC-UA bind IP, port, client host and anomaly TCP port. Changes are saved to `server_config.json` and take effect on next server start. For remote or Docker setups, set the client host to your machine's LAN IP so other OPC-UA clients on the network can connect.
+Connects to any external MQTT broker and displays all incoming messages in a live, filterable topic tree. Useful for validating that published topics match your designed namespace structure.
 
 ---
 
-##  Simulation Engine
+## Example Enterprise
 
-Each factory runs an independent `PlantState` state machine:
-
-```
-                    ┌──────────────────────────────────┐
-                    ▼                                  │
-  ┌─────────┐   fault    ┌───────┐   repaired   ┌──────────┐
-  │ Running │───────────►│ Fault │─────────────►│ Recovery │
-  └─────────┘            └───────┘              └──────────┘
-       ▲                                              │
-       └──────────────────── ready ───────────────────┘
-
-  ┌─────────┐   start command
-  │ Stopped │────────────────────────────────────────► Recovery
-  └─────────┘
-```
-
-Every tag derives its value from the assigned **simulation profile** and the plant's current state — no tag names are hardcoded anywhere. When a fault fires:
-
-- Availability collapses; OEE follows (always `A × P × Q / 10000`)
-- Flow rate and speed drop to zero
-- Motor current spikes; vibration rises
-- Power drops to ~12% (standby only)
-- All accumulators pause
-
-**Recipe switching** adjusts `_base_power`, `_infeed_rate`, `_qual_target` and `_avail_target` on the next tick. A FrostLine Steakhouse 14mm run draws more power and targets higher quality than Classic Frites 10mm — immediately reflected in all downstream tag values.
-
-Per-division base parameters ensure a FrostLine frozen frites plant (820 kW, 28 t/h) behaves differently from a SugarWorks beet plant (1185 kW, 95 t/h) without any configuration.
-
----
-
-##  The Example Enterprise
-
-The simulator ships with **GlobalFoodCo** — rename it to anything in the UNS designer, the dashboard and topic paths update automatically.
+The simulator ships with **GlobalFoodCo** — rename it to anything in the UNS designer and all topic paths and dashboard labels update automatically.
 
 | Division | Product | Factories |
 |---|---|---|
-|  **CrispCraft** | Chips & Snacks | Antwerp, Ghent |
-|  **FlakeMill** | Potato Flakes | Leiden, Groningen |
-|  **FrostLine** | Frozen Frites | Dortmund, Bremen, Hanover, Leipzig, Cologne, Dresden |
-|  **RootCore** | Chicory & Inulin | Lille |
-|  **SugarWorks** | Sugar Beet & Sugar | Bruges, Liege |
+| **CrispCraft** | Chips & Snacks | Antwerp, Ghent |
+| **FlakeMill** | Potato Flakes | Leiden, Groningen |
+| **FrostLine** | Frozen Frites | Dortmund, Bremen, Hanover, Leipzig, Cologne, Dresden |
+| **RootCore** | Chicory & Inulin | Lille |
+| **SugarWorks** | Sugar Beet & Sugar | Bruges, Liege |
+
+Ready-to-import enterprise templates are in `example_UNS_jsons_to_import/`.
 
 > All names, divisions and locations are entirely fictional.
 
 ---
 
-##  Project Structure
+## Project Structure
 
 ```
 UNS-Design-Studio/
+├── app.py                # Flask web app + REST API
 ├── factory.py            # OPC-UA server + stateful simulation engine
 ├── bridge.py             # OPC-UA → MQTT / NATS bridge
-├── app.py                # Flask web application + REST API
-├── recipe.py             # Legacy recipe definitions (reference only)
-├── client.py             # Optional CLI client for direct OPC-UA access
 │
 ├── uns_config.json       # ISA-95 namespace definition (editable via UI)
 ├── sim_state.json        # Runtime plant state, active recipes and recipe lists
@@ -279,51 +242,27 @@ UNS-Design-Studio/
 │   ├── payload_schemas.html  # Payload Schema Designer
 │   └── uns_live.html         # Live UNS Viewer
 │
-├── docs/                 # Screenshot images for this README
+├── example_UNS_jsons_to_import/   # Example enterprise templates
+├── docs/                          # Screenshots
 ├── Dockerfile
 ├── docker-compose.yml
 ├── entrypoint.sh         # First-boot config seeding + symlinks
 └── requirements.txt
 ```
 
----
-
-##  Configuration Reference
-
-### `server_config.json`
-```json
-{
-  "opc_bind_ip":     "0.0.0.0",
-  "opc_port":        4840,
-  "opc_client_host": "127.0.0.1",
-  "tcp_port":        9999,
-  "host_ip":         "127.0.0.1"
-}
-```
-> Set `host_ip` to your Docker host's LAN IP to allow OPC-UA clients on other machines to connect.
-
-### `bridge_config.json`
-```json
-{
-  "protocol":     "mqtt",
-  "broker_host":  "127.0.0.1",
-  "broker_port":  1883,
-  "topic_prefix": "",
-  "interval":     2
-}
-```
-> Set `protocol` to `"nats"` and `broker_port` to `4222` for NATS native mode.
-
-### Persistent volume
-On first boot, `entrypoint.sh` seeds all JSON config files into the `uns-data` Docker volume. Subsequent container rebuilds do not overwrite your customised namespace or schemas.
+→ [Full configuration reference and API docs in FEATURES.md](FEATURES.md#configuration-reference)
 
 ---
 
-##  Running Without Docker
+## Release Notes
 
-```bash
-pip install -r requirements.txt
+### v3.1 — Live UNS Viewer & Reference Templates *(current)*
+- **Live UNS Viewer** — new page at `/live` for real-time namespace monitoring via external MQTT broker + WebSocket
+- **Example enterprise templates** — importable JSON files in `example_UNS_jsons_to_import/`
+- **FEATURES.md** — detailed architecture, requirements, API reference and simulation profile documentation added
+- **UNS designer improvements** — updated layout and tag management
 
+<<<<<<< HEAD
 # Run BAT file to start .py processes
 start_dashboard.bat
 ```
@@ -365,6 +304,8 @@ Dashboard: `http://localhost:5000`
 - Connects to any external broker independently of the bridge configuration
 - Added `uns_live.html` template; project structure and API docs updated
 
+=======
+>>>>>>> ce4d793 (docs: restructure README and FEATURES.md for v3.1)
 ### v3.0 — Stateful Profile Engine
 - **Complete rewrite of the simulation engine** — coherent per-plant state machine replacing independent random walks
 - **44 simulation profiles** — all plant-state-aware, spanning OT, CMMS, quality, logistics, ERP, energy and recipes
@@ -374,19 +315,13 @@ Dashboard: `http://localhost:5000`
 - **Dynamic enterprise name** — dashboard reads UNS tree root name live
 - **Grouped simulation profile picker** with contextual hints per profile
 - **Recipes tab** in the UNS designer on Site nodes
-- **New API endpoints** — `/api/asset-library`, `/api/simulation-profiles`, `/api/recipes/<group>/<plant>`
 - **OEE always `A × P × Q / 10000`** — never independently randomised
 - **Accumulators gate on plant state** — pause during fault and stop
-- **Silo auto-refill** on simulated truck arrival
-- **Finance accumulators** track coherently from output rates
-- **Backward compatible** — existing profile names continue to work
 
 ### v2.0 — Dynamic Address Space
 - `uns_config.json`-driven OPC-UA address space — no hardcoded tag names
 - Visual UNS Topic Designer with full ISA-95 node type support
-- Payload Schema Designer with Standard, Sparkplug B-like, ISA-95 Extended, PI-like and InfluxDB-like presets
-- Canonical tag inheritance across plants in a division
-- Per-plant start/stop via `sim_state.json`
+- Payload Schema Designer with Standard, Sparkplug B-like, ISA-95, PI-like and InfluxDB-like presets
 - NATS native mode in the bridge
 - Anomaly injection via TCP socket
 
@@ -399,13 +334,13 @@ Dashboard: `http://localhost:5000`
 
 ---
 
-##  Contributing
+## Contributing
 
 1. Fork the repo and create a feature branch: `git checkout -b feature/my-improvement`
-2. Commit: `git commit -m 'Add XYZ'`
+2. Commit your changes: `git commit -m 'Add XYZ'`
 3. Push and open a pull request
 
-**Adding a simulation profile:** add to both `_profile_value()` in `factory.py` and the `SIMULATION_PROFILES` dict in `app.py` — the latter populates the UNS designer dropdown.
+**Adding a simulation profile:** add to `_profile_value()` in `factory.py` and the `SIMULATION_PROFILES` dict in `app.py`.
 
 **Adding an asset template:** add an entry to `asset_library.json` — it appears in the picker immediately on next page load.
 
