@@ -45,6 +45,7 @@ It ships with a fictional five-division food manufacturer — 13 factories acros
 |  **Recipe system** | Per-plant recipe lists — switching recipes shifts simulation parameters live |
 |  **MQTT + NATS bridge** | Configurable payload schemas, topic prefixes and publish intervals |
 |  **Payload Schema Designer** | Design your own message formats — Sparkplug B, ISA-95, PI, InfluxDB and more |
+|  **Live UNS Viewer** | Real-time namespace monitor via external broker + WebSocket |
 |  **Docker-first** | Single `docker compose up` gets everything running |
 
 ---
@@ -275,7 +276,8 @@ UNS-Design-Studio/
 ├── templates/
 │   ├── index.html            # Main dashboard
 │   ├── uns_editor.html       # UNS Topic Designer
-│   └── payload_schemas.html  # Payload Schema Designer
+│   ├── payload_schemas.html  # Payload Schema Designer
+│   └── uns_live.html         # Live UNS Viewer
 │
 ├── docs/                 # Screenshot images for this README
 ├── Dockerfile
@@ -357,7 +359,13 @@ Dashboard: `http://localhost:5000`
 
 ##  Release Notes
 
-### v3.0 — Stateful Profile Engine *(current)*
+### v3.1 — Live UNS Viewer *(current)*
+- **Live UNS Viewer** — new page at `/live` for real-time namespace monitoring via an external MQTT broker + WebSocket connection
+- Topic tree updates live as messages arrive — no page refresh needed
+- Connects to any external broker independently of the bridge configuration
+- Added `uns_live.html` template; project structure and API docs updated
+
+### v3.0 — Stateful Profile Engine
 - **Complete rewrite of the simulation engine** — coherent per-plant state machine replacing independent random walks
 - **44 simulation profiles** — all plant-state-aware, spanning OT, CMMS, quality, logistics, ERP, energy and recipes
 - **Recipe system** — per-plant recipe lists in `sim_state.json`; switching recipes adjusts simulation parameters live
