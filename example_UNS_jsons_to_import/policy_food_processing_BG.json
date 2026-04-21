@@ -1,0 +1,342 @@
+{
+  "version": "2.0",
+  "lastModified": "2026-04-21T00:00:00Z",
+  "namespaceUri": "http://VirtualUNS.com/uns",
+  "description": "Food Processing Business Group — Policy-compliant UNS template. ISA-95 L0-L6 physical hierarchy with functional branches (_kpi, _energy, _maint, _mes). Naming: lowercase-hyphen, no units in topic segments. Qualifiers per message type. Covers frying production, packaging and utilities.",
+  "tree": {
+    "id": "fp000001-0000-4000-8000-000000000001",
+    "name": "enterprise",
+    "type": "enterprise",
+    "description": "Enterprise root — rename to your enterprise slug (lowercase-hyphen, e.g. 'my-enterprise')",
+    "tags": [],
+    "children": [
+      {
+        "id": "fp000001-0000-4000-8000-000000000002",
+        "name": "food-processing",
+        "type": "businessUnit",
+        "description": "Food Processing BG — snack and potato-product manufacturing. L1 in ISA-95 hierarchy.",
+        "tags": [],
+        "children": [
+          {
+            "id": "fp000001-0000-4000-8000-000000000003",
+            "name": "plant-nl-01",
+            "type": "site",
+            "description": "Plant NL-01 — primary frying, packaging and utility facility. L2: physical site slug, globally unique within BG.",
+            "tags": [],
+            "children": [
+
+              {
+                "id": "fp000001-0000-4000-8000-000000000010",
+                "name": "frying",
+                "type": "area",
+                "description": "Frying production area — continuous fryer lines. L3: process area.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "fp000001-0000-4000-8000-000000000011",
+                    "name": "fryer-line-01",
+                    "type": "workCenter",
+                    "description": "Fryer line 01 — pre-dryer + continuous fryer. L4: line with independent operational control (PLC scope).",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "fp000001-0000-4000-8000-000000000012",
+                        "name": "pre-dryer-01",
+                        "type": "workUnit",
+                        "description": "Pre-dryer 01 — drum pre-dryer upstream of fryer. L5: individual asset, matches CMMS asset tag.",
+                        "tags": [
+                          { "id": "fp000001-0000-4000-8000-000000000101", "name": "run-state",      "dataType": "Bool",  "unit": "",     "description": "Pre-dryer running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "fp000001-0000-4000-8000-000000000102", "name": "fault",           "dataType": "Bool",  "unit": "",     "description": "Fault active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "fp000001-0000-4000-8000-000000000103", "name": "inlet-temp",      "dataType": "Float", "unit": "Cel",  "description": "Drum inlet temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "fp000001-0000-4000-8000-000000000104", "name": "outlet-temp",     "dataType": "Float", "unit": "Cel",  "description": "Drum outlet temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "fp000001-0000-4000-8000-000000000105", "name": "drum-speed",      "dataType": "Float", "unit": "rpm",  "description": "Drum rotation speed — UCUM: /min", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "speed_rpm" } },
+                          { "id": "fp000001-0000-4000-8000-000000000106", "name": "motor-current",   "dataType": "Float", "unit": "A",    "description": "Drive motor current — UCUM: A", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "motor_current" } }
+                        ],
+                        "children": []
+                      },
+                      {
+                        "id": "fp000001-0000-4000-8000-000000000013",
+                        "name": "fryer-a",
+                        "type": "workUnit",
+                        "description": "Continuous fryer A — main frying vessel. L5: asset tag matches CMMS.",
+                        "tags": [
+                          { "id": "fp000001-0000-4000-8000-000000000110", "name": "run-state",      "dataType": "Bool",  "unit": "",      "description": "Fryer running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "fp000001-0000-4000-8000-000000000111", "name": "fault",           "dataType": "Bool",  "unit": "",      "description": "Fault or trip active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "fp000001-0000-4000-8000-000000000112", "name": "alarm",           "dataType": "Bool",  "unit": "",      "description": "Process alarm active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_alarm" } },
+                          { "id": "fp000001-0000-4000-8000-000000000113", "name": "oven-temp-inlet", "dataType": "Float", "unit": "Cel",   "description": "Oven crown temperature at inlet zone — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "fp000001-0000-4000-8000-000000000114", "name": "oven-temp-mid",   "dataType": "Float", "unit": "Cel",   "description": "Oven crown temperature at mid zone — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "fp000001-0000-4000-8000-000000000115", "name": "oven-temp-outlet","dataType": "Float", "unit": "Cel",   "description": "Oven crown temperature at outlet zone — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "fp000001-0000-4000-8000-000000000116", "name": "oil-level",       "dataType": "Float", "unit": "%",     "description": "Frying oil level as percentage of nominal fill — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "level" } },
+                          { "id": "fp000001-0000-4000-8000-000000000117", "name": "oil-temp",        "dataType": "Float", "unit": "Cel",   "description": "Frying oil bath temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "fp000001-0000-4000-8000-000000000118", "name": "belt-speed",      "dataType": "Float", "unit": "m/min", "description": "Product conveyor belt speed — UCUM: m/min", "access": "RW", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "speed_rpm" } },
+                          { "id": "fp000001-0000-4000-8000-000000000119", "name": "recipe",          "dataType": "String","unit": "",      "description": "Active product recipe name", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "recipe" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "fp000001-0000-4000-8000-000000000020",
+                "name": "packaging",
+                "type": "area",
+                "description": "Packaging area — weighing, filling, sealing and palletising. L3.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "fp000001-0000-4000-8000-000000000021",
+                    "name": "packaging-line-01",
+                    "type": "workCenter",
+                    "description": "Packaging line 01 — multihead weigher + VFFS + checkweigher + palletiser. L4.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "fp000001-0000-4000-8000-000000000022",
+                        "name": "multihead-weigher-01",
+                        "type": "workUnit",
+                        "description": "Multihead combination weigher 01. L5.",
+                        "tags": [
+                          { "id": "fp000001-0000-4000-8000-000000000201", "name": "run-state",        "dataType": "Bool",  "unit": "",    "description": "Weigher running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "fp000001-0000-4000-8000-000000000202", "name": "fault",             "dataType": "Bool",  "unit": "",    "description": "Fault active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "fp000001-0000-4000-8000-000000000203", "name": "target-weight",     "dataType": "Float", "unit": "g",   "description": "Target portion weight — UCUM: g", "access": "RW", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "default" } },
+                          { "id": "fp000001-0000-4000-8000-000000000204", "name": "actual-weight",     "dataType": "Float", "unit": "g",   "description": "Last measured portion weight — UCUM: g", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "default" } },
+                          { "id": "fp000001-0000-4000-8000-000000000205", "name": "throughput",        "dataType": "Float", "unit": "kg/h","description": "Throughput — UCUM: kg/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "accumulator_good" } }
+                        ],
+                        "children": []
+                      },
+                      {
+                        "id": "fp000001-0000-4000-8000-000000000023",
+                        "name": "checkweigher-01",
+                        "type": "workUnit",
+                        "description": "Inline checkweigher 01 — reject over/underweight packs. L5.",
+                        "tags": [
+                          { "id": "fp000001-0000-4000-8000-000000000210", "name": "run-state",        "dataType": "Bool",  "unit": "",    "description": "Checkweigher running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "fp000001-0000-4000-8000-000000000211", "name": "fault",             "dataType": "Bool",  "unit": "",    "description": "Fault active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "fp000001-0000-4000-8000-000000000212", "name": "reject",            "dataType": "Bool",  "unit": "",    "description": "Reject signal — pack rejected by checkweigher", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_alarm" } },
+                          { "id": "fp000001-0000-4000-8000-000000000213", "name": "good-count",        "dataType": "Float", "unit": "",    "description": "Cumulative accepted pack count", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "accumulator_good" } },
+                          { "id": "fp000001-0000-4000-8000-000000000214", "name": "reject-count",      "dataType": "Float", "unit": "",    "description": "Cumulative rejected pack count", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "accumulator_bad" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "fp000001-0000-4000-8000-000000000030",
+                "name": "utilities",
+                "type": "area",
+                "description": "Utilities area — steam generation and compressed air. L3.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "fp000001-0000-4000-8000-000000000031",
+                    "name": "steam-system",
+                    "type": "workCenter",
+                    "description": "Steam generation system — high-pressure boilers feeding fryer and pre-dryer. L4.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "fp000001-0000-4000-8000-000000000032",
+                        "name": "boiler-01",
+                        "type": "workUnit",
+                        "description": "Gas-fired steam boiler 01. L5 — CMMS asset tag: boiler-01.",
+                        "tags": [
+                          { "id": "fp000001-0000-4000-8000-000000000301", "name": "run-state",        "dataType": "Bool",  "unit": "",      "description": "Boiler firing / running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "fp000001-0000-4000-8000-000000000302", "name": "fault",             "dataType": "Bool",  "unit": "",      "description": "Boiler fault or trip", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "fp000001-0000-4000-8000-000000000303", "name": "steam-pressure",    "dataType": "Float", "unit": "bar",   "description": "Steam header pressure — UCUM: bar", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
+                          { "id": "fp000001-0000-4000-8000-000000000304", "name": "steam-temp",        "dataType": "Float", "unit": "Cel",   "description": "Saturated steam temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "fp000001-0000-4000-8000-000000000305", "name": "steam-flow",        "dataType": "Float", "unit": "kg/h",  "description": "Steam mass flow — UCUM: kg/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "steam_flow" } },
+                          { "id": "fp000001-0000-4000-8000-000000000306", "name": "power",             "dataType": "Float", "unit": "kW",    "description": "Burner power — UCUM: kW", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "id": "fp000001-0000-4000-8000-000000000035",
+                    "name": "compressed-air",
+                    "type": "workCenter",
+                    "description": "Compressed air system — screw compressors feeding plant instruments. L4.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "fp000001-0000-4000-8000-000000000036",
+                        "name": "compressor-01",
+                        "type": "workUnit",
+                        "description": "Screw compressor 01. L5.",
+                        "tags": [
+                          { "id": "fp000001-0000-4000-8000-000000000351", "name": "run-state",        "dataType": "Bool",  "unit": "",    "description": "Compressor running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "fp000001-0000-4000-8000-000000000352", "name": "fault",             "dataType": "Bool",  "unit": "",    "description": "Fault or overtemp active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "fp000001-0000-4000-8000-000000000353", "name": "outlet-pressure",   "dataType": "Float", "unit": "bar", "description": "Compressed air outlet pressure — UCUM: bar", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
+                          { "id": "fp000001-0000-4000-8000-000000000354", "name": "flow",              "dataType": "Float", "unit": "m3/h","description": "Air flow — UCUM: m3/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "compressed_air" } },
+                          { "id": "fp000001-0000-4000-8000-000000000355", "name": "power",             "dataType": "Float", "unit": "kW",  "description": "Motor power — UCUM: kW", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "fp000001-0000-4000-8000-000000000040",
+                "name": "_kpi",
+                "type": "area",
+                "description": "Functional branch — site-level KPIs. Derived values produced by calculation services, not raw OT. Qualifier: kpi. Topic pattern: enterprise/food-processing/plant-nl-01/_kpi/...",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "fp000001-0000-4000-8000-000000000041",
+                    "name": "fryer-line-01",
+                    "type": "workCenter",
+                    "description": "KPIs for fryer line 01 — OEE and production totals",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "fp000001-0000-4000-8000-000000000042",
+                        "name": "oee",
+                        "type": "workUnit",
+                        "description": "OEE calculation node for fryer line 01",
+                        "tags": [
+                          { "id": "fp000001-0000-4000-8000-000000000401", "name": "oee",              "dataType": "Float", "unit": "%",    "description": "Overall Equipment Effectiveness — A × P × Q / 10000. unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "oee" } },
+                          { "id": "fp000001-0000-4000-8000-000000000402", "name": "availability",     "dataType": "Float", "unit": "%",    "description": "Availability rate — planned vs actual runtime. unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "availability" } },
+                          { "id": "fp000001-0000-4000-8000-000000000403", "name": "performance",      "dataType": "Float", "unit": "%",    "description": "Performance rate — actual vs ideal throughput. unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "performance" } },
+                          { "id": "fp000001-0000-4000-8000-000000000404", "name": "quality-rate",     "dataType": "Float", "unit": "%",    "description": "Quality rate — good output / total output. unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "quality" } },
+                          { "id": "fp000001-0000-4000-8000-000000000405", "name": "good-output",      "dataType": "Float", "unit": "t",    "description": "Cumulative good output tonnage — UCUM: t", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "accumulator_good" } },
+                          { "id": "fp000001-0000-4000-8000-000000000406", "name": "production-cost",  "dataType": "Float", "unit": "EUR",  "description": "Running production cost accumulator", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "production_cost_eur" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "fp000001-0000-4000-8000-000000000050",
+                "name": "_energy",
+                "type": "area",
+                "description": "Functional branch — energy monitoring. Utility meters, steam and electricity accounting. Topic pattern: enterprise/food-processing/plant-nl-01/_energy/...",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "fp000001-0000-4000-8000-000000000051",
+                    "name": "electricity",
+                    "type": "workCenter",
+                    "description": "Electricity metering — main site intake",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "fp000001-0000-4000-8000-000000000052",
+                        "name": "main-meter",
+                        "type": "workUnit",
+                        "description": "Main site electricity meter",
+                        "tags": [
+                          { "id": "fp000001-0000-4000-8000-000000000501", "name": "power",            "dataType": "Float", "unit": "kW",   "description": "Active power demand — UCUM: kW", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } },
+                          { "id": "fp000001-0000-4000-8000-000000000502", "name": "energy",           "dataType": "Float", "unit": "kWh",  "description": "Cumulative energy — UCUM: kWh", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "accumulator_energy" } },
+                          { "id": "fp000001-0000-4000-8000-000000000503", "name": "co2",              "dataType": "Float", "unit": "kg",   "description": "CO2 equivalent — UCUM: kg", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "co2_kg" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "id": "fp000001-0000-4000-8000-000000000055",
+                    "name": "steam",
+                    "type": "workCenter",
+                    "description": "Steam metering — high-pressure header",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "fp000001-0000-4000-8000-000000000056",
+                        "name": "hp-header",
+                        "type": "workUnit",
+                        "description": "High-pressure steam header meter",
+                        "tags": [
+                          { "id": "fp000001-0000-4000-8000-000000000551", "name": "flow",             "dataType": "Float", "unit": "kg/h", "description": "Steam mass flow — UCUM: kg/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "steam_flow" } },
+                          { "id": "fp000001-0000-4000-8000-000000000552", "name": "pressure",         "dataType": "Float", "unit": "bar",  "description": "Header pressure — UCUM: bar", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "fp000001-0000-4000-8000-000000000060",
+                "name": "_maint",
+                "type": "area",
+                "description": "Functional branch — CMMS and asset health. Work orders, reliability metrics, predictive maintenance. Topic pattern: enterprise/food-processing/plant-nl-01/_maint/...",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "fp000001-0000-4000-8000-000000000061",
+                    "name": "fryer-line",
+                    "type": "workCenter",
+                    "description": "Maintenance data for fryer line assets",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "fp000001-0000-4000-8000-000000000062",
+                        "name": "fryer-a",
+                        "type": "workUnit",
+                        "description": "Asset health — fryer-a",
+                        "tags": [
+                          { "id": "fp000001-0000-4000-8000-000000000601", "name": "rul",              "dataType": "Float", "unit": "h",    "description": "Remaining useful life — UCUM: h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "remaining_useful_life" } },
+                          { "id": "fp000001-0000-4000-8000-000000000602", "name": "mtbf",             "dataType": "Float", "unit": "h",    "description": "Mean time between failures — UCUM: h", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "mtbf" } },
+                          { "id": "fp000001-0000-4000-8000-000000000603", "name": "mttr",             "dataType": "Float", "unit": "h",    "description": "Mean time to repair — UCUM: h", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "mttr" } },
+                          { "id": "fp000001-0000-4000-8000-000000000604", "name": "pm-compliance",   "dataType": "Float", "unit": "%",    "description": "Preventive maintenance compliance rate — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "pm_compliance" } },
+                          { "id": "fp000001-0000-4000-8000-000000000605", "name": "fault-count",     "dataType": "Float", "unit": "",     "description": "Cumulative fault events since last reset", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "counter_faults" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "fp000001-0000-4000-8000-000000000070",
+                "name": "_mes",
+                "type": "area",
+                "description": "Functional branch — MES / production execution. Work orders, batch records, recipe tracking, genealogy. Topic pattern: enterprise/food-processing/plant-nl-01/_mes/...",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "fp000001-0000-4000-8000-000000000071",
+                    "name": "production",
+                    "type": "workCenter",
+                    "description": "Production order and batch tracking",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "fp000001-0000-4000-8000-000000000072",
+                        "name": "fryer-line-01",
+                        "type": "workUnit",
+                        "description": "MES data for fryer line 01 — batch, recipe and order state",
+                        "tags": [
+                          { "id": "fp000001-0000-4000-8000-000000000701", "name": "recipe",           "dataType": "String","unit": "",     "description": "Active product recipe name — published on recipe change", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "recipe" } },
+                          { "id": "fp000001-0000-4000-8000-000000000702", "name": "erp-order-id",     "dataType": "String","unit": "",     "description": "Active ERP production order ID", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "erp_order_id" } },
+                          { "id": "fp000001-0000-4000-8000-000000000703", "name": "good-output",      "dataType": "Float", "unit": "t",    "description": "Good output accumulator for current order — UCUM: t", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "accumulator_good" } },
+                          { "id": "fp000001-0000-4000-8000-000000000704", "name": "reject-count",     "dataType": "Float", "unit": "t",    "description": "Reject accumulator for current order — UCUM: t", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "accumulator_bad" } },
+                          { "id": "fp000001-0000-4000-8000-000000000705", "name": "order-status",     "dataType": "String","unit": "",     "description": "ERP order status string", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "order_status" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

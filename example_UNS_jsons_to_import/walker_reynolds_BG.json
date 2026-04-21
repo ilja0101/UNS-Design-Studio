@@ -1,0 +1,241 @@
+{
+  "version": "2.0",
+  "lastModified": "2026-04-21T00:00:00Z",
+  "namespaceUri": "http://VirtualUNS.com/uns",
+  "description": "Walker Reynolds UNS approach — ISA-95 5-level physical hierarchy (Enterprise > Site > Area > Line > Cell). Flat, clean and self-describing. No functional branch prefixes. Single source of truth: every signal at exactly one physical topic. Report-by-exception. JSON payload with timestamp, value, unit, quality, source. Based on iiot.university / virtualfactory.online UNS philosophy.",
+  "tree": {
+    "id": "wr000001-0000-4000-8000-000000000001",
+    "name": "enterprise",
+    "type": "enterprise",
+    "description": "Enterprise — rename to your organisation name. Walker Reynolds: 'The enterprise root is fixed. Everything below it reflects the physical or logical reality of how the business is organised and operates.'",
+    "tags": [],
+    "children": [
+      {
+        "id": "wr000001-0000-4000-8000-000000000002",
+        "name": "manufacturing-ops",
+        "type": "businessUnit",
+        "description": "Manufacturing Operations — regional or divisional grouping. In Walker Reynolds' model this maps to ISA-95 L1 (Enterprise/Site boundary). Represents a cluster of related production sites under common operational management.",
+        "tags": [],
+        "children": [
+          {
+            "id": "wr000001-0000-4000-8000-000000000003",
+            "name": "site-a",
+            "type": "site",
+            "description": "Site A — primary manufacturing facility. Walker Reynolds: the site is the 'home' of operational data. All raw signals live here; analytics and ERP subscribe from this tree.",
+            "tags": [],
+            "children": [
+
+              {
+                "id": "wr000001-0000-4000-8000-000000000010",
+                "name": "production",
+                "type": "area",
+                "description": "Production area — main manufacturing lines. ISA-95 L3 / ISA-88 process cell.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "wr000001-0000-4000-8000-000000000011",
+                    "name": "line-01",
+                    "type": "workCenter",
+                    "description": "Production line 01 — primary product line. ISA-95 L4: independent PLC scope. Walker Reynolds: 'a line is the smallest unit with independent operational control.'",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "wr000001-0000-4000-8000-000000000012",
+                        "name": "machine-01",
+                        "type": "workUnit",
+                        "description": "Primary process machine on line 01. ISA-95 L5 / ISA-88 unit. Walker Reynolds: signals live here, not at the line level.",
+                        "tags": [
+                          { "id": "wr000001-0000-4000-8000-000000000101", "name": "state",            "dataType": "Bool",  "unit": "",     "description": "Machine running state — true = running. Report by exception.", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "wr000001-0000-4000-8000-000000000102", "name": "fault",             "dataType": "Bool",  "unit": "",     "description": "Fault or stop condition — true = faulted. Report by exception.", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "wr000001-0000-4000-8000-000000000103", "name": "temperature",       "dataType": "Float", "unit": "Cel",  "description": "Process temperature. Unit in payload (Cel), never in topic.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "wr000001-0000-4000-8000-000000000104", "name": "speed",             "dataType": "Float", "unit": "rpm",  "description": "Machine speed. Unit: /min.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "speed_rpm" } },
+                          { "id": "wr000001-0000-4000-8000-000000000105", "name": "power",             "dataType": "Float", "unit": "kW",   "description": "Electrical power demand. Unit: kW.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } },
+                          { "id": "wr000001-0000-4000-8000-000000000106", "name": "vibration",         "dataType": "Float", "unit": "mm/s", "description": "Bearing vibration. Unit: mm/s.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "vibration" } },
+                          { "id": "wr000001-0000-4000-8000-000000000107", "name": "oee",               "dataType": "Float", "unit": "%",    "description": "OEE — computed locally at the asset level, published at the asset topic. Walker Reynolds: derived values live at the node that owns the computation.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "oee" } }
+                        ],
+                        "children": []
+                      },
+                      {
+                        "id": "wr000001-0000-4000-8000-000000000013",
+                        "name": "conveyor-01",
+                        "type": "workUnit",
+                        "description": "Infeed / outfeed conveyor for machine 01. ISA-95 L5.",
+                        "tags": [
+                          { "id": "wr000001-0000-4000-8000-000000000111", "name": "state",            "dataType": "Bool",  "unit": "",      "description": "Conveyor running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "wr000001-0000-4000-8000-000000000112", "name": "fault",             "dataType": "Bool",  "unit": "",      "description": "Conveyor fault or jam", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "wr000001-0000-4000-8000-000000000113", "name": "speed",             "dataType": "Float", "unit": "m/min", "description": "Belt speed. Unit: m/min.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "speed_rpm" } },
+                          { "id": "wr000001-0000-4000-8000-000000000114", "name": "motor-current",     "dataType": "Float", "unit": "A",     "description": "Drive motor current. Unit: A.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "motor_current" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "id": "wr000001-0000-4000-8000-000000000014",
+                    "name": "line-02",
+                    "type": "workCenter",
+                    "description": "Production line 02 — secondary product line. ISA-95 L4.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "wr000001-0000-4000-8000-000000000015",
+                        "name": "machine-02",
+                        "type": "workUnit",
+                        "description": "Primary process machine on line 02.",
+                        "tags": [
+                          { "id": "wr000001-0000-4000-8000-000000000121", "name": "state",            "dataType": "Bool",  "unit": "",     "description": "Machine running state", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "wr000001-0000-4000-8000-000000000122", "name": "fault",             "dataType": "Bool",  "unit": "",     "description": "Fault or stop condition", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "wr000001-0000-4000-8000-000000000123", "name": "temperature",       "dataType": "Float", "unit": "Cel",  "description": "Process temperature. Unit: Cel.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "wr000001-0000-4000-8000-000000000124", "name": "pressure",          "dataType": "Float", "unit": "bar",  "description": "Process pressure. Unit: bar.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
+                          { "id": "wr000001-0000-4000-8000-000000000125", "name": "flow",              "dataType": "Float", "unit": "m3/h", "description": "Process flow. Unit: m3/h.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "flow_rate" } },
+                          { "id": "wr000001-0000-4000-8000-000000000126", "name": "power",             "dataType": "Float", "unit": "kW",   "description": "Power demand. Unit: kW.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } },
+                          { "id": "wr000001-0000-4000-8000-000000000127", "name": "good-output",       "dataType": "Float", "unit": "t",    "description": "Good output accumulator. Unit: t.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "accumulator_good" } },
+                          { "id": "wr000001-0000-4000-8000-000000000128", "name": "recipe",            "dataType": "String","unit": "",     "description": "Active recipe — published on change (report by exception).", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "recipe" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "wr000001-0000-4000-8000-000000000020",
+                "name": "utilities",
+                "type": "area",
+                "description": "Utilities area — energy supply and support systems. ISA-95 L3.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "wr000001-0000-4000-8000-000000000021",
+                    "name": "energy",
+                    "type": "workCenter",
+                    "description": "Energy supply — electricity, steam, compressed air. L4.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "wr000001-0000-4000-8000-000000000022",
+                        "name": "main-meter",
+                        "type": "workUnit",
+                        "description": "Main site electricity meter. Walker Reynolds: utility meters are assets just like production equipment — same hierarchy, same topic pattern.",
+                        "tags": [
+                          { "id": "wr000001-0000-4000-8000-000000000201", "name": "power",            "dataType": "Float", "unit": "kW",   "description": "Active power demand. Unit: kW.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } },
+                          { "id": "wr000001-0000-4000-8000-000000000202", "name": "energy",           "dataType": "Float", "unit": "kWh",  "description": "Cumulative energy. Unit: kWh.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "accumulator_energy" } },
+                          { "id": "wr000001-0000-4000-8000-000000000203", "name": "co2",              "dataType": "Float", "unit": "kg",   "description": "CO2 equivalent. Unit: kg.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "co2_kg" } }
+                        ],
+                        "children": []
+                      },
+                      {
+                        "id": "wr000001-0000-4000-8000-000000000023",
+                        "name": "boiler-01",
+                        "type": "workUnit",
+                        "description": "Steam boiler 01. L5.",
+                        "tags": [
+                          { "id": "wr000001-0000-4000-8000-000000000211", "name": "state",            "dataType": "Bool",  "unit": "",     "description": "Boiler firing / in service", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "wr000001-0000-4000-8000-000000000212", "name": "fault",             "dataType": "Bool",  "unit": "",     "description": "Boiler fault or trip", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "wr000001-0000-4000-8000-000000000213", "name": "steam-pressure",   "dataType": "Float", "unit": "bar",  "description": "Steam header pressure. Unit: bar.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
+                          { "id": "wr000001-0000-4000-8000-000000000214", "name": "steam-flow",       "dataType": "Float", "unit": "kg/h", "description": "Steam mass flow. Unit: kg/h.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "steam_flow" } },
+                          { "id": "wr000001-0000-4000-8000-000000000215", "name": "power",            "dataType": "Float", "unit": "kW",   "description": "Burner power demand. Unit: kW.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "wr000001-0000-4000-8000-000000000030",
+                "name": "quality",
+                "type": "area",
+                "description": "Quality area — in-line quality measurement and test stations. ISA-95 L3. Walker Reynolds: quality data belongs in the physical hierarchy at the point where it is measured, not in a separate 'quality system' silo.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "wr000001-0000-4000-8000-000000000031",
+                    "name": "inspection",
+                    "type": "workCenter",
+                    "description": "Inline inspection and end-of-line test. L4.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "wr000001-0000-4000-8000-000000000032",
+                        "name": "vision-system-01",
+                        "type": "workUnit",
+                        "description": "Machine vision inspection system 01. L5.",
+                        "tags": [
+                          { "id": "wr000001-0000-4000-8000-000000000301", "name": "state",            "dataType": "Bool",  "unit": "",   "description": "System running / in inspection mode", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "wr000001-0000-4000-8000-000000000302", "name": "fault",             "dataType": "Bool",  "unit": "",   "description": "System fault", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "wr000001-0000-4000-8000-000000000303", "name": "reject",            "dataType": "Bool",  "unit": "",   "description": "Rejection signal — product rejected by vision check", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_alarm" } },
+                          { "id": "wr000001-0000-4000-8000-000000000304", "name": "quality-rate",     "dataType": "Float", "unit": "%",  "description": "Pass rate as percentage — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "quality" } },
+                          { "id": "wr000001-0000-4000-8000-000000000305", "name": "good-count",       "dataType": "Float", "unit": "",   "description": "Cumulative good-product count", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "accumulator_good" } },
+                          { "id": "wr000001-0000-4000-8000-000000000306", "name": "reject-count",     "dataType": "Float", "unit": "",   "description": "Cumulative rejected-product count", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "accumulator_bad" } }
+                        ],
+                        "children": []
+                      },
+                      {
+                        "id": "wr000001-0000-4000-8000-000000000033",
+                        "name": "lab-station-01",
+                        "type": "workUnit",
+                        "description": "Inline lab measurement station. Walker Reynolds: even lab instruments are part of the physical hierarchy — they are assets that produce data at a specific location.",
+                        "tags": [
+                          { "id": "wr000001-0000-4000-8000-000000000311", "name": "measurement",      "dataType": "Float", "unit": "%",   "description": "Primary quality measurement (e.g. concentration, purity). Unit: %.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "quality_metric_pct" } },
+                          { "id": "wr000001-0000-4000-8000-000000000312", "name": "spec-pass",        "dataType": "Bool",  "unit": "",    "description": "Result within specification — true = pass. Report by exception.", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "wr000001-0000-4000-8000-000000000313", "name": "temperature",      "dataType": "Float", "unit": "Cel", "description": "Sample/process temperature at measurement point. Unit: Cel.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "wr000001-0000-4000-8000-000000000040",
+                "name": "logistics",
+                "type": "area",
+                "description": "Logistics area — inbound raw material and outbound finished goods. ISA-95 L3. Walker Reynolds: logistics data belongs in the physical namespace alongside production — same topology, same single source of truth.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "wr000001-0000-4000-8000-000000000041",
+                    "name": "inbound",
+                    "type": "workCenter",
+                    "description": "Inbound raw material receiving — weighbridges and silos. L4.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "wr000001-0000-4000-8000-000000000042",
+                        "name": "weighbridge-01",
+                        "type": "workUnit",
+                        "description": "Truck weighbridge 01 — inbound gross/tare/net weighing. L5.",
+                        "tags": [
+                          { "id": "wr000001-0000-4000-8000-000000000401", "name": "state",            "dataType": "Bool",  "unit": "",   "description": "Weighbridge in service", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "wr000001-0000-4000-8000-000000000402", "name": "gross-weight",     "dataType": "Float", "unit": "t",  "description": "Gross vehicle weight. Unit: t.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "default" } },
+                          { "id": "wr000001-0000-4000-8000-000000000403", "name": "inbound-tonnage",  "dataType": "Float", "unit": "t",  "description": "Cumulative inbound raw material tonnage. Unit: t.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "inbound_tons" } }
+                        ],
+                        "children": []
+                      },
+                      {
+                        "id": "wr000001-0000-4000-8000-000000000043",
+                        "name": "silo-01",
+                        "type": "workUnit",
+                        "description": "Raw material buffer silo 01. L5.",
+                        "tags": [
+                          { "id": "wr000001-0000-4000-8000-000000000411", "name": "level",            "dataType": "Float", "unit": "%",  "description": "Silo fill level as percentage. Unit: %.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "level" } },
+                          { "id": "wr000001-0000-4000-8000-000000000412", "name": "temperature",      "dataType": "Float", "unit": "Cel","description": "Silo contents temperature. Unit: Cel.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_ambient" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

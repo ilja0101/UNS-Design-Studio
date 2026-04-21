@@ -1,0 +1,353 @@
+{
+  "version": "2.0",
+  "lastModified": "2026-04-21T00:00:00Z",
+  "namespaceUri": "http://VirtualUNS.com/uns",
+  "description": "Process Manufacturing Business Group — Policy-compliant UNS template. ISA-95 L0-L6 physical hierarchy with S88-aligned process areas and functional branches (_lims, _quality, _energy, _kpi, _maint). Covers extraction, drying, crystallisation/evaporation and utilities. Naming: lowercase-hyphen, no units in topic segments.",
+  "tree": {
+    "id": "pm000001-0000-4000-8000-000000000001",
+    "name": "enterprise",
+    "type": "enterprise",
+    "description": "Enterprise root — rename to your enterprise slug (lowercase-hyphen)",
+    "tags": [],
+    "children": [
+      {
+        "id": "pm000001-0000-4000-8000-000000000002",
+        "name": "process-manufacturing",
+        "type": "businessUnit",
+        "description": "Process Manufacturing BG — extraction, drying and crystallisation of plant-based ingredients. L1 in ISA-95 hierarchy.",
+        "tags": [],
+        "children": [
+          {
+            "id": "pm000001-0000-4000-8000-000000000003",
+            "name": "plant-nl-02",
+            "type": "site",
+            "description": "Plant NL-02 — extraction, spray-drying, evaporation and packaging facility. L2.",
+            "tags": [],
+            "children": [
+
+              {
+                "id": "pm000001-0000-4000-8000-000000000010",
+                "name": "extraction",
+                "type": "area",
+                "description": "Extraction area — solid-liquid extraction of active compounds. L3.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "pm000001-0000-4000-8000-000000000011",
+                    "name": "extraction-battery",
+                    "type": "workCenter",
+                    "description": "Extraction battery — counter-current diffuser or column set. L4: PLC scope.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "pm000001-0000-4000-8000-000000000012",
+                        "name": "column-01",
+                        "type": "workUnit",
+                        "description": "Extraction column 01. L5 — CMMS tag: column-01.",
+                        "tags": [
+                          { "id": "pm000001-0000-4000-8000-000000000101", "name": "run-state",        "dataType": "Bool",  "unit": "",       "description": "Column in service", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "pm000001-0000-4000-8000-000000000102", "name": "fault",             "dataType": "Bool",  "unit": "",       "description": "Fault active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "pm000001-0000-4000-8000-000000000103", "name": "inlet-flow",        "dataType": "Float", "unit": "m3/h",   "description": "Solvent inlet flow — UCUM: m3/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "flow_rate" } },
+                          { "id": "pm000001-0000-4000-8000-000000000104", "name": "outlet-flow",       "dataType": "Float", "unit": "m3/h",   "description": "Extract outlet flow — UCUM: m3/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "flow_rate" } },
+                          { "id": "pm000001-0000-4000-8000-000000000105", "name": "temperature",       "dataType": "Float", "unit": "Cel",    "description": "Process temperature inside column — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "pm000001-0000-4000-8000-000000000106", "name": "pressure",          "dataType": "Float", "unit": "bar",    "description": "Column operating pressure — UCUM: bar", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
+                          { "id": "pm000001-0000-4000-8000-000000000107", "name": "level",             "dataType": "Float", "unit": "%",      "description": "Column fill level — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "level" } }
+                        ],
+                        "children": []
+                      },
+                      {
+                        "id": "pm000001-0000-4000-8000-000000000013",
+                        "name": "feed-pump-01",
+                        "type": "workUnit",
+                        "description": "Feed pump 01 — raw material slurry feed to extraction. L5.",
+                        "tags": [
+                          { "id": "pm000001-0000-4000-8000-000000000110", "name": "run-state",        "dataType": "Bool",  "unit": "",     "description": "Pump running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "pm000001-0000-4000-8000-000000000111", "name": "fault",             "dataType": "Bool",  "unit": "",     "description": "Pump fault", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "pm000001-0000-4000-8000-000000000112", "name": "flow",              "dataType": "Float", "unit": "m3/h", "description": "Volumetric flow — UCUM: m3/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "flow_rate" } },
+                          { "id": "pm000001-0000-4000-8000-000000000113", "name": "motor-current",     "dataType": "Float", "unit": "A",    "description": "Motor current — UCUM: A", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "motor_current" } },
+                          { "id": "pm000001-0000-4000-8000-000000000114", "name": "vibration",         "dataType": "Float", "unit": "mm/s", "description": "Pump bearing vibration — UCUM: mm/s", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "vibration" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "pm000001-0000-4000-8000-000000000020",
+                "name": "drying",
+                "type": "area",
+                "description": "Drying area — spray drying and drum drying of liquid extracts. L3.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "pm000001-0000-4000-8000-000000000021",
+                    "name": "spray-dryer",
+                    "type": "workCenter",
+                    "description": "Spray dryer system — atomisation and hot-air drying. L4.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "pm000001-0000-4000-8000-000000000022",
+                        "name": "spray-dryer-01",
+                        "type": "workUnit",
+                        "description": "Spray dryer 01. L5 — CMMS: spray-dryer-01.",
+                        "tags": [
+                          { "id": "pm000001-0000-4000-8000-000000000201", "name": "run-state",        "dataType": "Bool",  "unit": "",     "description": "Dryer running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "pm000001-0000-4000-8000-000000000202", "name": "fault",             "dataType": "Bool",  "unit": "",     "description": "Fault active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "pm000001-0000-4000-8000-000000000203", "name": "inlet-temp",        "dataType": "Float", "unit": "Cel",  "description": "Hot air inlet temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "pm000001-0000-4000-8000-000000000204", "name": "outlet-temp",       "dataType": "Float", "unit": "Cel",  "description": "Exhaust air outlet temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_ambient" } },
+                          { "id": "pm000001-0000-4000-8000-000000000205", "name": "feed-flow",         "dataType": "Float", "unit": "kg/h", "description": "Liquid feed flow to atomiser — UCUM: kg/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "flow_rate" } },
+                          { "id": "pm000001-0000-4000-8000-000000000206", "name": "atomiser-speed",    "dataType": "Float", "unit": "rpm",  "description": "Rotary atomiser speed — UCUM: /min", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "speed_rpm" } },
+                          { "id": "pm000001-0000-4000-8000-000000000207", "name": "power",             "dataType": "Float", "unit": "kW",   "description": "Heating power demand — UCUM: kW", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } },
+                          { "id": "pm000001-0000-4000-8000-000000000208", "name": "recipe",            "dataType": "String","unit": "",     "description": "Active product recipe / grade", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "recipe" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  },
+                  {
+                    "id": "pm000001-0000-4000-8000-000000000025",
+                    "name": "drum-dryer",
+                    "type": "workCenter",
+                    "description": "Drum dryer system — steam-heated double drum for paste drying. L4.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "pm000001-0000-4000-8000-000000000026",
+                        "name": "drum-dryer-01",
+                        "type": "workUnit",
+                        "description": "Double drum dryer 01. L5 — CMMS: drum-dryer-01.",
+                        "tags": [
+                          { "id": "pm000001-0000-4000-8000-000000000251", "name": "run-state",        "dataType": "Bool",  "unit": "",       "description": "Drum dryer running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "pm000001-0000-4000-8000-000000000252", "name": "fault",             "dataType": "Bool",  "unit": "",       "description": "Fault active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "pm000001-0000-4000-8000-000000000253", "name": "drum-surface-temp", "dataType": "Float", "unit": "Cel",    "description": "Drum surface temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "pm000001-0000-4000-8000-000000000254", "name": "steam-pressure",    "dataType": "Float", "unit": "bar",    "description": "Internal steam pressure — UCUM: bar", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
+                          { "id": "pm000001-0000-4000-8000-000000000255", "name": "drum-speed",        "dataType": "Float", "unit": "rpm",    "description": "Drum rotation speed — UCUM: /min", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "speed_rpm" } },
+                          { "id": "pm000001-0000-4000-8000-000000000256", "name": "knife-pressure",    "dataType": "Float", "unit": "bar",    "description": "Doctor knife pneumatic pressure — UCUM: bar", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "pm000001-0000-4000-8000-000000000030",
+                "name": "evaporation",
+                "type": "area",
+                "description": "Evaporation and crystallisation area — multi-effect evaporators, crystallisers and centrifuges. L3. S88: process cell level.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "pm000001-0000-4000-8000-000000000031",
+                    "name": "evaporator",
+                    "type": "workCenter",
+                    "description": "Multi-effect evaporator train — concentration of extract. L4.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "pm000001-0000-4000-8000-000000000032",
+                        "name": "evaporator-01",
+                        "type": "workUnit",
+                        "description": "Falling-film evaporator effect 01. L5 — S88: unit.",
+                        "tags": [
+                          { "id": "pm000001-0000-4000-8000-000000000301", "name": "run-state",        "dataType": "Bool",  "unit": "",     "description": "Evaporator in service", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "pm000001-0000-4000-8000-000000000302", "name": "fault",             "dataType": "Bool",  "unit": "",     "description": "Fault active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "pm000001-0000-4000-8000-000000000303", "name": "temperature",       "dataType": "Float", "unit": "Cel",  "description": "Liquor temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "pm000001-0000-4000-8000-000000000304", "name": "vacuum-pressure",   "dataType": "Float", "unit": "mbar", "description": "Vapour space vacuum pressure — UCUM: mbar", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
+                          { "id": "pm000001-0000-4000-8000-000000000305", "name": "feed-flow",         "dataType": "Float", "unit": "m3/h", "description": "Feed liquor flow — UCUM: m3/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "flow_rate" } },
+                          { "id": "pm000001-0000-4000-8000-000000000306", "name": "level",             "dataType": "Float", "unit": "%",    "description": "Evaporator sump level — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "level" } }
+                        ],
+                        "children": []
+                      },
+                      {
+                        "id": "pm000001-0000-4000-8000-000000000033",
+                        "name": "crystalliser-01",
+                        "type": "workUnit",
+                        "description": "Batch crystalliser 01. L5 — S88: unit. Cooling crystallisation.",
+                        "tags": [
+                          { "id": "pm000001-0000-4000-8000-000000000310", "name": "run-state",        "dataType": "Bool",  "unit": "",     "description": "Crystalliser running / in batch", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "pm000001-0000-4000-8000-000000000311", "name": "fault",             "dataType": "Bool",  "unit": "",     "description": "Fault active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "pm000001-0000-4000-8000-000000000312", "name": "massecuite-temp",   "dataType": "Float", "unit": "Cel",  "description": "Massecuite / slurry temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
+                          { "id": "pm000001-0000-4000-8000-000000000313", "name": "agitator-speed",    "dataType": "Float", "unit": "rpm",  "description": "Agitator / stirrer speed — UCUM: /min", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "speed_rpm" } },
+                          { "id": "pm000001-0000-4000-8000-000000000314", "name": "level",             "dataType": "Float", "unit": "%",    "description": "Pan / vessel fill level — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "level" } },
+                          { "id": "pm000001-0000-4000-8000-000000000315", "name": "recipe",            "dataType": "String","unit": "",     "description": "Active crystallisation recipe / grade", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "recipe" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "pm000001-0000-4000-8000-000000000040",
+                "name": "utilities",
+                "type": "area",
+                "description": "Utilities area — steam generation, cooling water and compressed air. L3.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "pm000001-0000-4000-8000-000000000041",
+                    "name": "steam-system",
+                    "type": "workCenter",
+                    "description": "Steam generation — HP boilers and distribution header. L4.",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "pm000001-0000-4000-8000-000000000042",
+                        "name": "boiler-01",
+                        "type": "workUnit",
+                        "description": "Steam boiler 01. L5.",
+                        "tags": [
+                          { "id": "pm000001-0000-4000-8000-000000000401", "name": "run-state",        "dataType": "Bool",  "unit": "",      "description": "Boiler firing / running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
+                          { "id": "pm000001-0000-4000-8000-000000000402", "name": "fault",             "dataType": "Bool",  "unit": "",      "description": "Boiler fault or trip", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
+                          { "id": "pm000001-0000-4000-8000-000000000403", "name": "steam-pressure",    "dataType": "Float", "unit": "bar",   "description": "Steam header pressure — UCUM: bar", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
+                          { "id": "pm000001-0000-4000-8000-000000000404", "name": "steam-flow",        "dataType": "Float", "unit": "kg/h",  "description": "Steam mass flow — UCUM: kg/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "steam_flow" } },
+                          { "id": "pm000001-0000-4000-8000-000000000405", "name": "power",             "dataType": "Float", "unit": "kW",    "description": "Burner power demand — UCUM: kW", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "pm000001-0000-4000-8000-000000000050",
+                "name": "_lims",
+                "type": "area",
+                "description": "Functional branch — LIMS / laboratory. Raw sample results, instrument outputs, in-process measurements. Topic pattern: enterprise/process-manufacturing/plant-nl-02/_lims/... Qualifier: quality.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "pm000001-0000-4000-8000-000000000051",
+                    "name": "in-process",
+                    "type": "workCenter",
+                    "description": "In-process lab measurements — extract, concentrate, final product",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "pm000001-0000-4000-8000-000000000052",
+                        "name": "extract",
+                        "type": "workUnit",
+                        "description": "Extract quality measurements — concentration, purity",
+                        "tags": [
+                          { "id": "pm000001-0000-4000-8000-000000000501", "name": "concentration",    "dataType": "Float", "unit": "%",    "description": "Active compound concentration in extract — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "quality", "simulation": { "profile": "quality_metric_pct" } },
+                          { "id": "pm000001-0000-4000-8000-000000000502", "name": "purity",           "dataType": "Float", "unit": "%",    "description": "Purity of extract relative to spec — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "quality", "simulation": { "profile": "quality_metric_pct" } },
+                          { "id": "pm000001-0000-4000-8000-000000000503", "name": "dry-matter",       "dataType": "Float", "unit": "%",    "description": "Dry matter content (Brix / refractometer) — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "quality", "simulation": { "profile": "quality_metric_cont" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "pm000001-0000-4000-8000-000000000060",
+                "name": "_quality",
+                "type": "area",
+                "description": "Functional branch — quality release decisions. Lot release records, QA decisions, certificates. Immutable stream. Topic pattern: enterprise/process-manufacturing/plant-nl-02/_quality/... Qualifier: quality.",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "pm000001-0000-4000-8000-000000000061",
+                    "name": "lot-release",
+                    "type": "workCenter",
+                    "description": "Lot and batch release decisions",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "pm000001-0000-4000-8000-000000000062",
+                        "name": "finished-product",
+                        "type": "workUnit",
+                        "description": "Finished product lot quality status",
+                        "tags": [
+                          { "id": "pm000001-0000-4000-8000-000000000601", "name": "spec-pass",        "dataType": "Bool",  "unit": "",    "description": "Lot meets full specification — true = released", "access": "R", "payloadSchema": "standard", "qualifier": "quality", "simulation": { "profile": "boolean_running" } },
+                          { "id": "pm000001-0000-4000-8000-000000000602", "name": "quality-score",    "dataType": "Float", "unit": "%",   "description": "Composite quality score against specification — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "quality", "simulation": { "profile": "quality_metric_pct" } },
+                          { "id": "pm000001-0000-4000-8000-000000000603", "name": "erp-order-id",     "dataType": "String","unit": "",    "description": "ERP production order ID linked to this lot", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "erp_order_id" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "pm000001-0000-4000-8000-000000000070",
+                "name": "_kpi",
+                "type": "area",
+                "description": "Functional branch — site-level KPIs. OEE, yield, energy intensity. Produced by calculation services. Topic pattern: enterprise/process-manufacturing/plant-nl-02/_kpi/...",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "pm000001-0000-4000-8000-000000000071",
+                    "name": "site",
+                    "type": "workCenter",
+                    "description": "Site-level aggregated KPIs",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "pm000001-0000-4000-8000-000000000072",
+                        "name": "production",
+                        "type": "workUnit",
+                        "description": "Production KPIs — OEE, yield, throughput",
+                        "tags": [
+                          { "id": "pm000001-0000-4000-8000-000000000701", "name": "oee",              "dataType": "Float", "unit": "%",    "description": "Site OEE — A × P × Q / 10000. unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "oee" } },
+                          { "id": "pm000001-0000-4000-8000-000000000702", "name": "availability",     "dataType": "Float", "unit": "%",    "description": "Availability rate — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "availability" } },
+                          { "id": "pm000001-0000-4000-8000-000000000703", "name": "good-output",      "dataType": "Float", "unit": "t",    "description": "Cumulative good product output — UCUM: t", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "accumulator_good" } },
+                          { "id": "pm000001-0000-4000-8000-000000000704", "name": "power",            "dataType": "Float", "unit": "kW",   "description": "Total site power demand — UCUM: kW", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "power_kw" } },
+                          { "id": "pm000001-0000-4000-8000-000000000705", "name": "co2",              "dataType": "Float", "unit": "kg",   "description": "Scope 1+2 CO2 equivalent — UCUM: kg", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "co2_kg" } },
+                          { "id": "pm000001-0000-4000-8000-000000000706", "name": "margin",           "dataType": "Float", "unit": "%",    "description": "Contribution margin — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "margin_pct" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              },
+
+              {
+                "id": "pm000001-0000-4000-8000-000000000080",
+                "name": "_maint",
+                "type": "area",
+                "description": "Functional branch — CMMS / maintenance. Work orders, asset health, reliability metrics. Topic pattern: enterprise/process-manufacturing/plant-nl-02/_maint/...",
+                "tags": [],
+                "children": [
+                  {
+                    "id": "pm000001-0000-4000-8000-000000000081",
+                    "name": "asset-health",
+                    "type": "workCenter",
+                    "description": "Asset health monitoring — predictive and preventive maintenance KPIs",
+                    "tags": [],
+                    "children": [
+                      {
+                        "id": "pm000001-0000-4000-8000-000000000082",
+                        "name": "rotating-equipment",
+                        "type": "workUnit",
+                        "description": "Aggregate maintenance KPIs for pumps and drives",
+                        "tags": [
+                          { "id": "pm000001-0000-4000-8000-000000000801", "name": "mtbf",             "dataType": "Float", "unit": "h",   "description": "Mean time between failures — UCUM: h", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "mtbf" } },
+                          { "id": "pm000001-0000-4000-8000-000000000802", "name": "mttr",             "dataType": "Float", "unit": "h",   "description": "Mean time to repair — UCUM: h", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "mttr" } },
+                          { "id": "pm000001-0000-4000-8000-000000000803", "name": "pm-compliance",   "dataType": "Float", "unit": "%",   "description": "Preventive maintenance compliance — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "pm_compliance" } },
+                          { "id": "pm000001-0000-4000-8000-000000000804", "name": "maint-cost",      "dataType": "Float", "unit": "EUR", "description": "Maintenance cost accumulator — UCUM: EUR", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "maintenance_cost" } }
+                        ],
+                        "children": []
+                      }
+                    ]
+                  }
+                ]
+              }
+
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
