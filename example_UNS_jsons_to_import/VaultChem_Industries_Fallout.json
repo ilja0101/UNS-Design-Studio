@@ -47,7 +47,9 @@
                             "description": "Reactor running state",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-gel-r01-fault",
@@ -57,7 +59,9 @@
                             "description": "Reactor fault active",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_fault" }
+                            "simulation": {
+                              "profile": "boolean_fault"
+                            }
                           },
                           {
                             "id": "tag-gel-r01-temp",
@@ -67,7 +71,12 @@
                             "description": "Biomed-gel reactor temperature [°C]. Setpoint 68 °C.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": 60, "max": 80, "setpoint": 68 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": 60,
+                              "max": 80,
+                              "setpoint": 68
+                            }
                           },
                           {
                             "id": "tag-gel-r01-pressure",
@@ -77,7 +86,11 @@
                             "description": "Reactor headspace pressure [kPa].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "pressure", "min": 101, "max": 180 }
+                            "simulation": {
+                              "profile": "pressure",
+                              "min": 101,
+                              "max": 180
+                            }
                           },
                           {
                             "id": "tag-gel-r01-agitator-speed",
@@ -87,7 +100,11 @@
                             "description": "Agitator shaft speed [rpm].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "speed_rpm", "min": 60, "max": 200 }
+                            "simulation": {
+                              "profile": "speed_rpm",
+                              "min": 60,
+                              "max": 200
+                            }
                           },
                           {
                             "id": "tag-gel-r01-biomed-concentration",
@@ -97,7 +114,11 @@
                             "description": "Biomed-gel active compound concentration [%w/w]. Target ≥ 82 %.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 78, "max": 88 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 78,
+                              "max": 88
+                            }
                           },
                           {
                             "id": "tag-gel-r01-batch-id",
@@ -107,7 +128,9 @@
                             "description": "Current S88 batch identifier (e.g. SMP-20260421-001).",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "erp_order_id" }
+                            "simulation": {
+                              "profile": "erp_order_id"
+                            }
                           },
                           {
                             "id": "tag-gel-r01-recipe",
@@ -117,7 +140,9 @@
                             "description": "Active recipe name (STIMPAK_STD / STIMPAK_ULTRA / STIMPAK_SUPER).",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "recipe" }
+                            "simulation": {
+                              "profile": "recipe"
+                            }
                           }
                         ]
                       }
@@ -143,7 +168,9 @@
                             "description": "Fill-seal running state",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-fs01-fault",
@@ -153,7 +180,9 @@
                             "description": "Fill-seal fault",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_fault" }
+                            "simulation": {
+                              "profile": "boolean_fault"
+                            }
                           },
                           {
                             "id": "tag-fs01-fill-weight",
@@ -163,7 +192,11 @@
                             "description": "Target fill weight per injector [g]. Nominal 3.5 g.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 3.3, "max": 3.7 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 3.3,
+                              "max": 3.7
+                            }
                           },
                           {
                             "id": "tag-fs01-stimpak-yield",
@@ -173,7 +206,11 @@
                             "description": "Finished StimPak units per hour [units/h].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 1800, "max": 2400 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 1800,
+                              "max": 2400
+                            }
                           },
                           {
                             "id": "tag-fs01-reject-count",
@@ -183,7 +220,9 @@
                             "description": "Injectors rejected by inline vision system [units].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "accumulator_bad" }
+                            "simulation": {
+                              "profile": "accumulator_bad"
+                            }
                           }
                         ]
                       }
@@ -217,7 +256,9 @@
                             "description": "Reactor running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-chel-temp",
@@ -227,7 +268,11 @@
                             "description": "Chelation reactor temperature [°C]. Process range 45–55 °C.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": 42, "max": 58 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": 42,
+                              "max": 58
+                            }
                           },
                           {
                             "id": "tag-chel-ph",
@@ -237,7 +282,11 @@
                             "description": "Reaction mixture pH. Target 7.2 ± 0.2.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 6.8, "max": 7.6 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 6.8,
+                              "max": 7.6
+                            }
                           },
                           {
                             "id": "tag-chel-rad-neutralization",
@@ -247,7 +296,11 @@
                             "description": "In-process rad-neutralization efficacy [%]. QC target ≥ 95 %.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "quality", "min": 92, "max": 99 }
+                            "simulation": {
+                              "profile": "quality",
+                              "min": 92,
+                              "max": 99
+                            }
                           },
                           {
                             "id": "tag-chel-radaway-purity",
@@ -257,7 +310,11 @@
                             "description": "Finished RadAway active substance purity [%w/w]. Release spec ≥ 98.5 %.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "quality", "min": 97.5, "max": 99.8 }
+                            "simulation": {
+                              "profile": "quality",
+                              "min": 97.5,
+                              "max": 99.8
+                            }
                           },
                           {
                             "id": "tag-chel-batch",
@@ -267,7 +324,9 @@
                             "description": "Current batch ID (e.g. RAW-20260421-007).",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "erp_order_id" }
+                            "simulation": {
+                              "profile": "erp_order_id"
+                            }
                           }
                         ]
                       }
@@ -293,7 +352,9 @@
                             "description": "Filler running state",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-ivf-fill-volume",
@@ -303,7 +364,11 @@
                             "description": "Dispensed RadAway volume per pouch [mL]. Nominal 250 mL.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 248, "max": 252 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 248,
+                              "max": 252
+                            }
                           },
                           {
                             "id": "tag-ivf-output-rate",
@@ -313,7 +378,11 @@
                             "description": "Filled RadAway pouches per hour [bags/h].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 400, "max": 600 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 400,
+                              "max": 600
+                            }
                           }
                         ]
                       }
@@ -347,7 +416,9 @@
                             "description": "Syrup blending running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-syrup-brix",
@@ -357,7 +428,11 @@
                             "description": "Syrup dissolved solids [°Brix]. Target 65 °Bx.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 62, "max": 68 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 62,
+                              "max": 68
+                            }
                           },
                           {
                             "id": "tag-syrup-quantum-glow",
@@ -367,7 +442,11 @@
                             "description": "Nuka Quantum glow index – bioluminescence intensity [nGI]. Spec 8–12 nGI. (fictional unit)",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 7, "max": 13 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 7,
+                              "max": 13
+                            }
                           },
                           {
                             "id": "tag-syrup-isotope-dose",
@@ -377,7 +456,11 @@
                             "description": "Sr-90 dosing rate for Quantum variant [µg/L]. (fictional / parody).",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 0.0, "max": 0.5 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.0,
+                              "max": 0.5
+                            }
                           },
                           {
                             "id": "tag-syrup-recipe",
@@ -387,7 +470,9 @@
                             "description": "Active recipe (NUKA_CLASSIC / NUKA_QUANTUM / NUKA_CHERRY / NUKA_WILD).",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "recipe" }
+                            "simulation": {
+                              "profile": "recipe"
+                            }
                           }
                         ]
                       }
@@ -413,7 +498,9 @@
                             "description": "Filler running state",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-bf01-speed",
@@ -423,7 +510,11 @@
                             "description": "Bottles filled per hour [bph].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 20000, "max": 36000 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 20000,
+                              "max": 36000
+                            }
                           },
                           {
                             "id": "tag-bf01-fill-level",
@@ -433,7 +524,11 @@
                             "description": "Mean fill volume per bottle [mL]. Nominal 355 mL.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 353, "max": 357 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 353,
+                              "max": 357
+                            }
                           },
                           {
                             "id": "tag-bf01-fault",
@@ -443,7 +538,9 @@
                             "description": "Filler fault active",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_fault" }
+                            "simulation": {
+                              "profile": "boolean_fault"
+                            }
                           }
                         ]
                       }
@@ -477,7 +574,9 @@
                             "description": "Jet reactor running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-jet-pressure",
@@ -487,7 +586,11 @@
                             "description": "Reactor gauge pressure [kPa].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "pressure", "min": 200, "max": 600 }
+                            "simulation": {
+                              "profile": "pressure",
+                              "min": 200,
+                              "max": 600
+                            }
                           },
                           {
                             "id": "tag-jet-temp",
@@ -497,7 +600,11 @@
                             "description": "Reaction temperature [°C].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": 110, "max": 150 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": 110,
+                              "max": 150
+                            }
                           },
                           {
                             "id": "tag-jet-yield",
@@ -507,7 +614,11 @@
                             "description": "Jet compound yield per batch [g/batch]. Target 500 g.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 420, "max": 530 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 420,
+                              "max": 530
+                            }
                           },
                           {
                             "id": "tag-jet-safety",
@@ -517,7 +628,9 @@
                             "description": "Vault containment breach alarm – auto-lockdown triggered.",
                             "access": "read",
                             "qualifier": "event",
-                            "simulation": { "profile": "boolean_alarm" }
+                            "simulation": {
+                              "profile": "boolean_alarm"
+                            }
                           }
                         ]
                       }
@@ -543,7 +656,9 @@
                             "description": "Tablet press running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-tp01-speed",
@@ -553,7 +668,11 @@
                             "description": "Turret speed [rpm].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "speed_rpm", "min": 20, "max": 60 }
+                            "simulation": {
+                              "profile": "speed_rpm",
+                              "min": 20,
+                              "max": 60
+                            }
                           },
                           {
                             "id": "tag-tp01-hardness",
@@ -563,7 +682,11 @@
                             "description": "Mean tablet crushing strength [N]. Spec 80–120 N.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 75, "max": 125 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 75,
+                              "max": 125
+                            }
                           },
                           {
                             "id": "tag-tp01-output",
@@ -573,7 +696,11 @@
                             "description": "Buffout tablets produced per hour.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 80000, "max": 120000 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 80000,
+                              "max": 120000
+                            }
                           }
                         ]
                       }
@@ -607,7 +734,9 @@
                             "description": "Boiler running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-boiler-steam-pressure",
@@ -617,7 +746,11 @@
                             "description": "Steam header pressure [bar(g)].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "pressure", "min": 7.0, "max": 9.0 }
+                            "simulation": {
+                              "profile": "pressure",
+                              "min": 7.0,
+                              "max": 9.0
+                            }
                           },
                           {
                             "id": "tag-boiler-steam-flow",
@@ -627,7 +760,9 @@
                             "description": "Steam generation rate [t/h].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "steam_flow" }
+                            "simulation": {
+                              "profile": "steam_flow"
+                            }
                           }
                         ]
                       }
@@ -661,7 +796,9 @@
                             "description": "Site OEE [%].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "oee" }
+                            "simulation": {
+                              "profile": "oee"
+                            }
                           },
                           {
                             "id": "tag-kpi-availability",
@@ -671,7 +808,9 @@
                             "description": "Site availability [%].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "availability" }
+                            "simulation": {
+                              "profile": "availability"
+                            }
                           },
                           {
                             "id": "tag-kpi-stimpak-pph",
@@ -681,7 +820,11 @@
                             "description": "StimPak production rate [units/h].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "flow_rate", "min": 1800, "max": 2400 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 1800,
+                              "max": 2400
+                            }
                           },
                           {
                             "id": "tag-kpi-radaway-pph",
@@ -691,7 +834,11 @@
                             "description": "RadAway IV-bag production rate [bags/h].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "flow_rate", "min": 400, "max": 600 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 400,
+                              "max": 600
+                            }
                           },
                           {
                             "id": "tag-kpi-nuka-pph",
@@ -701,7 +848,11 @@
                             "description": "Nuka-Cola output rate [bph].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "flow_rate", "min": 20000, "max": 36000 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 20000,
+                              "max": 36000
+                            }
                           },
                           {
                             "id": "tag-kpi-first-pass-yield",
@@ -711,7 +862,9 @@
                             "description": "First-pass yield across all product lines [%].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "quality" }
+                            "simulation": {
+                              "profile": "quality"
+                            }
                           }
                         ]
                       }
@@ -745,7 +898,9 @@
                             "description": "Analyser online",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-rad-level",
@@ -755,7 +910,11 @@
                             "description": "Sample radiation level [µSv/h]. Release limit ≤ 0.1 µSv/h.",
                             "access": "read",
                             "qualifier": "quality",
-                            "simulation": { "profile": "default", "min": 0.01, "max": 0.15 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.01,
+                              "max": 0.15
+                            }
                           },
                           {
                             "id": "tag-rad-lot-status",
@@ -765,13 +924,37 @@
                             "description": "Lot release decision (PASS / FAIL / PENDING).",
                             "access": "read",
                             "qualifier": "quality",
-                            "simulation": { "profile": "default" }
+                            "simulation": {
+                              "profile": "default"
+                            }
                           }
                         ]
                       }
                     ]
                   }
                 ]
+              }
+            ],
+            "recipes": [
+              {
+                "name": "STIMPAK_STANDARD",
+                "params": {}
+              },
+              {
+                "name": "STIMPAK_ULTRA",
+                "params": {}
+              },
+              {
+                "name": "RADAWAY_STANDARD",
+                "params": {}
+              },
+              {
+                "name": "NUKA_CLASSIC",
+                "params": {}
+              },
+              {
+                "name": "NUKA_QUANTUM",
+                "params": {}
               }
             ]
           }

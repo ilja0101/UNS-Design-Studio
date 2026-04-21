@@ -47,7 +47,9 @@
                             "description": "Pump running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-ip01-fault",
@@ -57,7 +59,9 @@
                             "description": "Pump fault",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_fault" }
+                            "simulation": {
+                              "profile": "boolean_fault"
+                            }
                           },
                           {
                             "id": "tag-ip01-flow",
@@ -67,7 +71,11 @@
                             "description": "Raw water intake flow rate [m³/h].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 300, "max": 550 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 300,
+                              "max": 550
+                            }
                           },
                           {
                             "id": "tag-ip01-current",
@@ -77,7 +85,9 @@
                             "description": "Motor current [A].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "motor_current" }
+                            "simulation": {
+                              "profile": "motor_current"
+                            }
                           }
                         ]
                       }
@@ -103,7 +113,9 @@
                             "description": "Screen running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-scr-dp",
@@ -113,7 +125,11 @@
                             "description": "Screen differential pressure [mbar]. High DP triggers auto-backwash.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "pressure", "min": 5, "max": 120 }
+                            "simulation": {
+                              "profile": "pressure",
+                              "min": 5,
+                              "max": 120
+                            }
                           }
                         ]
                       }
@@ -147,7 +163,9 @@
                             "description": "Coagulation running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-coag-turbidity-in",
@@ -157,7 +175,11 @@
                             "description": "Raw water turbidity at coagulation inlet [NTU].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 5, "max": 200 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 5,
+                              "max": 200
+                            }
                           },
                           {
                             "id": "tag-coag-dose",
@@ -167,7 +189,11 @@
                             "description": "FeSO₄ coagulant dose rate [mg/L].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 10, "max": 60 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 10,
+                              "max": 60
+                            }
                           },
                           {
                             "id": "tag-coag-ph",
@@ -177,7 +203,11 @@
                             "description": "Tank pH. Optimal coagulation 6.8–7.4.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 6.5, "max": 7.8 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 6.5,
+                              "max": 7.8
+                            }
                           }
                         ]
                       }
@@ -203,7 +233,9 @@
                             "description": "Filter in service",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-flt01-turbidity-out",
@@ -213,7 +245,11 @@
                             "description": "Filtered water turbidity [NTU]. WHO target < 0.1 NTU.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 0.02, "max": 0.3 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.02,
+                              "max": 0.3
+                            }
                           },
                           {
                             "id": "tag-flt01-headloss",
@@ -223,7 +259,11 @@
                             "description": "Filter headloss [m]. Backwash triggered > 2.5 m.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 0.1, "max": 3.0 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.1,
+                              "max": 3.0
+                            }
                           },
                           {
                             "id": "tag-flt01-backwash",
@@ -233,7 +273,9 @@
                             "description": "Backwash cycle active",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_alarm" }
+                            "simulation": {
+                              "profile": "boolean_alarm"
+                            }
                           }
                         ]
                       }
@@ -259,7 +301,9 @@
                             "description": "UV bank online",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-uv-dose",
@@ -269,7 +313,11 @@
                             "description": "Delivered UV dose [mJ/cm²]. Minimum 40 mJ/cm².",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 38, "max": 80 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 38,
+                              "max": 80
+                            }
                           },
                           {
                             "id": "tag-uv-transmittance",
@@ -279,7 +327,11 @@
                             "description": "UV transmittance of water at 254 nm [%].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 85, "max": 99 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 85,
+                              "max": 99
+                            }
                           },
                           {
                             "id": "tag-uv-lamp-hours",
@@ -289,7 +341,11 @@
                             "description": "Accumulated lamp operating hours [h]. Replace at 12 000 h.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 0, "max": 12000 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0,
+                              "max": 12000
+                            }
                           }
                         ]
                       }
@@ -315,7 +371,9 @@
                             "description": "Dosing pump running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-cl-dose",
@@ -325,7 +383,11 @@
                             "description": "NaOCl dose rate [mg/L as Cl₂]. Target 0.3–0.5 mg/L residual.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 0.2, "max": 0.8 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.2,
+                              "max": 0.8
+                            }
                           },
                           {
                             "id": "tag-cl-residual",
@@ -335,7 +397,11 @@
                             "description": "Outlet free residual chlorine [mg/L].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 0.1, "max": 0.6 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.1,
+                              "max": 0.6
+                            }
                           }
                         ]
                       }
@@ -369,7 +435,9 @@
                             "description": "Clear-well level [% of capacity].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "level" }
+                            "simulation": {
+                              "profile": "level"
+                            }
                           },
                           {
                             "id": "tag-cw-volume",
@@ -379,7 +447,11 @@
                             "description": "Absolute stored volume [m³].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 1000, "max": 5000 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 1000,
+                              "max": 5000
+                            }
                           }
                         ]
                       }
@@ -405,7 +477,9 @@
                             "description": "Pump running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-hlp01-flow",
@@ -415,7 +489,11 @@
                             "description": "Distribution flow rate [m³/h].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 100, "max": 320 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 100,
+                              "max": 320
+                            }
                           },
                           {
                             "id": "tag-hlp01-pressure",
@@ -425,7 +503,11 @@
                             "description": "Pump discharge pressure [bar].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "pressure", "min": 4.0, "max": 8.0 }
+                            "simulation": {
+                              "profile": "pressure",
+                              "min": 4.0,
+                              "max": 8.0
+                            }
                           },
                           {
                             "id": "tag-hlp01-current",
@@ -435,7 +517,9 @@
                             "description": "Motor current [A].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "motor_current" }
+                            "simulation": {
+                              "profile": "motor_current"
+                            }
                           }
                         ]
                       }
@@ -469,7 +553,9 @@
                             "description": "Clarifier in service",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-pc01-ss-out",
@@ -479,7 +565,11 @@
                             "description": "Effluent suspended solids [mg/L]. Target < 150 mg/L.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 50, "max": 250 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 50,
+                              "max": 250
+                            }
                           },
                           {
                             "id": "tag-pc01-sludge-level",
@@ -489,7 +579,11 @@
                             "description": "Sludge blanket depth [m].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "level", "min": 0.2, "max": 1.5 }
+                            "simulation": {
+                              "profile": "level",
+                              "min": 0.2,
+                              "max": 1.5
+                            }
                           }
                         ]
                       }
@@ -515,7 +609,11 @@
                             "description": "Dissolved oxygen in aeration basin [mg/L]. Target 2.0 mg/L.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 0.5, "max": 4.0 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.5,
+                              "max": 4.0
+                            }
                           },
                           {
                             "id": "tag-ab01-mlss",
@@ -525,7 +623,11 @@
                             "description": "Mixed liquor suspended solids [mg/L]. Target 3 000–4 000 mg/L.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 2000, "max": 5000 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 2000,
+                              "max": 5000
+                            }
                           },
                           {
                             "id": "tag-ab01-air-flow",
@@ -535,7 +637,11 @@
                             "description": "Supplied aeration air flow [m³/h].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 500, "max": 2000 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 500,
+                              "max": 2000
+                            }
                           },
                           {
                             "id": "tag-ab01-nh4",
@@ -545,7 +651,11 @@
                             "description": "Effluent ammonium-N [mg/L NH₄-N]. Discharge limit < 3 mg/L.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 0.5, "max": 6.0 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.5,
+                              "max": 6.0
+                            }
                           }
                         ]
                       }
@@ -579,7 +689,11 @@
                             "description": "Total drinking water produced today [m³/d].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "flow_rate", "min": 5000, "max": 12000 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 5000,
+                              "max": 12000
+                            }
                           },
                           {
                             "id": "tag-kpi-compliance",
@@ -589,7 +703,11 @@
                             "description": "Drinking water quality compliance [%]. Regulatory target 100 %.",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "quality", "min": 97, "max": 100 }
+                            "simulation": {
+                              "profile": "quality",
+                              "min": 97,
+                              "max": 100
+                            }
                           },
                           {
                             "id": "tag-kpi-energy-per-m3",
@@ -599,7 +717,11 @@
                             "description": "Energy consumption per m³ produced [kWh/m³]. Benchmark 0.4 kWh/m³.",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "default", "min": 0.3, "max": 0.7 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.3,
+                              "max": 0.7
+                            }
                           },
                           {
                             "id": "tag-kpi-leakage",
@@ -609,7 +731,11 @@
                             "description": "Non-revenue water (leakage) [%]. Target < 10 %.",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "default", "min": 5, "max": 18 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 5,
+                              "max": 18
+                            }
                           }
                         ]
                       }
@@ -643,7 +769,9 @@
                             "description": "Total site active power [kW].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "power_kw" }
+                            "simulation": {
+                              "profile": "power_kw"
+                            }
                           },
                           {
                             "id": "tag-mm-energy",
@@ -653,13 +781,33 @@
                             "description": "Accumulated energy today [kWh].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "accumulator_good" }
+                            "simulation": {
+                              "profile": "accumulator_good"
+                            }
                           }
                         ]
                       }
                     ]
                   }
                 ]
+              }
+            ],
+            "recipes": [
+              {
+                "name": "NORMAL_DEMAND",
+                "params": {}
+              },
+              {
+                "name": "PEAK_DEMAND",
+                "params": {}
+              },
+              {
+                "name": "LOW_DEMAND",
+                "params": {}
+              },
+              {
+                "name": "BACKWASH_CYCLE",
+                "params": {}
               }
             ]
           }

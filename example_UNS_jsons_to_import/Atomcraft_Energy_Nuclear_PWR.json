@@ -24,7 +24,6 @@
             "description": "Krypton Station 01 — twin-unit PWR nuclear power station. 2 x 1200 MWe. Primary and secondary circuits, cooling towers, turbine hall.",
             "tags": [],
             "children": [
-
               {
                 "id": "ae000001-0000-4000-8000-000000000010",
                 "name": "reactor-building",
@@ -45,18 +44,162 @@
                         "type": "workUnit",
                         "description": "Reactor unit 01 — PWR core, control rods, thermal power instrumentation. L5.",
                         "tags": [
-                          { "id": "ae000001-0000-4000-8000-000000000101", "name": "run-state",             "dataType": "Bool",  "unit": "",      "description": "Reactor critical and at power", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
-                          { "id": "ae000001-0000-4000-8000-000000000102", "name": "scram",                 "dataType": "Bool",  "unit": "",      "description": "SCRAM / emergency shutdown signal — true = tripped", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
-                          { "id": "ae000001-0000-4000-8000-000000000103", "name": "alarm",                 "dataType": "Bool",  "unit": "",      "description": "Safety system alarm active", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_alarm" } },
-                          { "id": "ae000001-0000-4000-8000-000000000104", "name": "thermal-power",         "dataType": "Float", "unit": "MW",    "description": "Reactor thermal power output — UCUM: MW", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } },
-                          { "id": "ae000001-0000-4000-8000-000000000105", "name": "neutron-flux",          "dataType": "Float", "unit": "%",     "description": "Normalised neutron flux — % of rated power", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "performance" } },
-                          { "id": "ae000001-0000-4000-8000-000000000106", "name": "control-rod-position",  "dataType": "Float", "unit": "%",     "description": "Average control rod bank position — 0% = fully inserted, 100% = fully withdrawn", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "valve_position" } },
-                          { "id": "ae000001-0000-4000-8000-000000000107", "name": "coolant-temp-hot-leg",  "dataType": "Float", "unit": "Cel",   "description": "Primary coolant hot-leg temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
-                          { "id": "ae000001-0000-4000-8000-000000000108", "name": "coolant-temp-cold-leg", "dataType": "Float", "unit": "Cel",   "description": "Primary coolant cold-leg temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_ambient" } },
-                          { "id": "ae000001-0000-4000-8000-000000000109", "name": "coolant-pressure",      "dataType": "Float", "unit": "bar",   "description": "Primary circuit operating pressure — UCUM: bar. Nominal 155 bar.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
-                          { "id": "ae000001-0000-4000-8000-00000000010a", "name": "coolant-flow",          "dataType": "Float", "unit": "m3/h",  "description": "Primary coolant volumetric flow — UCUM: m3/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "flow_rate" } },
-                          { "id": "ae000001-0000-4000-8000-00000000010b", "name": "containment-pressure",  "dataType": "Float", "unit": "mbar",  "description": "Reactor containment building pressure — UCUM: mbar. Normally slight negative.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
-                          { "id": "ae000001-0000-4000-8000-00000000010c", "name": "radiation-area",        "dataType": "Float", "unit": "uSv/h", "description": "Area radiation monitor inside containment — UCUM: uSv/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "default" } }
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000101",
+                            "name": "run-state",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "Reactor critical and at power",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000102",
+                            "name": "scram",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "SCRAM / emergency shutdown signal — true = tripped",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_fault"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000103",
+                            "name": "alarm",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "Safety system alarm active",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_alarm"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000104",
+                            "name": "thermal-power",
+                            "dataType": "Float",
+                            "unit": "MW",
+                            "description": "Reactor thermal power output — UCUM: MW",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "power_kw"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000105",
+                            "name": "neutron-flux",
+                            "dataType": "Float",
+                            "unit": "%",
+                            "description": "Normalised neutron flux — % of rated power",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "performance"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000106",
+                            "name": "control-rod-position",
+                            "dataType": "Float",
+                            "unit": "%",
+                            "description": "Average control rod bank position — 0% = fully inserted, 100% = fully withdrawn",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "valve_position"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000107",
+                            "name": "coolant-temp-hot-leg",
+                            "dataType": "Float",
+                            "unit": "Cel",
+                            "description": "Primary coolant hot-leg temperature — UCUM: Cel",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "temperature_process"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000108",
+                            "name": "coolant-temp-cold-leg",
+                            "dataType": "Float",
+                            "unit": "Cel",
+                            "description": "Primary coolant cold-leg temperature — UCUM: Cel",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "temperature_ambient"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000109",
+                            "name": "coolant-pressure",
+                            "dataType": "Float",
+                            "unit": "bar",
+                            "description": "Primary circuit operating pressure — UCUM: bar. Nominal 155 bar.",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "pressure"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-00000000010a",
+                            "name": "coolant-flow",
+                            "dataType": "Float",
+                            "unit": "m3/h",
+                            "description": "Primary coolant volumetric flow — UCUM: m3/h",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "flow_rate"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-00000000010b",
+                            "name": "containment-pressure",
+                            "dataType": "Float",
+                            "unit": "mbar",
+                            "description": "Reactor containment building pressure — UCUM: mbar. Normally slight negative.",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "pressure"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-00000000010c",
+                            "name": "radiation-area",
+                            "dataType": "Float",
+                            "unit": "uSv/h",
+                            "description": "Area radiation monitor inside containment — UCUM: uSv/h",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "default"
+                            }
+                          }
                         ],
                         "children": []
                       },
@@ -66,10 +209,58 @@
                         "type": "workUnit",
                         "description": "Pressuriser — maintains primary circuit pressure via heaters and spray. L5.",
                         "tags": [
-                          { "id": "ae000001-0000-4000-8000-000000000111", "name": "pressure",              "dataType": "Float", "unit": "bar",  "description": "Pressuriser pressure — UCUM: bar", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
-                          { "id": "ae000001-0000-4000-8000-000000000112", "name": "level",                 "dataType": "Float", "unit": "%",    "description": "Pressuriser water level — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "level" } },
-                          { "id": "ae000001-0000-4000-8000-000000000113", "name": "temperature",           "dataType": "Float", "unit": "Cel",  "description": "Pressuriser temperature — UCUM: Cel. Nominal ~345 Cel.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
-                          { "id": "ae000001-0000-4000-8000-000000000114", "name": "heater-power",          "dataType": "Float", "unit": "kW",   "description": "Immersion heater power demand — UCUM: kW", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } }
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000111",
+                            "name": "pressure",
+                            "dataType": "Float",
+                            "unit": "bar",
+                            "description": "Pressuriser pressure — UCUM: bar",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "pressure"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000112",
+                            "name": "level",
+                            "dataType": "Float",
+                            "unit": "%",
+                            "description": "Pressuriser water level — unit: %",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "level"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000113",
+                            "name": "temperature",
+                            "dataType": "Float",
+                            "unit": "Cel",
+                            "description": "Pressuriser temperature — UCUM: Cel. Nominal ~345 Cel.",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "temperature_process"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000114",
+                            "name": "heater-power",
+                            "dataType": "Float",
+                            "unit": "kW",
+                            "description": "Immersion heater power demand — UCUM: kW",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "power_kw"
+                            }
+                          }
                         ],
                         "children": []
                       },
@@ -79,11 +270,71 @@
                         "type": "workUnit",
                         "description": "Reactor Coolant Pump 01 — primary coolant circulation. L5.",
                         "tags": [
-                          { "id": "ae000001-0000-4000-8000-000000000121", "name": "run-state",             "dataType": "Bool",  "unit": "",     "description": "RCP running", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
-                          { "id": "ae000001-0000-4000-8000-000000000122", "name": "fault",                 "dataType": "Bool",  "unit": "",     "description": "RCP fault or trip", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
-                          { "id": "ae000001-0000-4000-8000-000000000123", "name": "speed",                 "dataType": "Float", "unit": "rpm",  "description": "Pump speed — UCUM: /min", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "speed_rpm" } },
-                          { "id": "ae000001-0000-4000-8000-000000000124", "name": "motor-current",         "dataType": "Float", "unit": "A",    "description": "Motor current — UCUM: A", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "motor_current" } },
-                          { "id": "ae000001-0000-4000-8000-000000000125", "name": "vibration",             "dataType": "Float", "unit": "mm/s", "description": "Bearing vibration — UCUM: mm/s", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "vibration" } }
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000121",
+                            "name": "run-state",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "RCP running",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000122",
+                            "name": "fault",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "RCP fault or trip",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_fault"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000123",
+                            "name": "speed",
+                            "dataType": "Float",
+                            "unit": "rpm",
+                            "description": "Pump speed — UCUM: /min",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "speed_rpm"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000124",
+                            "name": "motor-current",
+                            "dataType": "Float",
+                            "unit": "A",
+                            "description": "Motor current — UCUM: A",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "motor_current"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000125",
+                            "name": "vibration",
+                            "dataType": "Float",
+                            "unit": "mm/s",
+                            "description": "Bearing vibration — UCUM: mm/s",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "vibration"
+                            }
+                          }
                         ],
                         "children": []
                       }
@@ -91,7 +342,6 @@
                   }
                 ]
               },
-
               {
                 "id": "ae000001-0000-4000-8000-000000000020",
                 "name": "turbine-hall",
@@ -112,12 +362,84 @@
                         "type": "workUnit",
                         "description": "HP/LP steam turbine 01. L5.",
                         "tags": [
-                          { "id": "ae000001-0000-4000-8000-000000000201", "name": "run-state",             "dataType": "Bool",  "unit": "",     "description": "Turbine on-load and synchronised", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
-                          { "id": "ae000001-0000-4000-8000-000000000202", "name": "trip",                  "dataType": "Bool",  "unit": "",     "description": "Turbine trip signal", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
-                          { "id": "ae000001-0000-4000-8000-000000000203", "name": "speed",                 "dataType": "Float", "unit": "rpm",  "description": "Turbine shaft speed — UCUM: /min. Nominal 1500/3000 rpm.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "speed_rpm" } },
-                          { "id": "ae000001-0000-4000-8000-000000000204", "name": "steam-inlet-temp",      "dataType": "Float", "unit": "Cel",  "description": "HP turbine steam inlet temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
-                          { "id": "ae000001-0000-4000-8000-000000000205", "name": "steam-inlet-pressure",  "dataType": "Float", "unit": "bar",  "description": "HP turbine steam inlet pressure — UCUM: bar", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "pressure" } },
-                          { "id": "ae000001-0000-4000-8000-000000000206", "name": "vibration",             "dataType": "Float", "unit": "mm/s", "description": "Shaft vibration — UCUM: mm/s", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "vibration" } }
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000201",
+                            "name": "run-state",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "Turbine on-load and synchronised",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000202",
+                            "name": "trip",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "Turbine trip signal",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_fault"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000203",
+                            "name": "speed",
+                            "dataType": "Float",
+                            "unit": "rpm",
+                            "description": "Turbine shaft speed — UCUM: /min. Nominal 1500/3000 rpm.",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "speed_rpm"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000204",
+                            "name": "steam-inlet-temp",
+                            "dataType": "Float",
+                            "unit": "Cel",
+                            "description": "HP turbine steam inlet temperature — UCUM: Cel",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "temperature_process"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000205",
+                            "name": "steam-inlet-pressure",
+                            "dataType": "Float",
+                            "unit": "bar",
+                            "description": "HP turbine steam inlet pressure — UCUM: bar",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "pressure"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000206",
+                            "name": "vibration",
+                            "dataType": "Float",
+                            "unit": "mm/s",
+                            "description": "Shaft vibration — UCUM: mm/s",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "vibration"
+                            }
+                          }
                         ],
                         "children": []
                       },
@@ -127,10 +449,58 @@
                         "type": "workUnit",
                         "description": "Synchronous generator 01 — 1200 MWe output to grid. L5.",
                         "tags": [
-                          { "id": "ae000001-0000-4000-8000-000000000211", "name": "run-state",             "dataType": "Bool",  "unit": "",     "description": "Generator on-line and exporting", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
-                          { "id": "ae000001-0000-4000-8000-000000000212", "name": "electrical-output",     "dataType": "Float", "unit": "MW",   "description": "Active power output to grid — UCUM: MW", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "power_kw" } },
-                          { "id": "ae000001-0000-4000-8000-000000000213", "name": "stator-temp",           "dataType": "Float", "unit": "Cel",  "description": "Stator winding temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
-                          { "id": "ae000001-0000-4000-8000-000000000214", "name": "energy-generated",      "dataType": "Float", "unit": "MWh",  "description": "Cumulative energy generated — UCUM: MWh", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "accumulator_energy" } }
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000211",
+                            "name": "run-state",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "Generator on-line and exporting",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000212",
+                            "name": "electrical-output",
+                            "dataType": "Float",
+                            "unit": "MW",
+                            "description": "Active power output to grid — UCUM: MW",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "power_kw"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000213",
+                            "name": "stator-temp",
+                            "dataType": "Float",
+                            "unit": "Cel",
+                            "description": "Stator winding temperature — UCUM: Cel",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "temperature_process"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000214",
+                            "name": "energy-generated",
+                            "dataType": "Float",
+                            "unit": "MWh",
+                            "description": "Cumulative energy generated — UCUM: MWh",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "accumulator_energy"
+                            }
+                          }
                         ],
                         "children": []
                       }
@@ -138,7 +508,6 @@
                   }
                 ]
               },
-
               {
                 "id": "ae000001-0000-4000-8000-000000000030",
                 "name": "cooling-system",
@@ -159,10 +528,58 @@
                         "type": "workUnit",
                         "description": "Hyperbolic cooling tower 01. L5.",
                         "tags": [
-                          { "id": "ae000001-0000-4000-8000-000000000301", "name": "run-state",             "dataType": "Bool",  "unit": "",     "description": "Cooling tower in service", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
-                          { "id": "ae000001-0000-4000-8000-000000000302", "name": "inlet-temp",            "dataType": "Float", "unit": "Cel",  "description": "Hot water inlet temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
-                          { "id": "ae000001-0000-4000-8000-000000000303", "name": "outlet-temp",           "dataType": "Float", "unit": "Cel",  "description": "Cold water outlet temperature — UCUM: Cel", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_ambient" } },
-                          { "id": "ae000001-0000-4000-8000-000000000304", "name": "flow",                  "dataType": "Float", "unit": "m3/h", "description": "Cooling water flow rate — UCUM: m3/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "flow_rate" } }
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000301",
+                            "name": "run-state",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "Cooling tower in service",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000302",
+                            "name": "inlet-temp",
+                            "dataType": "Float",
+                            "unit": "Cel",
+                            "description": "Hot water inlet temperature — UCUM: Cel",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "temperature_process"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000303",
+                            "name": "outlet-temp",
+                            "dataType": "Float",
+                            "unit": "Cel",
+                            "description": "Cold water outlet temperature — UCUM: Cel",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "temperature_ambient"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000304",
+                            "name": "flow",
+                            "dataType": "Float",
+                            "unit": "m3/h",
+                            "description": "Cooling water flow rate — UCUM: m3/h",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "flow_rate"
+                            }
+                          }
                         ],
                         "children": []
                       }
@@ -170,7 +587,6 @@
                   }
                 ]
               },
-
               {
                 "id": "ae000001-0000-4000-8000-000000000040",
                 "name": "spent-fuel",
@@ -191,10 +607,58 @@
                         "type": "workUnit",
                         "description": "Spent fuel pool 01. L5.",
                         "tags": [
-                          { "id": "ae000001-0000-4000-8000-000000000401", "name": "pool-temp",             "dataType": "Float", "unit": "Cel",   "description": "Pool water temperature — UCUM: Cel. Alarm above 60 Cel.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "temperature_process" } },
-                          { "id": "ae000001-0000-4000-8000-000000000402", "name": "pool-level",            "dataType": "Float", "unit": "m",     "description": "Pool water level — UCUM: m. Minimum shielding depth.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "level" } },
-                          { "id": "ae000001-0000-4000-8000-000000000403", "name": "radiation-pool",        "dataType": "Float", "unit": "mSv/h", "description": "Pool area radiation dose rate — UCUM: mSv/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "default" } },
-                          { "id": "ae000001-0000-4000-8000-000000000404", "name": "cooling-flow",          "dataType": "Float", "unit": "m3/h",  "description": "Pool cooling water circulation flow — UCUM: m3/h", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "flow_rate" } }
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000401",
+                            "name": "pool-temp",
+                            "dataType": "Float",
+                            "unit": "Cel",
+                            "description": "Pool water temperature — UCUM: Cel. Alarm above 60 Cel.",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "temperature_process"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000402",
+                            "name": "pool-level",
+                            "dataType": "Float",
+                            "unit": "m",
+                            "description": "Pool water level — UCUM: m. Minimum shielding depth.",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "level"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000403",
+                            "name": "radiation-pool",
+                            "dataType": "Float",
+                            "unit": "mSv/h",
+                            "description": "Pool area radiation dose rate — UCUM: mSv/h",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "default"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000404",
+                            "name": "cooling-flow",
+                            "dataType": "Float",
+                            "unit": "m3/h",
+                            "description": "Pool cooling water circulation flow — UCUM: m3/h",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "flow_rate"
+                            }
+                          }
                         ],
                         "children": []
                       }
@@ -202,7 +666,6 @@
                   }
                 ]
               },
-
               {
                 "id": "ae000001-0000-4000-8000-000000000050",
                 "name": "_kpi",
@@ -223,11 +686,71 @@
                         "type": "workUnit",
                         "description": "Station performance KPIs — capacity factor, availability, generation",
                         "tags": [
-                          { "id": "ae000001-0000-4000-8000-000000000501", "name": "capacity-factor",       "dataType": "Float", "unit": "%",   "description": "Net capacity factor — actual output / rated capacity. unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "oee" } },
-                          { "id": "ae000001-0000-4000-8000-000000000502", "name": "availability",          "dataType": "Float", "unit": "%",   "description": "Unit availability rate — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "availability" } },
-                          { "id": "ae000001-0000-4000-8000-000000000503", "name": "energy-generated",      "dataType": "Float", "unit": "MWh", "description": "Cumulative net energy generated — UCUM: MWh", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "accumulator_energy" } },
-                          { "id": "ae000001-0000-4000-8000-000000000504", "name": "unplanned-trip-count",  "dataType": "Float", "unit": "",    "description": "Unplanned reactor trip count — year to date", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "counter_faults" } },
-                          { "id": "ae000001-0000-4000-8000-000000000505", "name": "fuel-burn-up",          "dataType": "Float", "unit": "%",   "description": "Average fuel assembly burn-up remaining — unit: %", "access": "R", "payloadSchema": "standard", "qualifier": "kpi", "simulation": { "profile": "remaining_useful_life" } }
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000501",
+                            "name": "capacity-factor",
+                            "dataType": "Float",
+                            "unit": "%",
+                            "description": "Net capacity factor — actual output / rated capacity. unit: %",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "kpi",
+                            "simulation": {
+                              "profile": "oee"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000502",
+                            "name": "availability",
+                            "dataType": "Float",
+                            "unit": "%",
+                            "description": "Unit availability rate — unit: %",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "kpi",
+                            "simulation": {
+                              "profile": "availability"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000503",
+                            "name": "energy-generated",
+                            "dataType": "Float",
+                            "unit": "MWh",
+                            "description": "Cumulative net energy generated — UCUM: MWh",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "kpi",
+                            "simulation": {
+                              "profile": "accumulator_energy"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000504",
+                            "name": "unplanned-trip-count",
+                            "dataType": "Float",
+                            "unit": "",
+                            "description": "Unplanned reactor trip count — year to date",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "kpi",
+                            "simulation": {
+                              "profile": "counter_faults"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000505",
+                            "name": "fuel-burn-up",
+                            "dataType": "Float",
+                            "unit": "%",
+                            "description": "Average fuel assembly burn-up remaining — unit: %",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "kpi",
+                            "simulation": {
+                              "profile": "remaining_useful_life"
+                            }
+                          }
                         ],
                         "children": []
                       }
@@ -235,7 +758,6 @@
                   }
                 ]
               },
-
               {
                 "id": "ae000001-0000-4000-8000-000000000060",
                 "name": "_safety",
@@ -256,10 +778,58 @@
                         "type": "workUnit",
                         "description": "Reactor Protection System Unit 01",
                         "tags": [
-                          { "id": "ae000001-0000-4000-8000-000000000601", "name": "trip-signal",           "dataType": "Bool",  "unit": "",      "description": "RPS trip output — true = trip demanded. SAFETY CRITICAL.", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_fault" } },
-                          { "id": "ae000001-0000-4000-8000-000000000602", "name": "eccs-actuation",        "dataType": "Bool",  "unit": "",      "description": "Emergency Core Cooling System actuation signal", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_alarm" } },
-                          { "id": "ae000001-0000-4000-8000-000000000603", "name": "containment-isolation", "dataType": "Bool",  "unit": "",      "description": "Containment isolation valve status — true = isolated", "access": "R", "payloadSchema": "standard", "qualifier": "event", "simulation": { "profile": "boolean_running" } },
-                          { "id": "ae000001-0000-4000-8000-000000000604", "name": "area-radiation",        "dataType": "Float", "unit": "uSv/h", "description": "Area radiation monitor — UCUM: uSv/h. Alarm at 1000 uSv/h.", "access": "R", "payloadSchema": "standard", "qualifier": "data", "simulation": { "profile": "default" } }
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000601",
+                            "name": "trip-signal",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "RPS trip output — true = trip demanded. SAFETY CRITICAL.",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_fault"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000602",
+                            "name": "eccs-actuation",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "Emergency Core Cooling System actuation signal",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_alarm"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000603",
+                            "name": "containment-isolation",
+                            "dataType": "Bool",
+                            "unit": "",
+                            "description": "Containment isolation valve status — true = isolated",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "event",
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
+                          },
+                          {
+                            "id": "ae000001-0000-4000-8000-000000000604",
+                            "name": "area-radiation",
+                            "dataType": "Float",
+                            "unit": "uSv/h",
+                            "description": "Area radiation monitor — UCUM: uSv/h. Alarm at 1000 uSv/h.",
+                            "access": "R",
+                            "payloadSchema": "standard",
+                            "qualifier": "data",
+                            "simulation": {
+                              "profile": "default"
+                            }
+                          }
                         ],
                         "children": []
                       }
@@ -267,7 +837,28 @@
                   }
                 ]
               }
-
+            ],
+            "recipes": [
+              {
+                "name": "BASE_LOAD",
+                "params": {}
+              },
+              {
+                "name": "LOAD_FOLLOWING",
+                "params": {}
+              },
+              {
+                "name": "STARTUP",
+                "params": {}
+              },
+              {
+                "name": "HOT_SHUTDOWN",
+                "params": {}
+              },
+              {
+                "name": "REFUEL_OUTAGE",
+                "params": {}
+              }
             ]
           }
         ]

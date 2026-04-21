@@ -47,7 +47,9 @@
                             "description": "Blancher running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-bl-temp",
@@ -57,7 +59,11 @@
                             "description": "Blanching steam temperature [°C]. Target 95–98 °C.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": 90, "max": 100 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": 90,
+                              "max": 100
+                            }
                           },
                           {
                             "id": "tag-bl-belt-speed",
@@ -67,7 +73,11 @@
                             "description": "Conveyor belt speed [m/min].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "speed_rpm", "min": 0.5, "max": 3.0 }
+                            "simulation": {
+                              "profile": "speed_rpm",
+                              "min": 0.5,
+                              "max": 3.0
+                            }
                           },
                           {
                             "id": "tag-bl-throughput",
@@ -77,7 +87,11 @@
                             "description": "Product throughput [kg/h].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 2000, "max": 6000 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 2000,
+                              "max": 6000
+                            }
                           }
                         ]
                       }
@@ -111,7 +125,9 @@
                             "description": "Freezer running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-sf01-evap-temp",
@@ -121,7 +137,11 @@
                             "description": "Evaporator coil temperature [°C]. Target −38 °C.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": -42, "max": -30 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": -42,
+                              "max": -30
+                            }
                           },
                           {
                             "id": "tag-sf01-air-temp",
@@ -131,7 +151,11 @@
                             "description": "Freezer air temperature [°C].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": -36, "max": -28 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": -36,
+                              "max": -28
+                            }
                           },
                           {
                             "id": "tag-sf01-product-temp-out",
@@ -141,7 +165,11 @@
                             "description": "Product core temperature at exit [°C]. Target ≤ −18 °C.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": -22, "max": -15 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": -22,
+                              "max": -15
+                            }
                           },
                           {
                             "id": "tag-sf01-throughput",
@@ -151,7 +179,11 @@
                             "description": "IQF throughput [kg/h].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 2000, "max": 5200 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 2000,
+                              "max": 5200
+                            }
                           },
                           {
                             "id": "tag-sf01-power",
@@ -161,7 +193,9 @@
                             "description": "Refrigeration compressor power draw [kW].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "power_kw" }
+                            "simulation": {
+                              "profile": "power_kw"
+                            }
                           }
                         ]
                       }
@@ -195,7 +229,9 @@
                             "description": "Weigher running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-mhw-target-weight",
@@ -205,7 +241,11 @@
                             "description": "Target portion weight [g].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 400, "max": 1000 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 400,
+                              "max": 1000
+                            }
                           },
                           {
                             "id": "tag-mhw-actual-weight",
@@ -215,7 +255,11 @@
                             "description": "Mean actual portion weight [g].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 398, "max": 1005 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 398,
+                              "max": 1005
+                            }
                           },
                           {
                             "id": "tag-mhw-speed",
@@ -225,7 +269,11 @@
                             "description": "Weigher cycles per minute.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "speed_rpm", "min": 40, "max": 80 }
+                            "simulation": {
+                              "profile": "speed_rpm",
+                              "min": 40,
+                              "max": 80
+                            }
                           }
                         ]
                       }
@@ -259,7 +307,9 @@
                             "description": "Bagger running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-vffs-seal-temp",
@@ -269,7 +319,11 @@
                             "description": "Cross-seal jaw temperature [°C].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": 140, "max": 180 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": 140,
+                              "max": 180
+                            }
                           },
                           {
                             "id": "tag-vffs-bags-per-min",
@@ -279,7 +333,11 @@
                             "description": "Output bags per minute.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 30, "max": 70 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 30,
+                              "max": 70
+                            }
                           },
                           {
                             "id": "tag-vffs-reject",
@@ -289,7 +347,9 @@
                             "description": "Bags rejected by checkweigher or metal detector.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "accumulator_bad" }
+                            "simulation": {
+                              "profile": "accumulator_bad"
+                            }
                           }
                         ]
                       }
@@ -323,7 +383,11 @@
                             "description": "Cold store air temperature [°C]. Spec −20 ± 2 °C.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": -23, "max": -17 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": -23,
+                              "max": -17
+                            }
                           },
                           {
                             "id": "tag-cs-alarm",
@@ -333,7 +397,9 @@
                             "description": "Temperature out-of-spec alarm.",
                             "access": "read",
                             "qualifier": "event",
-                            "simulation": { "profile": "boolean_alarm" }
+                            "simulation": {
+                              "profile": "boolean_alarm"
+                            }
                           },
                           {
                             "id": "tag-cs-door-open",
@@ -343,7 +409,9 @@
                             "description": "Loading dock door open status.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_fault" }
+                            "simulation": {
+                              "profile": "boolean_fault"
+                            }
                           }
                         ]
                       }
@@ -377,7 +445,9 @@
                             "description": "Site OEE [%].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "oee" }
+                            "simulation": {
+                              "profile": "oee"
+                            }
                           },
                           {
                             "id": "tag-kpi-yield",
@@ -387,7 +457,11 @@
                             "description": "Overall product yield (frozen output / raw input) [%].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "quality", "min": 85, "max": 97 }
+                            "simulation": {
+                              "profile": "quality",
+                              "min": 85,
+                              "max": 97
+                            }
                           },
                           {
                             "id": "tag-kpi-throughput",
@@ -397,7 +471,11 @@
                             "description": "Total frozen product output today [t/d].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "flow_rate", "min": 50, "max": 150 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 50,
+                              "max": 150
+                            }
                           },
                           {
                             "id": "tag-kpi-coldchain-compliance",
@@ -407,7 +485,11 @@
                             "description": "% of cold store time within spec temperature [%].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "quality", "min": 96, "max": 100 }
+                            "simulation": {
+                              "profile": "quality",
+                              "min": 96,
+                              "max": 100
+                            }
                           },
                           {
                             "id": "tag-kpi-energy-per-ton",
@@ -417,13 +499,35 @@
                             "description": "Refrigeration energy per tonne frozen [kWh/t].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "default", "min": 80, "max": 180 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 80,
+                              "max": 180
+                            }
                           }
                         ]
                       }
                     ]
                   }
                 ]
+              }
+            ],
+            "recipes": [
+              {
+                "name": "IQF_VEGETABLES",
+                "params": {}
+              },
+              {
+                "name": "IQF_PROTEINS",
+                "params": {}
+              },
+              {
+                "name": "IQF_READY_MEALS",
+                "params": {}
+              },
+              {
+                "name": "DEFROST_CYCLE",
+                "params": {}
               }
             ]
           }

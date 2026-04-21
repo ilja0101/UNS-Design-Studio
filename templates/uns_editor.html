@@ -801,6 +801,7 @@
     <span style="font-size:11px;color:var(--muted)">by <a href="https://github.com/Ilja0101" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:none">Ilja Bartels</a></span>
     <span id="save-ind" class="saved">● Saved</span>
     <button class="btn btn-ghost" onclick="showImport()">📂 Import</button>
+    <button class="btn btn-danger" style="font-size:12px;padding:5px 10px" onclick="confirmClearAll()" title="Clear entire UNS tree">🗑️ Clear All</button>
     <button class="btn btn-ghost" onclick="doExportJSON()">📤 Export JSON</button>
     <button class="btn btn-ghost" onclick="doExportPaths()">📋 Topic Paths</button>
     <button class="btn btn-primary" id="btn-save" onclick="saveConfig()">💾 Save</button>
@@ -916,6 +917,12 @@
           placeholder='{"version":"1.0","tree":{...}}'></textarea></div>
       <div class="fg"><input type="file" id="imp-file" accept=".json" onchange="loadFile(this)"
           style="background:transparent;border:none;padding:2px 0;font-size:12px"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;user-select:none">
+          <input type="checkbox" id="imp-merge" style="cursor:pointer">
+          <span><b>Merge</b> — append business units into existing tree instead of replacing</span>
+        </label>
+      </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeModal('import-modal')">Cancel</button>
         <button class="btn btn-primary" onclick="doImport()">Import</button>
@@ -1803,7 +1810,16 @@
       try {
         const d = JSON.parse(eid('imp-text').value.trim());
         if (!d.tree) throw new Error('Missing "tree" property');
-        uns = d;
+        const merge = eid('imp-merge').checked;
+        if (merge && uns.tree && uns.tree.children) {
+          const incoming = d.tree.children || [];
+          if (!incoming.length) throw new Error('Nothing to merge — imported tree has no children');
+          uns.tree.children = uns.tree.children.concat(incoming);
+          toast(`Merged ${incoming.length} node(s) into existing tree`, 'ok');
+        } else {
+          uns = d;
+          toast('Imported', 'ok');
+        }
         expanded.clear();
         expanded.add(uns.tree.id);
         selId = null;
@@ -1812,8 +1828,19 @@
         setDirty();
         renderTree();
         closeModal('import-modal');
-        toast('Imported', 'ok');
       } catch (e) { toast('Invalid JSON: ' + e.message, 'err'); }
+    }
+    function confirmClearAll() {
+      if (!confirm('Clear the entire UNS tree? All nodes and tags will be removed.\n\nThis cannot be undone unless you have a saved backup.')) return;
+      uns = { version: uns.version || '1.2', namespaceUri: uns.namespaceUri || '', description: '', tree: { id: 'root', name: 'Enterprise', type: 'enterprise', children: [] } };
+      expanded.clear();
+      expanded.add('root');
+      selId = null;
+      eid('props-empty').style.display = 'flex';
+      eid('props-content').style.display = 'none';
+      setDirty();
+      renderTree();
+      toast('UNS tree cleared', 'ok');
     }
     function doExportJSON() {
       showExportModal('Export UNS Configuration', JSON.stringify(uns, null, 2), 'uns_config.json');

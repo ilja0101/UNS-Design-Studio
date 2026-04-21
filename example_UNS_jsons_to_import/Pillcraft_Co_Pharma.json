@@ -47,7 +47,9 @@
                             "description": "Reactor running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-sr01-temp",
@@ -57,7 +59,11 @@
                             "description": "Reactor jacket-controlled temperature [°C].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": -10, "max": 80 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": -10,
+                              "max": 80
+                            }
                           },
                           {
                             "id": "tag-sr01-pressure",
@@ -67,7 +73,11 @@
                             "description": "Reactor headspace pressure [kPa(g)].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "pressure", "min": -50, "max": 200 }
+                            "simulation": {
+                              "profile": "pressure",
+                              "min": -50,
+                              "max": 200
+                            }
                           },
                           {
                             "id": "tag-sr01-agitator",
@@ -77,7 +87,11 @@
                             "description": "Agitator speed [rpm].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "speed_rpm", "min": 30, "max": 200 }
+                            "simulation": {
+                              "profile": "speed_rpm",
+                              "min": 30,
+                              "max": 200
+                            }
                           },
                           {
                             "id": "tag-sr01-ph",
@@ -87,7 +101,11 @@
                             "description": "Reaction mixture pH.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 3.0, "max": 9.0 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 3.0,
+                              "max": 9.0
+                            }
                           },
                           {
                             "id": "tag-sr01-batch",
@@ -97,7 +115,9 @@
                             "description": "S88 batch ID (e.g. API-20260421-001).",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "erp_order_id" }
+                            "simulation": {
+                              "profile": "erp_order_id"
+                            }
                           },
                           {
                             "id": "tag-sr01-recipe",
@@ -107,7 +127,9 @@
                             "description": "Active synthesis recipe name.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "recipe" }
+                            "simulation": {
+                              "profile": "recipe"
+                            }
                           }
                         ]
                       }
@@ -133,7 +155,9 @@
                             "description": "Crystalliser running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-crys-temp",
@@ -143,7 +167,11 @@
                             "description": "Crystallisation temperature [°C].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": 0, "max": 25 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": 0,
+                              "max": 25
+                            }
                           },
                           {
                             "id": "tag-crys-yield",
@@ -153,7 +181,11 @@
                             "description": "API crystallisation yield [%mol]. Target ≥ 88 %.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "quality", "min": 82, "max": 95 }
+                            "simulation": {
+                              "profile": "quality",
+                              "min": 82,
+                              "max": 95
+                            }
                           }
                         ]
                       }
@@ -187,7 +219,9 @@
                             "description": "Granulator running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-hsgm-impeller",
@@ -197,7 +231,11 @@
                             "description": "Impeller speed [rpm]. Typical 100–400 rpm.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "speed_rpm", "min": 80, "max": 420 }
+                            "simulation": {
+                              "profile": "speed_rpm",
+                              "min": 80,
+                              "max": 420
+                            }
                           },
                           {
                             "id": "tag-hsgm-torque",
@@ -207,7 +245,11 @@
                             "description": "Impeller torque – endpoint detection [Nm].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "motor_current", "min": 5, "max": 60 }
+                            "simulation": {
+                              "profile": "motor_current",
+                              "min": 5,
+                              "max": 60
+                            }
                           },
                           {
                             "id": "tag-hsgm-moisture",
@@ -217,7 +259,11 @@
                             "description": "Loss-on-drying moisture of wet granule [%]. Target < 2 % after drying.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 0.5, "max": 3.5 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.5,
+                              "max": 3.5
+                            }
                           }
                         ]
                       }
@@ -243,7 +289,9 @@
                             "description": "Press running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-tp01-speed",
@@ -253,7 +301,11 @@
                             "description": "Turret speed [rpm].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "speed_rpm", "min": 10, "max": 60 }
+                            "simulation": {
+                              "profile": "speed_rpm",
+                              "min": 10,
+                              "max": 60
+                            }
                           },
                           {
                             "id": "tag-tp01-hardness",
@@ -263,7 +315,11 @@
                             "description": "Mean tablet crushing strength [N]. Spec 80–150 N.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 70, "max": 160 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 70,
+                              "max": 160
+                            }
                           },
                           {
                             "id": "tag-tp01-weight",
@@ -273,7 +329,11 @@
                             "description": "Mean tablet weight [mg]. Nominal depends on recipe.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 195, "max": 205 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 195,
+                              "max": 205
+                            }
                           },
                           {
                             "id": "tag-tp01-output",
@@ -283,7 +343,11 @@
                             "description": "Production rate [tabs/h].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 100000, "max": 300000 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 100000,
+                              "max": 300000
+                            }
                           },
                           {
                             "id": "tag-tp01-reject",
@@ -293,7 +357,9 @@
                             "description": "Tablets rejected by weight check [tabs].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "accumulator_bad" }
+                            "simulation": {
+                              "profile": "accumulator_bad"
+                            }
                           }
                         ]
                       }
@@ -327,7 +393,9 @@
                             "description": "Machine running",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "boolean_running" }
+                            "simulation": {
+                              "profile": "boolean_running"
+                            }
                           },
                           {
                             "id": "tag-bl01-speed",
@@ -337,7 +405,11 @@
                             "description": "Blister output speed [blisters/min].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "flow_rate", "min": 200, "max": 420 }
+                            "simulation": {
+                              "profile": "flow_rate",
+                              "min": 200,
+                              "max": 420
+                            }
                           },
                           {
                             "id": "tag-bl01-temp-forming",
@@ -347,7 +419,11 @@
                             "description": "PVC/PVDC forming temperature [°C].",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": 100, "max": 140 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": 100,
+                              "max": 140
+                            }
                           },
                           {
                             "id": "tag-bl01-empty-blister",
@@ -357,7 +433,9 @@
                             "description": "Vision system empty-blister detection alarm.",
                             "access": "read",
                             "qualifier": "event",
-                            "simulation": { "profile": "boolean_alarm" }
+                            "simulation": {
+                              "profile": "boolean_alarm"
+                            }
                           },
                           {
                             "id": "tag-bl01-oee",
@@ -367,7 +445,9 @@
                             "description": "Blister machine OEE [%].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "oee" }
+                            "simulation": {
+                              "profile": "oee"
+                            }
                           }
                         ]
                       }
@@ -393,7 +473,11 @@
                             "description": "Cleanroom air temperature [°C]. Spec 20 ± 2 °C.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "temperature_process", "min": 17, "max": 23 }
+                            "simulation": {
+                              "profile": "temperature_process",
+                              "min": 17,
+                              "max": 23
+                            }
                           },
                           {
                             "id": "tag-cr-rh",
@@ -403,7 +487,11 @@
                             "description": "Relative humidity [%RH]. Spec 45 ± 5 %.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 38, "max": 55 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 38,
+                              "max": 55
+                            }
                           },
                           {
                             "id": "tag-cr-dp",
@@ -413,7 +501,11 @@
                             "description": "Cleanroom positive pressure differential vs. corridor [Pa]. Min 5 Pa.",
                             "access": "read",
                             "qualifier": "data",
-                            "simulation": { "profile": "default", "min": 3, "max": 20 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 3,
+                              "max": 20
+                            }
                           }
                         ]
                       }
@@ -447,7 +539,11 @@
                             "description": "Tablet weight RSD from IPC sample [%]. Spec ≤ 2 %.",
                             "access": "read",
                             "qualifier": "quality",
-                            "simulation": { "profile": "default", "min": 0.2, "max": 3.5 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.2,
+                              "max": 3.5
+                            }
                           },
                           {
                             "id": "tag-ipc-hardness-mean",
@@ -457,7 +553,11 @@
                             "description": "Mean tablet hardness from IPC [N].",
                             "access": "read",
                             "qualifier": "quality",
-                            "simulation": { "profile": "default", "min": 75, "max": 160 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 75,
+                              "max": 160
+                            }
                           },
                           {
                             "id": "tag-ipc-friability",
@@ -467,7 +567,11 @@
                             "description": "Tablet friability [%]. Spec < 1 %.",
                             "access": "read",
                             "qualifier": "quality",
-                            "simulation": { "profile": "default", "min": 0.1, "max": 1.5 }
+                            "simulation": {
+                              "profile": "default",
+                              "min": 0.1,
+                              "max": 1.5
+                            }
                           }
                         ]
                       }
@@ -493,7 +597,11 @@
                             "description": "API content assay [% label claim]. Spec 95–105 %.",
                             "access": "read",
                             "qualifier": "quality",
-                            "simulation": { "profile": "quality", "min": 94, "max": 106 }
+                            "simulation": {
+                              "profile": "quality",
+                              "min": 94,
+                              "max": 106
+                            }
                           },
                           {
                             "id": "tag-rel-dissolution",
@@ -503,7 +611,11 @@
                             "description": "Dissolution Q45 (release at 45 min) [%]. Spec ≥ 75 %.",
                             "access": "read",
                             "qualifier": "quality",
-                            "simulation": { "profile": "quality", "min": 70, "max": 99 }
+                            "simulation": {
+                              "profile": "quality",
+                              "min": 70,
+                              "max": 99
+                            }
                           },
                           {
                             "id": "tag-rel-status",
@@ -513,7 +625,9 @@
                             "description": "QP lot release decision (PASS / FAIL / QUARANTINE).",
                             "access": "read",
                             "qualifier": "quality",
-                            "simulation": { "profile": "default" }
+                            "simulation": {
+                              "profile": "default"
+                            }
                           }
                         ]
                       }
@@ -547,7 +661,9 @@
                             "description": "Site OEE [%].",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "oee" }
+                            "simulation": {
+                              "profile": "oee"
+                            }
                           },
                           {
                             "id": "tag-kpi-right-first-time",
@@ -557,7 +673,11 @@
                             "description": "Right-first-time lot release rate [%]. Pharma benchmark 95 %.",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "quality", "min": 90, "max": 100 }
+                            "simulation": {
+                              "profile": "quality",
+                              "min": 90,
+                              "max": 100
+                            }
                           },
                           {
                             "id": "tag-kpi-batches-released",
@@ -567,7 +687,9 @@
                             "description": "Batches released today.",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "accumulator_good" }
+                            "simulation": {
+                              "profile": "accumulator_good"
+                            }
                           },
                           {
                             "id": "tag-kpi-deviations",
@@ -577,13 +699,33 @@
                             "description": "Open GMP deviations.",
                             "access": "read",
                             "qualifier": "kpi",
-                            "simulation": { "profile": "counter_faults" }
+                            "simulation": {
+                              "profile": "counter_faults"
+                            }
                           }
                         ]
                       }
                     ]
                   }
                 ]
+              }
+            ],
+            "recipes": [
+              {
+                "name": "PARACETAMOL_500MG",
+                "params": {}
+              },
+              {
+                "name": "IBUPROFEN_400MG",
+                "params": {}
+              },
+              {
+                "name": "AMOXICILLIN_250MG",
+                "params": {}
+              },
+              {
+                "name": "ASPIRIN_100MG",
+                "params": {}
               }
             ]
           }
