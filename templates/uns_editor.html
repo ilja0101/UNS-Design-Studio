@@ -173,17 +173,32 @@
 
     /* Layout */
     .layout {
-      display: grid;
-      grid-template-columns: 360px 1fr;
+      display: flex;
       height: calc(100vh - 50px);
       overflow: hidden
+    }
+
+    /* Resize handle */
+    .resize-handle {
+      width: 4px;
+      background: var(--border);
+      cursor: col-resize;
+      flex-shrink: 0;
+      transition: background .15s
+    }
+    .resize-handle:hover,
+    .resize-handle.dragging {
+      background: var(--accent)
     }
 
     /* Tree panel */
     .tree-panel {
       display: flex;
       flex-direction: column;
-      border-right: 1px solid var(--border);
+      width: 320px;
+      min-width: 160px;
+      max-width: 70vw;
+      flex-shrink: 0;
       overflow: hidden;
       background: var(--bg)
     }
@@ -334,13 +349,15 @@
 
     .t-children {
       border-left: 1px solid var(--surface3);
-      margin-left: 19px
+      margin-left: 13px
     }
 
     /* Props panel */
     .props-panel {
       display: flex;
       flex-direction: column;
+      flex: 1;
+      min-width: 0;
       overflow: hidden
     }
 
@@ -824,6 +841,8 @@
       <div class="tree-stats" id="stats"></div>
     </div>
 
+    <div class="resize-handle" id="tree-resize"></div>
+
     <!-- Right: props -->
     <div class="props-panel" id="props-panel">
       <div class="props-empty" id="props-empty">
@@ -1087,7 +1106,7 @@
 
       const row = document.createElement('div');
       row.className = 't-row' + (isSel ? ' sel' : '');
-      row.style.paddingLeft = `${depth * 18 + 6}px`;
+      row.style.paddingLeft = `${depth * 12 + 6}px`;
       row.onclick = () => selNode(node.id);
 
       const tc2 = NT[tc.next] || NT.device;
@@ -1883,6 +1902,40 @@
       if (e.key === 'Escape') document.querySelectorAll('.overlay').forEach(m => m.style.display = 'none');
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveConfig(); }
     });
+
+    // ── Panel resize ────────────────────────────────────────────────────────────
+    (function() {
+      const handle = document.getElementById('tree-resize');
+      const panel  = document.querySelector('.tree-panel');
+      const KEY    = 'uns-tree-width';
+      const saved  = localStorage.getItem(KEY);
+      const w = parseInt(saved, 10);
+      if (w > 0) panel.style.width = w + 'px';
+      let dragging = false, x0 = 0, w0 = 0;
+      handle.addEventListener('mousedown', e => {
+        dragging = true; x0 = e.clientX; w0 = panel.offsetWidth;
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        panel.style.width = Math.max(160, Math.min(w0 + e.clientX - x0, window.innerWidth * 0.7)) + 'px';
+      });
+      document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        localStorage.setItem(KEY, panel.offsetWidth);
+      });
+      handle.addEventListener('dblclick', () => {
+        panel.style.width = '320px';
+        localStorage.removeItem(KEY);
+      });
+    })();
 
     // ── Boot ────────────────────────────────────────────────────────────────────────
     Promise.all([loadSchemas(), loadProfileCatalogue(), loadAssetLibrary()]).then(loadConfig);
