@@ -92,8 +92,8 @@ body{display:flex;flex-direction:column;min-height:100vh}
 .bridge-sep{width:1px;height:18px;background:var(--border)}
 .proto-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;
   letter-spacing:.05em;white-space:nowrap}
-.proto-badge.nats{background:rgba(163,113,247,.15);color:var(--purple);border:1px solid rgba(163,113,247,.3)}
-.proto-badge.mqtt{background:rgba(88,166,255,.15);color:var(--accent);border:1px solid rgba(88,166,255,.3)}
+.proto-badge.nats{background:color-mix(in srgb, var(--purple) 15%, transparent);color:var(--purple);border:1px solid color-mix(in srgb, var(--purple) 30%, transparent)}
+.proto-badge.mqtt{background:color-mix(in srgb, var(--accent) 15%, transparent);color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 30%, transparent)}
 .proto-badge.off{background:var(--surface3);color:var(--muted);border:1px solid var(--border)}
 .bridge-addr{font-size:11px;color:var(--muted);font-family:monospace}
 .bridge-stat{font-size:11px;color:var(--muted)}
@@ -130,7 +130,7 @@ body{display:flex;flex-direction:column;min-height:100vh}
 .factories-grid{display:flex;flex-wrap:wrap;gap:12px}
 .factory-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
   width:220px;display:flex;flex-direction:column;transition:border-color .3s,box-shadow .3s}
-.factory-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(88,166,255,.2)}
+.factory-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent)}
 .factory-card.status-running{border-left:3px solid var(--green)}
 .factory-card.status-down{border-left:3px solid var(--yellow)}
 .factory-card.status-stopped{border-left:3px solid var(--muted)}
@@ -170,7 +170,7 @@ body{display:flex;flex-direction:column;min-height:100vh}
 .btn-ctrl:hover{border-color:var(--accent);color:var(--accent)}
 .btn-anomaly{flex:1;background:var(--surface3);border:1px solid var(--border);
   color:var(--yellow);padding:5px 0;font-size:12px}
-.btn-anomaly:hover{border-color:var(--yellow);background:rgba(227,179,65,.15)}
+.btn-anomaly:hover{border-color:var(--yellow);background:color-mix(in srgb, var(--yellow) 15%, transparent)}
 
 /* ── Log panel ───────────────────────────────────────────────────────────── */
 .log-panel{border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
@@ -216,8 +216,8 @@ body{display:flex;flex-direction:column;min-height:100vh}
 
 .toggle-row{display:flex;gap:8px;margin-bottom:14px}
 .toggle-btn{flex:1;padding:8px;border:2px solid var(--border);background:var(--surface2);color:var(--muted);font-weight:600}
-.toggle-btn.active-on{border-color:var(--green);color:var(--green);background:rgba(63,185,80,.12)}
-.toggle-btn.active-off{border-color:var(--red);color:var(--red);background:rgba(248,81,73,.12)}
+.toggle-btn.active-on{border-color:var(--green);color:var(--green);background:color-mix(in srgb, var(--green) 12%, transparent)}
+.toggle-btn.active-off{border-color:var(--red);color:var(--red);background:color-mix(in srgb, var(--red) 12%, transparent)}
 
 .checkbox-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;max-height:140px;overflow-y:auto}
 .cb-item{display:flex;align-items:center;gap:6px;padding:4px 8px;
@@ -248,10 +248,10 @@ body{display:flex;flex-direction:column;min-height:100vh}
 #toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:999}
 .toast{padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;
   animation:slideIn .3s ease;max-width:300px;box-shadow:var(--shadow)}
-.toast.success{background:rgba(63,185,80,.15);border:1px solid var(--green);color:var(--green)}
-.toast.error{background:rgba(248,81,73,.15);border:1px solid var(--red);color:var(--red)}
-.toast.info{background:rgba(88,166,255,.15);border:1px solid var(--accent);color:var(--accent)}
-.toast.warn{background:rgba(227,179,65,.15);border:1px solid var(--yellow);color:var(--yellow)}
+.toast.success{background:color-mix(in srgb, var(--green) 15%, transparent);border:1px solid var(--green);color:var(--green)}
+.toast.error{background:color-mix(in srgb, var(--red) 15%, transparent);border:1px solid var(--red);color:var(--red)}
+.toast.info{background:color-mix(in srgb, var(--accent) 15%, transparent);border:1px solid var(--accent);color:var(--accent)}
+.toast.warn{background:color-mix(in srgb, var(--yellow) 15%, transparent);border:1px solid var(--yellow);color:var(--yellow)}
 @keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
 
 /* ── Scrollbar ────────────────────────────────────────────────────────────── */

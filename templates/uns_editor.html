@@ -145,12 +145,12 @@
     }
 
     #save-ind.saved {
-      background: rgba(63, 185, 80, .12);
+      background: color-mix(in srgb, var(--green) 12%, transparent);
       color: var(--green)
     }
 
     #save-ind.unsaved {
-      background: rgba(227, 179, 65, .12);
+      background: color-mix(in srgb, var(--yellow) 12%, transparent);
       color: var(--yellow)
     }
 
@@ -174,9 +174,9 @@
     }
 
     .btn-danger {
-      background: rgba(248, 81, 73, .12);
+      background: color-mix(in srgb, var(--red) 12%, transparent);
       color: var(--red);
-      border: 1px solid rgba(248, 81, 73, .25)
+      border: 1px solid color-mix(in srgb, var(--red) 25%, transparent)
     }
 
     .btn-ghost {
@@ -361,7 +361,7 @@
     }
 
     .ibtn.del:hover {
-      background: rgba(248, 81, 73, .15);
+      background: color-mix(in srgb, var(--red) 15%, transparent);
       color: var(--red)
     }
 
@@ -516,11 +516,11 @@
       white-space: nowrap
     }
     .btn-asset {
-      background: rgba(163,113,247,.15);
+      background: color-mix(in srgb, var(--purple) 15%, transparent);
       color: var(--purple);
-      border: 1px solid rgba(163,113,247,.35)
+      border: 1px solid color-mix(in srgb, var(--purple) 35%, transparent)
     }
-    .btn-asset:hover { background: rgba(163,113,247,.25) }
+    .btn-asset:hover { background: color-mix(in srgb, var(--purple) 25%, transparent) }
 
     /* Sim cell clickable hint */
     .sim-cell {
@@ -704,19 +704,19 @@
     }
 
     .toast.ok {
-      background: rgba(63,185,80,.15);
+      background: color-mix(in srgb, var(--green) 15%, transparent);
       border: 1px solid var(--green);
       color: var(--green)
     }
 
     .toast.err {
-      background: rgba(248,81,73,.15);
+      background: color-mix(in srgb, var(--red) 15%, transparent);
       border: 1px solid var(--red);
       color: var(--red)
     }
 
     .toast.info {
-      background: rgba(88,166,255,.15);
+      background: color-mix(in srgb, var(--accent) 15%, transparent);
       border: 1px solid var(--accent);
       color: var(--accent)
     }
@@ -756,7 +756,7 @@
     }
     .asset-card.sel {
       border-color: var(--accent);
-      background: rgba(88,166,255,.08)
+      background: color-mix(in srgb, var(--accent) 8%, transparent)
     }
     .asset-card-icon { font-size: 20px; margin-bottom: 4px }
     .asset-card-label { font-size: 12px; font-weight: 600; margin-bottom: 2px }
@@ -771,7 +771,7 @@
       border: 1px solid var(--border); cursor: pointer
     }
     .asset-cat-btn.on {
-      background: rgba(88,166,255,.15); color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent);
       border-color: var(--accent)
     }
     .asset-preview {
@@ -808,9 +808,9 @@
       font-size: 10px;
       padding: 1px 6px;
       border-radius: 8px;
-      background: rgba(63,185,80,.15);
+      background: color-mix(in srgb, var(--green) 15%, transparent);
       color: var(--green);
-      border: 1px solid rgba(63,185,80,.3);
+      border: 1px solid color-mix(in srgb, var(--green) 30%, transparent);
       white-space: nowrap
     }
 

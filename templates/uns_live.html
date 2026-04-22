@@ -175,7 +175,7 @@
     }
     .btn:hover { opacity: .85 }
     .btn-primary { background: var(--accent); color: var(--on-accent) }
-    .btn-danger  { background: rgba(248,81,73,.15); color: var(--red); border: 1px solid rgba(248,81,73,.3) }
+    .btn-danger  { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); border: 1px solid color-mix(in srgb, var(--red) 30%, transparent) }
     .btn-row { display: flex; gap: 8px; padding: 0 14px 14px }
 
     /* ── Tree panel ── */
@@ -219,7 +219,7 @@
       transition: background .1s;
     }
     .t-row:hover { background: var(--surface2) }
-    .t-row.flash { background: rgba(88,166,255,.12) }
+    .t-row.flash { background: color-mix(in srgb, var(--accent) 12%, transparent) }
     .t-exp {
       width: 14px; height: 14px;
       display: flex; align-items: center; justify-content: center;
