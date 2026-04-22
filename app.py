@@ -571,6 +571,7 @@ def stop_factory_server():
             proc.wait(timeout=6)
         except subprocess.TimeoutExpired:
             proc.kill()
+            proc.wait()  # Ensure OS reclaims the process (and its sockets) before returning
         _state['server_proc'] = None
         return True, "Server stopped"
 
@@ -1155,7 +1156,12 @@ def api_uns_save():
         _state['opc_connected'] = False
         time.sleep(1)
         stop_factory_server()
+        time.sleep(1)  # Let OS release port 4840 before binding again
         ok, _ = start_factory_server()
+        if not ok:
+            # First attempt failed (port still in TIME_WAIT) — retry once after a longer wait
+            time.sleep(3)
+            ok, _ = start_factory_server()
         if ok:
             restarted.append('factory')
             # Invalidate metric path cache so new UNS structure is picked up
