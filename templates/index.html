@@ -610,17 +610,18 @@ function updateCards(plants) {
     recipe.textContent = rec;
     recipe.title = rec;
 
-    // OEE
-    const oee = p.oee;
-    oeeEl.textContent = running ? `${oee}%` : '--';
+    // OEE — only show live values when OPC data is confirmed ready
+    const oee  = p.oee;
+    const live = running && p.opc_ready !== false;
+    oeeEl.textContent = live ? `${oee}%` : '--';
     oeeEl.className = 'metric-value ' + (oee >= 80 ? 'oee-high' : oee >= 60 ? 'oee-mid' : 'oee-low');
-    bar.style.width = running ? `${Math.min(oee,100)}%` : '0%';
+    bar.style.width = live ? `${Math.min(oee,100)}%` : '0%';
     bar.style.background = oee >= 80 ? 'var(--green)' : oee >= 60 ? 'var(--yellow)' : 'var(--red)';
 
     // Metrics
-    pwrEl.textContent  = running ? `${p.power} kW`  : '--';
-    goodEl.textContent = running ? `${p.good_tons}` : '--';
-    trEl.textContent   = `${p.trucks_recv}`;
+    pwrEl.textContent  = live ? `${p.power} kW`  : '--';
+    goodEl.textContent = live ? `${p.good_tons}` : '--';
+    trEl.textContent   = live ? `${p.trucks_recv}` : '--';
   }
 }
 

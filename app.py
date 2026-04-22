@@ -359,6 +359,8 @@ def _collect_plant_data(ent, idx):
 
     def _read_path(path):
         """Read an OPC value given a path list starting from enterprise root."""
+        if not path:
+            return 0.0
         try:
             node = ent
             for part in path:
@@ -398,11 +400,13 @@ def _collect_plant_data(ent, idx):
                     pass
 
             if not site_exists:
-                # Site not in OPC tree yet (server still starting) — use sim_state only
+                # Site not in OPC tree yet (server still starting) — opc_ready=False
+                # tells the dashboard to show '--' instead of misleading zeros
                 plants[plant_key] = {
                     'group': group, 'plant': plant,
                     'process_state': process_state, 'recipe': recipe,
                     'maint_status': 'Running' if process_state else 'Stopped',
+                    'opc_ready': False,
                     'oee': 0.0, 'power': 0.0, 'good_tons': 0.0, 'trucks_recv': 0.0,
                 }
                 continue
@@ -415,6 +419,7 @@ def _collect_plant_data(ent, idx):
                 'process_state': process_state,
                 'recipe':        recipe,
                 'maint_status':  'Running' if process_state else 'Stopped',
+                'opc_ready':     True,
                 'oee':        _num(_read_path(metric_paths.get('oee',        []))),
                 'power':      _num(_read_path(metric_paths.get('power',      []))),
                 'good_tons':  _num(_read_path(metric_paths.get('good_tons',  []))),
