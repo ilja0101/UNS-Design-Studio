@@ -359,6 +359,8 @@ def _collect_plant_data(ent, idx):
 
     def _read_path(path):
         """Read an OPC value given a path list starting from enterprise root."""
+        if not path:
+            return 0.0
         try:
             node = ent
             for part in path:
@@ -398,11 +400,13 @@ def _collect_plant_data(ent, idx):
                     pass
 
             if not site_exists:
-                # Site not in OPC tree yet (server still starting) — use sim_state only
+                # Site not in OPC tree yet (server still starting) — opc_ready=False
+                # tells the dashboard to show '--' instead of misleading zeros
                 plants[plant_key] = {
                     'group': group, 'plant': plant,
                     'process_state': process_state, 'recipe': recipe,
                     'maint_status': 'Running' if process_state else 'Stopped',
+                    'opc_ready': False,
                     'oee': 0.0, 'power': 0.0, 'good_tons': 0.0, 'trucks_recv': 0.0,
                 }
                 continue
@@ -415,6 +419,7 @@ def _collect_plant_data(ent, idx):
                 'process_state': process_state,
                 'recipe':        recipe,
                 'maint_status':  'Running' if process_state else 'Stopped',
+                'opc_ready':     True,
                 'oee':        _num(_read_path(metric_paths.get('oee',        []))),
                 'power':      _num(_read_path(metric_paths.get('power',      []))),
                 'good_tons':  _num(_read_path(metric_paths.get('good_tons',  []))),
@@ -566,6 +571,7 @@ def stop_factory_server():
             proc.wait(timeout=6)
         except subprocess.TimeoutExpired:
             proc.kill()
+            proc.wait()  # Ensure OS reclaims the process (and its sockets) before returning
         _state['server_proc'] = None
         return True, "Server stopped"
 
@@ -1150,7 +1156,12 @@ def api_uns_save():
         _state['opc_connected'] = False
         time.sleep(1)
         stop_factory_server()
+        time.sleep(1)  # Let OS release port 4840 before binding again
         ok, _ = start_factory_server()
+        if not ok:
+            # First attempt failed (port still in TIME_WAIT) — retry once after a longer wait
+            time.sleep(3)
+            ok, _ = start_factory_server()
         if ok:
             restarted.append('factory')
             # Invalidate metric path cache so new UNS structure is picked up

@@ -21,6 +21,23 @@
       --red:       #f85149;
       --purple:    #a371f7;
       --orange:    #f0883e;
+      --on-accent: #0d1117;
+    }
+    [data-theme="light"] {
+      --bg:        #f6f8fa;
+      --surface:   #ffffff;
+      --surface2:  #f0f2f5;
+      --surface3:  #e8ebef;
+      --border:    #d0d7de;
+      --text:      #1f2328;
+      --muted:     #656d76;
+      --accent:    #0969da;
+      --green:     #1a7f37;
+      --yellow:    #9a6700;
+      --red:       #cf222e;
+      --purple:    #8250df;
+      --orange:    #953800;
+      --on-accent: #ffffff;
     }
 
     html, body {
@@ -157,8 +174,8 @@
       transition: opacity .15s;
     }
     .btn:hover { opacity: .85 }
-    .btn-primary { background: var(--accent); color: #0d1117 }
-    .btn-danger  { background: rgba(248,81,73,.15); color: var(--red); border: 1px solid rgba(248,81,73,.3) }
+    .btn-primary { background: var(--accent); color: var(--on-accent) }
+    .btn-danger  { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); border: 1px solid color-mix(in srgb, var(--red) 30%, transparent) }
     .btn-row { display: flex; gap: 8px; padding: 0 14px 14px }
 
     /* ── Tree panel ── */
@@ -202,7 +219,7 @@
       transition: background .1s;
     }
     .t-row:hover { background: var(--surface2) }
-    .t-row.flash { background: rgba(88,166,255,.12) }
+    .t-row.flash { background: color-mix(in srgb, var(--accent) 12%, transparent) }
     .t-exp {
       width: 14px; height: 14px;
       display: flex; align-items: center; justify-content: center;
@@ -303,7 +320,12 @@
     ::-webkit-scrollbar { width: 4px; height: 4px }
     ::-webkit-scrollbar-track { background: transparent }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px }
+    .btn-theme{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:6px;font-size:13px}
+    .btn-theme:hover{border-color:var(--accent);color:var(--accent)}
+    .btn-theme::before{content:'Light'}
+    [data-theme="light"] .btn-theme::before{content:'Dark'}
   </style>
+  <script>(function(){var t=localStorage.getItem('uns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
 </head>
 <body>
 
@@ -314,6 +336,7 @@
     <div class="subtitle">Real-time topic tree via MQTT over WebSocket</div>
   </div>
   <div class="hspace"></div>
+  <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
   <a href="/" style="color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--border);padding:5px 10px;border-radius:5px">← Dashboard</a>
   <a href="/uns" style="color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--border);padding:5px 10px;border-radius:5px">🌐 Designer</a>
 </header>
@@ -775,6 +798,12 @@ loadSettings();
     localStorage.removeItem(KEY);
   });
 })();
+
+function toggleTheme() {
+  const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('uns-theme', next);
+}
 </script>
 </body>
 </html>
