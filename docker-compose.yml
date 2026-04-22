@@ -1,6 +1,7 @@
 services:
 
   uns-simulator:
+    build: .
     image: uns-simulator:latest
     container_name: uns-simulator
     restart: unless-stopped
