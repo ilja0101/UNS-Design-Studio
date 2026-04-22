@@ -18,6 +18,22 @@
       --red: #f85149;
       --yellow: #d29922;
       --purple: #a371f7;
+      --on-accent: #ffffff;
+    }
+    [data-theme="light"] {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface2: #f0f2f5;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --text-muted: #656d76;
+      --accent: #0969da;
+      --accent-dim: #0969da;
+      --green: #1a7f37;
+      --red: #cf222e;
+      --yellow: #9a6700;
+      --purple: #8250df;
+      --on-accent: #ffffff;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -70,7 +86,7 @@
     /* ── Buttons ── */
     .btn-primary {
       background: var(--accent-dim);
-      color: #fff;
+      color: var(--on-accent);
       border: none;
       border-radius: 4px;
       padding: 6px 14px;
@@ -293,13 +309,13 @@
       cursor: pointer;
       user-select: none;
     }
-    .preview-header:hover { background: #2a2f37; }
+    .preview-header:hover { background: var(--surface2); }
     .preview-toggle {
       font-size: 11px;
       color: var(--text-muted);
     }
     #preview-json {
-      background: #0d1117;
+      background: var(--bg);
       border: none;
       border-radius: 0;
       padding: 12px;
@@ -368,7 +384,12 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+    .btn-theme{background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);padding:5px 10px;border-radius:6px;font-size:13px;cursor:pointer}
+    .btn-theme:hover{border-color:var(--accent);color:var(--accent)}
+    .btn-theme::before{content:'Light'}
+    [data-theme="light"] .btn-theme::before{content:'Dark'}
   </style>
+  <script>(function(){var t=localStorage.getItem('uns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
 </head>
 <body>
 
@@ -376,6 +397,7 @@
   <a href="/">← Dashboard</a>
   <h1>⚙️ Payload Schema Designer</h1>
   <a href="/uns">🌐 UNS Designer</a>
+  <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
   <button class="btn-primary" id="btn-save-all">💾 Save All</button>
   <span id="save-ind">● Unsaved</span>
 </header>
@@ -783,6 +805,12 @@
   }
 
   loadSchemas();
+
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('uns-theme', next);
+  }
 </script>
 </body>
 </html>
