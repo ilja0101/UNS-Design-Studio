@@ -30,6 +30,24 @@
       --purple: #a371f7;
       --radius: 8px;
       --shadow: 0 4px 16px rgba(0, 0, 0, .5);
+      --on-accent: #0d1117;
+    }
+    [data-theme="light"] {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface2: #f0f2f5;
+      --surface3: #e8ebef;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --muted: #656d76;
+      --accent: #0969da;
+      --green: #1a7f37;
+      --red: #cf222e;
+      --yellow: #9a6700;
+      --orange: #953800;
+      --purple: #8250df;
+      --shadow: 0 4px 16px rgba(0, 0, 0, .1);
+      --on-accent: #ffffff;
     }
 
     html,
@@ -146,7 +164,7 @@
 
     .btn-primary {
       background: var(--accent);
-      color: #0d1117
+      color: var(--on-accent)
     }
 
     .btn-secondary {
@@ -807,7 +825,12 @@
       background: var(--border);
       border-radius: 3px
     }
+    .btn-theme{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:6px;font-size:13px}
+    .btn-theme:hover{border-color:var(--accent);color:var(--accent)}
+    .btn-theme::before{content:'Light'}
+    [data-theme="light"] .btn-theme::before{content:'Dark'}
   </style>
+  <script>(function(){var t=localStorage.getItem('uns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
 </head>
 
 <body>
@@ -823,6 +846,7 @@
     <button class="btn btn-ghost" onclick="doExportPaths()">📋 Topic Paths</button>
     <button class="btn btn-primary" id="btn-save" onclick="saveConfig()">💾 Save</button>
     <a href="/payload-schemas" class="btn btn-ghost">⚙️ Payload Schemas</a>
+    <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
     <a href="/" class="btn btn-ghost">← Dashboard</a>
   </header>
 
@@ -1936,6 +1960,12 @@
         localStorage.removeItem(KEY);
       });
     })();
+
+    function toggleTheme() {
+      const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('uns-theme', next);
+    }
 
     // ── Boot ────────────────────────────────────────────────────────────────────────
     Promise.all([loadSchemas(), loadProfileCatalogue(), loadAssetLibrary()]).then(loadConfig);
