@@ -86,6 +86,7 @@ Python dependencies installed automatically via `pip install -r requirements.txt
 
 To publish data via MQTT or NATS you'll need a running broker. Any of these work:
 
+- # Using Docker
 | Broker | Quick start using Docker |
 |---|---|
 | [Mosquitto](https://mosquitto.org/) | `docker run -p 1883:1883 eclipse-mosquitto` |
@@ -94,7 +95,7 @@ To publish data via MQTT or NATS you'll need a running broker. Any of these work
 | [NATS Server](https://nats.io/) | `docker run -p 4222:4222 -p 1883:1883 -p 8222:8222 -p 8088:8088 nats -js --mqtt_port 1883 -m 8222 --websocket_port 8088` |
 | Any cloud MQTT broker | Set host/port/credentials in the bridge config |
 
-| Broker | Quick start using windows |
+- # Using Windows executables
 
 | Broker | Quick start using Windows |
 |---|---|
