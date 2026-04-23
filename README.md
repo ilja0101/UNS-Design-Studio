@@ -86,13 +86,24 @@ Python dependencies installed automatically via `pip install -r requirements.txt
 
 To publish data via MQTT or NATS you'll need a running broker. Any of these work:
 
-| Broker | Quick start |
+| Broker | Quick start using Docker |
 |---|---|
 | [Mosquitto](https://mosquitto.org/) | `docker run -p 1883:1883 eclipse-mosquitto` |
 | [EMQX](https://www.emqx.io/) | `docker run -p 1883:1883 emqx/emqx` |
 | [HiveMQ CE](https://www.hivemq.com/hivemq/community-edition/) | `docker run -p 1883:1883 hivemq/hivemq-ce` |
-| [NATS Server](https://nats.io/) | `docker run -p 4222:4222 nats` |
+| [NATS Server](https://nats.io/) | `docker run -p 4222:4222 -p 1883:1883 -p 8222:8222 -p 8088:8088 nats -js --mqtt_port 1883 -m 8222 --websocket_port 8088` |
 | Any cloud MQTT broker | Set host/port/credentials in the bridge config |
+
+| Broker | Quick start using windows |
+
+| Broker | Quick start using Windows |
+|---|---|
+| [Mosquitto](https://mosquitto.org) | `winget install mosquitto` or run the [Installer](https://mosquitto.orgdownload/) |
+| [EMQX](https://emqx.io) | Download `.zip` and run `.\bin\emqx start` |
+| [HiveMQ CE](https://hivemq.com) | Download `.zip` and run `.\bin\run.bat` (Requires Java 11+) |
+| [NATS Server](https://nats.io) | `nats-server.exe -js --mqtt_port 1883 -m 8222 --websocket_port 8088` |
+| Any cloud MQTT broker | Connect via [MQTT Explorer](https://mqtt-explorer.com) or [NATS CLI](https://github.com) |
+
 
 The OPC-UA server and dashboard work without a broker — you only need one if you want to publish data.
 
