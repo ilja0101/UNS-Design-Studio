@@ -22,6 +22,11 @@
           "key": "quality",
           "source": "quality",
           "staticVal": ""
+        },
+        {
+          "key": "datacontract_id",
+          "source": "static",
+          "staticVal": "1001"
         }
       ],
       "id": "standard",
@@ -32,11 +37,18 @@
       "fields": [
         {
           "key": "value",
-          "source": "value"
+          "source": "value",
+          "staticVal": ""
         },
         {
           "key": "ts",
-          "source": "ts_epoch"
+          "source": "ts_epoch",
+          "staticVal": ""
+        },
+        {
+          "key": "datacontract_id",
+          "source": "static",
+          "staticVal": "1002"
         }
       ],
       "id": "simple",
@@ -47,23 +59,33 @@
       "fields": [
         {
           "key": "name",
-          "source": "tagName"
+          "source": "tagName",
+          "staticVal": ""
         },
         {
           "key": "value",
-          "source": "value"
+          "source": "value",
+          "staticVal": ""
         },
         {
           "key": "timestamp",
-          "source": "ts_ms"
+          "source": "ts_ms",
+          "staticVal": ""
         },
         {
           "key": "dataType",
-          "source": "dataType"
+          "source": "dataType",
+          "staticVal": ""
         },
         {
           "key": "quality",
-          "source": "quality"
+          "source": "quality",
+          "staticVal": ""
+        },
+        {
+          "key": "datacontract_id",
+          "source": "static",
+          "staticVal": "1003"
         }
       ],
       "id": "sparkplug",
@@ -74,89 +96,47 @@
       "fields": [
         {
           "key": "v",
-          "source": "value"
+          "source": "value",
+          "staticVal": ""
         },
         {
           "key": "q",
-          "source": "quality"
+          "source": "quality",
+          "staticVal": ""
         },
         {
           "key": "t",
-          "source": "ts_iso"
+          "source": "ts_iso",
+          "staticVal": ""
         },
         {
           "key": "uom",
-          "source": "unit"
+          "source": "unit",
+          "staticVal": ""
         },
         {
           "key": "tagPath",
-          "source": "topicPath"
+          "source": "topicPath",
+          "staticVal": ""
         },
         {
           "key": "dataType",
-          "source": "dataType"
+          "source": "dataType",
+          "staticVal": ""
         },
         {
           "key": "site",
-          "source": "siteName"
+          "source": "siteName",
+          "staticVal": ""
+        },
+        {
+          "key": "datacontract_id",
+          "source": "static",
+          "staticVal": "1004"
         }
       ],
       "id": "isa95",
       "name": "ISA-95 Extended"
-    },
-    {
-      "description": "Compatible with PI Server ingestion patterns",
-      "fields": [
-        {
-          "key": "Name",
-          "source": "topicPath"
-        },
-        {
-          "key": "Value",
-          "source": "value"
-        },
-        {
-          "key": "Timestamp",
-          "source": "ts_iso"
-        },
-        {
-          "key": "Good",
-          "source": "is_good"
-        },
-        {
-          "key": "UOM",
-          "source": "unit"
-        }
-      ],
-      "id": "pi",
-      "name": "OSIsoft PI-like"
-    },
-    {
-      "description": "Fields suitable for InfluxDB line-protocol ingestion",
-      "fields": [
-        {
-          "key": "measurement",
-          "source": "tagName"
-        },
-        {
-          "key": "field_value",
-          "source": "value"
-        },
-        {
-          "key": "time",
-          "source": "ts_ms"
-        },
-        {
-          "key": "site_tag",
-          "source": "siteName"
-        },
-        {
-          "key": "path_tag",
-          "source": "topicPath"
-        }
-      ],
-      "id": "influx",
-      "name": "InfluxDB-like"
     }
   ]
 }
