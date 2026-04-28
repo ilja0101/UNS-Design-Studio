@@ -196,8 +196,6 @@ def _format_payload(value, ts, unit, schema_id, topic, sep, schemas, data_type, 
 
     return json.dumps(payload)
 
-return json.dumps(payload)
-
 
 # ── OPC-UA node cache & poll ───────────────────────────────────────────────────
 
