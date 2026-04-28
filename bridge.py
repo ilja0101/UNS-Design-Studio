@@ -165,35 +165,35 @@ def _format_payload(value, ts, unit, schema_id, topic, sep, schemas, data_type, 
         'workCenterName': parts[4] if len(parts) > 4 else '',
     }
 
-payload = {}
-for field in schema.get('fields', []):
-    key = field.get('key', '')
-    if not key:
-        continue
+    payload = {}
+    for field in schema.get('fields', []):
+        key = field.get('key', '')
+        if not key:
+            continue
 
-    source = field.get('source', '')
+        source = field.get('source', '')
 
-    if source == 'static':
-        raw = field.get('staticVal', '')
+        if source == 'static':
+            raw = field.get('staticVal', '')
 
-        if raw == 'true':
-            payload[key] = True
-        elif raw == 'false':
-            payload[key] = False
+            if raw == 'true':
+                payload[key] = True
+            elif raw == 'false':
+                payload[key] = False
+            else:
+                try:
+                    if raw != '':
+                        payload[key] = float(raw) if '.' in raw else int(raw)
+                    else:
+                        payload[key] = ''
+                except Exception:
+                    payload[key] = raw
+
+        elif 'static' in field:
+            payload[key] = field['static']
+
         else:
-            try:
-                if raw != '':
-                    payload[key] = float(raw) if '.' in raw else int(raw)
-                else:
-                    payload[key] = ''
-            except Exception:
-                payload[key] = raw
-
-    elif 'static' in field:
-        payload[key] = field['static']
-
-    else:
-        payload[key] = sources.get(source)
+            payload[key] = sources.get(source)
 
     return json.dumps(payload)
 
