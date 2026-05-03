@@ -2,15 +2,15 @@ services:
 
   uns-simulator:
     build: .
-    image: uns-simulator:latest
-    container_name: uns-simulator
+    image: uns-design-studio:2.0
+    container_name: uns-design-studio
     restart: unless-stopped
     ports:
       - "5000:5000" # Flask dashboard  →  http://10.10.3.4:5000
       - "4840:4840" # OPC-UA           →  opc.tcp://10.10.3.4:4840
       - "9999:9999" # Anomaly TCP
     volumes:
-      - uns-data:/data
+      - uns-design-studio-data:/data
     environment:
       - PYTHONUNBUFFERED=1
     healthcheck:
@@ -21,4 +21,4 @@ services:
       start_period: 40s
 
 volumes:
-  uns-data:
+  uns-design-studio-data:

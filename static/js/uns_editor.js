@@ -858,7 +858,7 @@ function doImport() {
 }
 function confirmClearAll() {
   if (!confirm('Clear the entire UNS tree? All nodes and tags will be removed.\n\nThis cannot be undone unless you have a saved backup.')) return;
-  uns = { version: uns.version || '1.2', namespaceUri: uns.namespaceUri || '', description: '', tree: { id: 'root', name: 'Enterprise', type: 'enterprise', children: [] } };
+  uns = { version: uns.version || '2.0', namespaceUri: uns.namespaceUri || '', description: '', tree: { id: 'root', name: 'Enterprise', type: 'enterprise', children: [] } };
   expanded.clear();
   expanded.add('root');
   selId = null;

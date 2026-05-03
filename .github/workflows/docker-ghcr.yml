@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
-      - v2-improvements
     tags:
-      - "v*.*.*"
+      - "v*"
+  release:
+    types:
+      - published
   pull_request:
     branches:
       - main
@@ -18,6 +20,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   docker:
@@ -28,14 +31,11 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set lowercase image name
-        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.repository_owner != ''
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -49,9 +49,12 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=v2,enable=${{ github.ref_name == 'v2-improvements' }}
+            type=raw,value=2.0,enable={{is_default_branch}}
+            type=raw,value=v2.0,enable={{is_default_branch}}
             type=ref,event=branch
             type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=sha-
 
       - name: Build and optionally push Docker image

@@ -426,13 +426,20 @@ UNS-Design-Studio/
 
 ## Release Notes
 
-### v3.1 — Live UNS Viewer & Reference Templates *(current)*
+### V2.0 — Repository cleanup and release preparation *(current)*
+- App-visible release metadata updated to V2.0 / 2.0
+- README refreshed for GitHub release use, including local, Docker, Portainer, GHCR, state, and validation notes
+- Local Compose image naming aligned to `uns-design-studio:2.0`
+- GHCR workflow updated for main branch pushes, tags, releases, pull requests, and manual dispatch
+- Obsolete roadmap planning document removed after release preparation
+
+### V2.0 — Live UNS Viewer & Reference Templates
 - **Live UNS Viewer** at `/live` — real-time namespace monitoring via external MQTT broker + WebSocket
 - **Example enterprise templates** — importable JSON files in `example_UNS_jsons_to_import/`
 - **FEATURES.md** — this document: full architecture, requirements, API reference and profile reference
 - **UNS designer improvements** — updated layout and tag management
 
-### v3.0 — Stateful Profile Engine
+### V2.0 — Stateful Profile Engine
 - Complete rewrite of the simulation engine — coherent per-plant state machine replacing independent random walks
 - 44 simulation profiles — all plant-state-aware, spanning OT, CMMS, quality, logistics, ERP, energy and recipes
 - Recipe system — per-plant recipe lists in `sim_state.json`; switching recipes adjusts simulation parameters live
@@ -442,7 +449,7 @@ UNS-Design-Studio/
 - OEE always `A × P × Q / 10000` — never independently randomised
 - Accumulators gate on plant state — pause during fault and stop
 
-### v2.0 — Dynamic Address Space
+### V2.0 — Dynamic Address Space
 - `uns_config.json`-driven OPC-UA address space — no hardcoded tag names
 - Visual UNS Topic Designer with full ISA-95 node type support
 - Payload Schema Designer with presets
