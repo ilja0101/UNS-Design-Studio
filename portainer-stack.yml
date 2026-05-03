@@ -1,6 +1,10 @@
 services:
   uns-design-studio:
-    image: ${UNS_IMAGE:-ghcr.io/ilja0101/uns-design-studio:latest}
+    # V2.0 release image from GitHub Container Registry.
+    # In Portainer, set an environment variable such as:
+    #   UNS_IMAGE=ghcr.io/ilja0101/uns-design-studio:2.0
+    # or pin an immutable release tag/SHA when desired.
+    image: ${UNS_IMAGE:-ghcr.io/ilja0101/uns-design-studio:2.0}
     container_name: uns-design-studio
     restart: unless-stopped
     ports:

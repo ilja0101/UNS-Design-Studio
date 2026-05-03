@@ -430,7 +430,8 @@ UNS-Design-Studio/
 - App-visible release metadata updated to V2.0 / 2.0
 - README refreshed for GitHub release use, including local, Docker, Portainer, GHCR, state, and validation notes
 - Local Compose image naming aligned to `uns-design-studio:2.0`
-- GHCR workflow updated for main branch pushes, tags, releases, pull requests, and manual dispatch
+- Portainer stack defaults to the GHCR V2.0 image and supports `UNS_IMAGE` tag overrides
+- GHCR workflow updated for main branch pushes, semver tags, releases, pull requests, manual dispatch, and multi-architecture image publishing
 - Obsolete roadmap planning document removed after release preparation
 
 ### V2.0 — Live UNS Viewer & Reference Templates

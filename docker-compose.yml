@@ -2,12 +2,13 @@ services:
 
   uns-simulator:
     build: .
-    image: uns-design-studio:2.0
+    # Local release build tag. Override with UNS_LOCAL_IMAGE if you want to test a GHCR image locally.
+    image: ${UNS_LOCAL_IMAGE:-uns-design-studio:2.0}
     container_name: uns-design-studio
     restart: unless-stopped
     ports:
-      - "5000:5000" # Flask dashboard  →  http://10.10.3.4:5000
-      - "4840:4840" # OPC-UA           →  opc.tcp://10.10.3.4:4840
+      - "5000:5000" # Flask dashboard  →  http://localhost:5000
+      - "4840:4840" # OPC-UA           →  opc.tcp://localhost:4840
       - "9999:9999" # Anomaly TCP
     volumes:
       - uns-design-studio-data:/data

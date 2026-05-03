@@ -89,7 +89,7 @@ Open `http://localhost:5000`, start the virtual plants, and configure broker pub
 
 ## Docker
 
-The local Compose file preserves build convenience and tags the locally built image as `uns-design-studio:2.0`.
+The local Compose file preserves build convenience and tags the locally built image as `uns-design-studio:2.0` by default. Override `UNS_LOCAL_IMAGE` only when you want Compose to tag/test a different local or registry image.
 
 ```bash
 docker compose up -d --build
@@ -113,7 +113,7 @@ Use `portainer-stack.yml` when deploying from Portainer or another host that sho
 Default image:
 
 ```text
-ghcr.io/ilja0101/uns-design-studio:latest
+ghcr.io/ilja0101/uns-design-studio:2.0
 ```
 
 Optional override:
@@ -122,7 +122,7 @@ Optional override:
 UNS_IMAGE=ghcr.io/ilja0101/uns-design-studio:2.0
 ```
 
-Deploy the stack with the contents of `portainer-stack.yml`. It exposes the same ports and persists runtime state in the `uns-design-studio-data` volume.
+Deploy the stack with the contents of `portainer-stack.yml`. It exposes the same ports and persists runtime state in the `uns-design-studio-data` volume. Portainer users can paste the stack file directly and define `UNS_IMAGE` as an environment variable if they prefer `latest`, `v2.0`, a future semver tag, or an immutable `sha-*` image tag.
 
 ---
 
@@ -193,7 +193,7 @@ The GitHub Actions Python workflow also compiles the Python entrypoints and runs
 
 ## Docker image publishing
 
-`.github/workflows/docker-ghcr.yml` builds with Docker Buildx and publishes to GitHub Container Registry on main branch pushes, version tags, releases, and manual dispatches. Pull requests build without publishing.
+`.github/workflows/docker-ghcr.yml` builds with Docker Buildx for `linux/amd64` and `linux/arm64` and publishes to GitHub Container Registry on main branch pushes, semver/version tags, GitHub releases, and manual dispatches. Pull requests build without publishing.
 
 Expected GHCR image namespace:
 
@@ -201,7 +201,22 @@ Expected GHCR image namespace:
 ghcr.io/ilja0101/uns-design-studio
 ```
 
-Release-oriented tags include `latest`, `2.0`, `v2.0`, semver tag-derived values, branch tags, and SHA tags.
+Release-oriented tags include `latest` for `main`, `2.0` and `v2.0` for the V2.0 release path, semver tag-derived values from version tags, branch tags, and `sha-*` tags. Manual dispatch can refresh the `2.0` / `v2.0` tags or run without those aliases.
+
+Recommended V2.0 release sequence:
+
+```bash
+git push origin main
+git tag v2.0
+git push origin v2.0
+```
+
+After the workflow publishes, deploy the explicit V2.0 image with:
+
+```bash
+docker pull ghcr.io/ilja0101/uns-design-studio:2.0
+UNS_IMAGE=ghcr.io/ilja0101/uns-design-studio:2.0 docker compose -f portainer-stack.yml up -d
+```
 
 ---
 
@@ -212,8 +227,8 @@ Release-oriented tags include `latest`, `2.0`, `v2.0`, semver tag-derived values
 - Updated app-visible version strings to V2.0 / 2.0
 - Refreshed GitHub-ready README with deployment, state, validation, and release notes
 - Aligned local Compose image naming with `uns-design-studio:2.0`
-- Kept Portainer stack aligned to GHCR image deployment
-- Added GHCR Docker publishing workflow suitable for main, tags, releases, and pull requests
+- Kept Portainer stack aligned to the GHCR V2.0 image with an `UNS_IMAGE` override
+- Added GHCR Docker publishing workflow suitable for main, semver tags, releases, pull requests, and manual dispatch
 - Removed obsolete V2 roadmap planning document after release preparation
 
 ### V2.0 — Dynamic Address Space
