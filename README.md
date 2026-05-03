@@ -39,6 +39,11 @@ Full technical details remain in [FEATURES.md](FEATURES.md).
 
 ---
 
+## Demo
+---
+[Watch the V2.0 demo video](https://github.com/ilja0101/UNS-Design-Studio/releases/download/v2.0/uns-design-studio-v2-demo.mp4)
+---
+
 ## Screenshots
 
 Existing release screenshots are stored under `docs/` and referenced directly by this README.
