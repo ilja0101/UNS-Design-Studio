@@ -153,7 +153,10 @@ _locks = {
     'sim_control': threading.Lock(),
 }
 
-SIM_STATE_START_RESET_SECONDS = 2.0
+# factory.py reads sim_state.json once per 1.2s simulation tick.  Keep this
+# just above that interval so the forced stopped snapshot is observed without
+# adding an unnecessary full 2s wait to every plant start request.
+SIM_STATE_START_RESET_SECONDS = 1.35
 SERVER_START_TIMEOUT_SECONDS = 12.0
 SERVER_STOP_PORT_RELEASE_SECONDS = 8.0
 
