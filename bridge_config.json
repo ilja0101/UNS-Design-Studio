@@ -3,7 +3,7 @@
   "opc_host": "127.0.0.1",
   "opc_port": 4840,
   "broker_host": "127.0.0.1",
-  "broker_port": 1883,
+  "broker_port": 1884,
   "topic_prefix": "",
   "interval": 1,
   "username": "",
