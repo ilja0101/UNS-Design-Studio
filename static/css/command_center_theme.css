@@ -1,0 +1,397 @@
+/* UNS Command Center-inspired shared theme for UNS Design Studio */
+:root {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --surface2: #f9fafb;
+  --surface3: #f3f4f6;
+  --border: #e5e7eb;
+  --text: #111827;
+  --muted: #6b7280;
+  --accent: #00a864;
+  --green: #00a864;
+  --red: #dc2626;
+  --yellow: #d97706;
+  --orange: #ea580c;
+  --purple: #7c3aed;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 16px 40px rgba(15, 23, 42, 0.08);
+  --on-accent: #ffffff;
+  --sidebar: #0b1a10;
+  --sidebar2: #102817;
+  --brand-50: #ecfdf5;
+  --brand-100: #d1fae5;
+  --brand-500: #00c278;
+  --brand-600: #00a864;
+  --brand-700: #008a52;
+  --brand-900: #004d2d;
+}
+
+[data-theme="dark"] {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --surface2: #f9fafb;
+  --surface3: #f3f4f6;
+  --border: #e5e7eb;
+  --text: #111827;
+  --muted: #6b7280;
+  --accent: #00a864;
+  --green: #00a864;
+  --red: #dc2626;
+  --yellow: #d97706;
+  --orange: #ea580c;
+  --purple: #7c3aed;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 16px 40px rgba(15, 23, 42, 0.08);
+  --on-accent: #ffffff;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(0, 194, 120, 0.12), transparent 32rem),
+    linear-gradient(180deg, #f8fafc 0%, #f3f4f6 48%, #eef2f7 100%);
+  padding-left: 280px;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 280px;
+  z-index: 900;
+  background:
+    radial-gradient(circle at 30% 0%, rgba(0, 194, 120, 0.26), transparent 16rem),
+    linear-gradient(180deg, #0b1a10 0%, #0f2618 58%, #07130b 100%);
+  box-shadow: 18px 0 45px rgba(11, 26, 16, 0.22);
+}
+
+body::after {
+  content: "UNS Design Studio\A\A Dashboard\A UNS Designer\A Payload Schemas\A Live UNS View";
+  white-space: pre-line;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 280px;
+  min-height: 100vh;
+  z-index: 901;
+  padding: 28px 24px;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 13px;
+  line-height: 3.25;
+  font-weight: 750;
+  letter-spacing: .01em;
+  pointer-events: none;
+}
+
+button,
+.btn,
+a {
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 120ms ease;
+}
+
+input,
+select,
+textarea {
+  background: #ffffff !important;
+  color: var(--text) !important;
+  border: 1px solid #d1d5db !important;
+  box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.04);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--brand-600) !important;
+  box-shadow: 0 0 0 3px rgba(0, 194, 120, 0.14) !important;
+}
+
+.app-header,
+header {
+  background: rgba(255, 255, 255, 0.88) !important;
+  color: var(--text) !important;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.86) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  backdrop-filter: blur(16px);
+  left: 280px;
+  right: 0;
+  width: auto !important;
+}
+
+.header-brand .logo,
+.hlogo,
+.logo {
+  color: var(--brand-700) !important;
+}
+
+.header-brand h1,
+.header-brand .sub,
+.hlogo span,
+.hsub,
+header a,
+header span {
+  color: #374151 !important;
+}
+
+.header-brand h1,
+.hlogo span:first-of-type {
+  color: #111827 !important;
+}
+
+.header-sep {
+  background: #e5e7eb !important;
+}
+
+.status-dot.green,
+.card-led.green {
+  background: var(--brand-500) !important;
+  box-shadow: 0 0 0 4px rgba(0, 194, 120, 0.18), 0 0 14px rgba(0, 194, 120, 0.6) !important;
+}
+
+.control-bar,
+.bridge-bar {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.main-content,
+.layout,
+main {
+  background: transparent !important;
+}
+
+.division-section,
+.tree-panel,
+.props-panel,
+.panel,
+.schema-panel,
+.viewer-panel,
+.topic-panel,
+.cc-card {
+  border: 1px solid var(--border) !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+  overflow: hidden;
+}
+
+.division-header {
+  margin: 0 !important;
+  padding: 16px 20px !important;
+  background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 62%, #f8fafc 100%) !important;
+  border-bottom: 1px solid #d1fae5 !important;
+}
+
+.division-name,
+.card-plant-name,
+.modal-header h2,
+.cc-page-title {
+  color: #111827 !important;
+  font-weight: 800 !important;
+}
+
+.division-label,
+.factory-count,
+.metric-label,
+.bridge-stat,
+.bridge-label,
+.card-recipe,
+.cc-page-description {
+  color: var(--muted) !important;
+}
+
+.factories-grid {
+  padding: 16px !important;
+}
+
+.factory-card {
+  background: #ffffff !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 1px 1px rgba(15, 23, 42, 0.04) !important;
+}
+
+.factory-card:hover {
+  border-color: #a7f3d0 !important;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08) !important;
+}
+
+.factory-card.status-running {
+  border-left: 4px solid var(--brand-600) !important;
+}
+
+.card-top,
+.card-footer,
+.modal-header,
+.modal-footer,
+.log-panel,
+.tabs,
+.tree-toolbar {
+  border-color: #f3f4f6 !important;
+}
+
+.metric-value,
+.bridge-stat strong {
+  color: #111827 !important;
+}
+
+.oee-bar-wrap,
+.card-recipe,
+.log-body,
+.tree-scroll,
+.props-empty,
+.subcard {
+  background: #f9fafb !important;
+}
+
+.btn-server-start,
+.btn-start-all,
+.btn-primary,
+.proto-btn.on,
+.btn-bridge-start {
+  background: var(--brand-600) !important;
+  color: #ffffff !important;
+  border: 1px solid var(--brand-700) !important;
+  box-shadow: 0 1px 2px rgba(0, 138, 82, 0.18) !important;
+}
+
+.btn-server-start:hover,
+.btn-start-all:hover,
+.btn-primary:hover,
+.btn-bridge-start:hover {
+  background: var(--brand-700) !important;
+}
+
+.btn-server-stop,
+.btn-stop-all,
+.btn-danger,
+.btn-bridge-stop {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fecaca !important;
+}
+
+.btn-server-stop:hover,
+.btn-stop-all:hover,
+.btn-danger:hover,
+.btn-bridge-stop:hover {
+  background: #fecaca !important;
+}
+
+.btn-secondary,
+.btn-ctrl,
+.btn-apply,
+.btn-bridge-cfg,
+.btn-theme,
+.btn-ghost,
+.btn-anomaly,
+header .btn,
+header button,
+header a {
+  background: #ffffff !important;
+  border: 1px solid #d1d5db !important;
+  color: #374151 !important;
+  border-radius: 10px !important;
+}
+
+.control-bar .btn-secondary,
+.control-bar .btn-apply,
+.bridge-bar .btn-bridge-cfg,
+.card-footer .btn-ctrl,
+.card-footer .btn-anomaly,
+.modal-footer .btn-secondary,
+.tree-toolbar .btn,
+.props-panel .btn,
+.schema-panel .btn,
+.viewer-panel .btn,
+main .btn-ghost,
+main .btn-secondary {
+  background: #ffffff !important;
+  color: #374151 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+.control-bar .btn-secondary:hover,
+.control-bar .btn-apply:hover,
+.bridge-bar .btn-bridge-cfg:hover,
+.card-footer .btn-ctrl:hover,
+.card-footer .btn-anomaly:hover,
+.tree-toolbar .btn:hover,
+.props-panel .btn:hover,
+main .btn-ghost:hover,
+main .btn-secondary:hover {
+  border-color: var(--brand-600) !important;
+  color: var(--brand-700) !important;
+  box-shadow: 0 0 0 3px rgba(0, 194, 120, 0.10) !important;
+}
+
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.45) !important;
+}
+
+.modal-box {
+  background: #ffffff !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28) !important;
+}
+
+.toast.success {
+  background: var(--brand-600) !important;
+  color: #ffffff !important;
+  border-color: var(--brand-700) !important;
+}
+
+.toast.error {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+.toast.warn {
+  background: #d97706 !important;
+  color: #ffffff !important;
+}
+
+::-webkit-scrollbar-track {
+  background: #f3f4f6 !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db !important;
+}
+
+@media (max-width: 980px) {
+  body {
+    padding-left: 0;
+    padding-top: 74px;
+  }
+
+  body::before {
+    inset: 0 0 auto 0;
+    width: 100%;
+    height: 74px;
+  }
+
+  body::after {
+    content: "UNS Design Studio";
+    width: auto;
+    min-height: 0;
+    height: 74px;
+    padding: 20px 22px;
+    line-height: 1.2;
+    font-size: 16px;
+    color: #ffffff;
+  }
+
+  .app-header,
+  header {
+    left: 0;
+    top: 74px !important;
+  }
+}

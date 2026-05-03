@@ -1,97 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UNS Live View — UNS Design Studio</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/uns_live.css') }}">
-  <script>(function(){var t=localStorage.getItem('uns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
+  <script>(function () { var t = localStorage.getItem('uns-theme') || 'dark'; document.documentElement.setAttribute('data-theme', t); })();</script>
 </head>
+
 <body>
 
-<header>
-  <span class="logo">📡</span>
-  <div>
-    <div class="title">UNS Live View</div>
-    <div class="subtitle">Real-time topic tree via MQTT over WebSocket</div>
-  </div>
-  <div class="hspace"></div>
-  <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
-  <a href="/" style="color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--border);padding:5px 10px;border-radius:5px">← Dashboard</a>
-  <a href="/uns" style="color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--border);padding:5px 10px;border-radius:5px">🌐 Designer</a>
-</header>
-
-<div class="statusbar">
-  <span><span class="dot" id="dot"></span><span id="status-txt">Disconnected</span></span>
-  <span class="stat">Topics: <strong id="stat-topics">0</strong></span>
-  <span class="stat">Messages: <strong id="stat-msgs">0</strong></span>
-  <span class="stat">Rate: <strong id="stat-rate">0</strong> msg/s</span>
-  <span class="stat" id="stat-last" style="display:none">Last: <strong id="stat-last-txt">—</strong></span>
-</div>
-
-<div class="layout">
-
-  <!-- Left: config + detail -->
-  <div class="config-panel">
-    <div class="panel-hdr">MQTT Connection</div>
-    <div class="cfg-body">
-      <div class="row2">
-        <div class="fg">
-          <label>Host</label>
-          <input id="cfg-host" value="localhost">
-        </div>
-        <div class="fg">
-          <label>WebSocket Port</label>
-          <input id="cfg-port" type="number" value="8083">
-        </div>
-      </div>
-      <div class="fg">
-        <label>WS Path</label>
-        <input id="cfg-path" value="/mqtt">
-      </div>
-      <div class="fg">
-        <label>Subscribe Topic</label>
-        <input id="cfg-topic" value="GlobalFoodCo/#">
-      </div>
-      <div class="row2">
-        <div class="fg">
-          <label>Username (optional)</label>
-          <input id="cfg-user" placeholder="—">
-        </div>
-        <div class="fg">
-          <label>Password (optional)</label>
-          <input id="cfg-pass" type="password" placeholder="—">
-        </div>
-      </div>
+  <header>
+    <span class="logo">📡</span>
+    <div>
+      <div class="title">UNS Live View</div>
+      <div class="subtitle">Real-time topic tree via MQTT over WebSocket</div>
     </div>
-    <div class="btn-row">
-      <button class="btn btn-primary" id="btn-connect" onclick="connect()" style="flex:1">▶ Connect</button>
-      <button class="btn btn-danger" id="btn-disconnect" onclick="disconnect()" style="flex:1;display:none">■ Disconnect</button>
-      <button class="btn" onclick="clearTree()" style="background:var(--surface3);border:1px solid var(--border);color:var(--muted)">Clear</button>
-    </div>
+    <div class="hspace"></div>
+    <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
+    <a href="/"
+      style="color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--border);padding:5px 10px;border-radius:5px">←
+      Dashboard</a>
+    <a href="/uns"
+      style="color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--border);padding:5px 10px;border-radius:5px">🌐
+      Designer</a>
+  </header>
 
-    <!-- Selected node detail -->
-    <div class="detail-panel">
-      <div class="panel-hdr">Selected Topic</div>
-      <div class="detail-body" id="detail-body">
-        <div class="detail-empty">Click any leaf node to inspect its value</div>
-      </div>
-    </div>
+  <div class="statusbar">
+    <span><span class="dot" id="dot"></span><span id="status-txt">Disconnected</span></span>
+    <span class="stat">Topics: <strong id="stat-topics">0</strong></span>
+    <span class="stat">Messages: <strong id="stat-msgs">0</strong></span>
+    <span class="stat">Rate: <strong id="stat-rate">0</strong> msg/s</span>
+    <span class="stat" id="stat-last" style="display:none">Last: <strong id="stat-last-txt">—</strong></span>
   </div>
 
-  <div class="resize-handle" id="live-resize"></div>
+  <div class="layout">
 
-  <!-- Right: live tree -->
-  <div class="tree-panel">
-    <div class="tree-toolbar">
-      <input type="search" id="srch" placeholder="🔍 Filter topics…" oninput="filterTree(this.value)">
-      <span style="font-size:11px;color:var(--muted);white-space:nowrap" id="tree-count">0 leaves</span>
+    <!-- Left: config + detail -->
+    <div class="config-panel">
+      <div class="panel-hdr">MQTT Connection</div>
+      <div class="cfg-body">
+        <div class="row2">
+          <div class="fg">
+            <label>Host</label>
+            <input id="cfg-host" value="localhost">
+          </div>
+          <div class="fg">
+            <label>WebSocket Port</label>
+            <input id="cfg-port" type="number" value="8083">
+          </div>
+        </div>
+        <div class="fg">
+          <label>WS Path</label>
+          <input id="cfg-path" value="/mqtt">
+        </div>
+        <div class="fg">
+          <label>Subscribe Topic</label>
+          <input id="cfg-topic" value="GlobalFoodCo/#">
+        </div>
+        <div class="row2">
+          <div class="fg">
+            <label>Username (optional)</label>
+            <input id="cfg-user" placeholder="—">
+          </div>
+          <div class="fg">
+            <label>Password (optional)</label>
+            <input id="cfg-pass" type="password" placeholder="—">
+          </div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-connect" onclick="connect()" style="flex:1">▶ Connect</button>
+        <button class="btn btn-danger" id="btn-disconnect" onclick="disconnect()" style="flex:1;display:none">■
+          Disconnect</button>
+        <button class="btn" onclick="clearTree()"
+          style="background:var(--surface3);border:1px solid var(--border);color:var(--muted)">Clear</button>
+      </div>
+
+      <!-- Selected node detail -->
+      <div class="detail-panel">
+        <div class="panel-hdr">Selected Topic</div>
+        <div class="detail-body" id="detail-body">
+          <div class="detail-empty">Click any leaf node to inspect its value</div>
+        </div>
+      </div>
     </div>
-    <div class="tree-scroll" id="tree-root"></div>
-  </div>
-</div>
 
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-<script src="{{ url_for('static', filename='js/uns_live.js') }}"></script>
+    <div class="resize-handle" id="live-resize"></div>
+
+    <!-- Right: live tree -->
+    <div class="tree-panel">
+      <div class="tree-toolbar">
+        <input type="search" id="srch" placeholder="🔍 Filter topics…" oninput="filterTree(this.value)">
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap" id="tree-count">0 leaves</span>
+      </div>
+      <div class="tree-scroll" id="tree-root"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="{{ url_for('static', filename='js/uns_live.js') }}"></script>
 </body>
+
 </html>

@@ -1,93 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Payload Schema Designer — GlobalFoodCo</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/payload_schemas.css') }}">
-  <script>(function(){var t=localStorage.getItem('uns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
+  <script>(function () { var t = localStorage.getItem('uns-theme') || 'dark'; document.documentElement.setAttribute('data-theme', t); })();</script>
 </head>
+
 <body>
 
-<header>
-  <a href="/">← Dashboard</a>
-  <h1>⚙️ Payload Schema Designer</h1>
-  <a href="/uns">🌐 UNS Designer</a>
-  <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
-  <button class="btn-primary" id="btn-save-all">💾 Save All</button>
-  <span id="save-ind">● Unsaved</span>
-</header>
+  <header>
+    <a href="/">← Dashboard</a>
+    <h1>⚙️ Payload Schema Designer</h1>
+    <a href="/uns">🌐 UNS Designer</a>
+    <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
+    <button class="btn-primary" id="btn-save-all">💾 Save All</button>
+    <span id="save-ind">● Unsaved</span>
+  </header>
 
-<div class="main">
+  <div class="main">
 
-  <!-- Left sidebar -->
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <span>Schemas</span>
-      <button class="btn-ghost" id="btn-new" style="padding: 4px 10px; font-size: 13px;">＋ New</button>
+    <!-- Left sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span>Schemas</span>
+        <button class="btn-ghost" id="btn-new" style="padding: 4px 10px; font-size: 13px;">＋ New</button>
+      </div>
+      <ul id="schema-list"></ul>
     </div>
-    <ul id="schema-list"></ul>
+
+    <!-- Right panel -->
+    <div class="editor-panel" id="editor-panel">
+      <div class="empty-state" id="empty-state">← Select a schema to edit</div>
+
+      <div id="schema-editor" style="display:none; display:flex; flex-direction:column; gap:20px;">
+
+        <!-- Meta -->
+        <div class="form-section">
+          <div class="form-section-header">Schema Details</div>
+          <div class="form-section-body">
+            <div class="field-row">
+              <label for="schema-name">Name</label>
+              <input type="text" id="schema-name" class="full-width" placeholder="e.g. SparkplugB Telemetry" />
+            </div>
+            <div class="field-row" style="margin-bottom:0;">
+              <label for="schema-desc">Description</label>
+              <input type="text" id="schema-desc" class="full-width" placeholder="Optional description" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Fields -->
+        <div class="form-section">
+          <div class="form-section-header">Fields</div>
+          <div class="form-section-body" style="padding: 0;">
+            <table class="fields-table">
+              <thead>
+                <tr>
+                  <th class="col-key">Key</th>
+                  <th class="col-source">Source</th>
+                  <th class="col-static">Static Value</th>
+                  <th class="col-del"></th>
+                </tr>
+              </thead>
+              <tbody id="fields-tbody"></tbody>
+            </table>
+            <div class="add-field-row" style="padding: 10px 14px;">
+              <button class="btn-ghost" id="btn-add-field" style="font-size: 13px;">＋ Add Field</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- JSON Preview -->
+        <div class="preview-section">
+          <div class="preview-header" id="preview-toggle-header">
+            <span>📄 Live JSON Preview</span>
+            <span class="preview-toggle" id="preview-toggle-label">▼ collapse</span>
+          </div>
+          <pre id="preview-json">{}</pre>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 
-  <!-- Right panel -->
-  <div class="editor-panel" id="editor-panel">
-    <div class="empty-state" id="empty-state">← Select a schema to edit</div>
+  <!-- Toast container -->
+  <div id="toast-container"></div>
 
-    <div id="schema-editor" style="display:none; display:flex; flex-direction:column; gap:20px;">
-
-      <!-- Meta -->
-      <div class="form-section">
-        <div class="form-section-header">Schema Details</div>
-        <div class="form-section-body">
-          <div class="field-row">
-            <label for="schema-name">Name</label>
-            <input type="text" id="schema-name" class="full-width" placeholder="e.g. SparkplugB Telemetry" />
-          </div>
-          <div class="field-row" style="margin-bottom:0;">
-            <label for="schema-desc">Description</label>
-            <input type="text" id="schema-desc" class="full-width" placeholder="Optional description" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Fields -->
-      <div class="form-section">
-        <div class="form-section-header">Fields</div>
-        <div class="form-section-body" style="padding: 0;">
-          <table class="fields-table">
-            <thead>
-              <tr>
-                <th class="col-key">Key</th>
-                <th class="col-source">Source</th>
-                <th class="col-static">Static Value</th>
-                <th class="col-del"></th>
-              </tr>
-            </thead>
-            <tbody id="fields-tbody"></tbody>
-          </table>
-          <div class="add-field-row" style="padding: 10px 14px;">
-            <button class="btn-ghost" id="btn-add-field" style="font-size: 13px;">＋ Add Field</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- JSON Preview -->
-      <div class="preview-section">
-        <div class="preview-header" id="preview-toggle-header">
-          <span>📄 Live JSON Preview</span>
-          <span class="preview-toggle" id="preview-toggle-label">▼ collapse</span>
-        </div>
-        <pre id="preview-json">{}</pre>
-      </div>
-
-    </div>
-  </div>
-
-</div>
-
-<!-- Toast container -->
-<div id="toast-container"></div>
-
-<script src="{{ url_for('static', filename='js/payload_schemas.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/payload_schemas.js') }}"></script>
 </body>
+
 </html>

@@ -6,18 +6,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UNS Topic Designer – GlobalFoodCo</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/uns_editor.css') }}">
-  <script>(function(){var t=localStorage.getItem('uns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
+  <script>(function () { var t = localStorage.getItem('uns-theme') || 'dark'; document.documentElement.setAttribute('data-theme', t); })();</script>
 </head>
 
 <body>
 
   <header>
-    <div class="hlogo">🌐 <span>UNS Topic Designer</span><span class="hsub">— Virtual UNS Enterprise Simulator</span></div>
+    <div class="hlogo">🌐 <span>UNS Topic Designer</span><span class="hsub">— Virtual UNS Enterprise Simulator</span>
+    </div>
     <div class="hspacer"></div>
-    <span style="font-size:11px;color:var(--muted)">by <a href="https://github.com/Ilja0101" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:none">Ilja Bartels</a></span>
+    <span style="font-size:11px;color:var(--muted)">by <a href="https://github.com/Ilja0101" target="_blank"
+        rel="noopener" style="color:var(--muted);text-decoration:none">Ilja Bartels</a></span>
     <span id="save-ind" class="saved">● Saved</span>
     <button class="btn btn-ghost" onclick="showImport()">📂 Import</button>
-    <button class="btn btn-danger" style="font-size:12px;padding:5px 10px" onclick="confirmClearAll()" title="Clear entire UNS tree">🗑️ Clear All</button>
+    <button class="btn btn-danger" style="font-size:12px;padding:5px 10px" onclick="confirmClearAll()"
+      title="Clear entire UNS tree">🗑️ Clear All</button>
     <button class="btn btn-ghost" onclick="doExportJSON()">📤 Export JSON</button>
     <button class="btn btn-ghost" onclick="doExportPaths()">📋 Topic Paths</button>
     <button class="btn btn-primary" id="btn-save" onclick="saveConfig()">💾 Save</button>
@@ -99,18 +103,22 @@
 
         <!-- Recipes tab -->
         <div class="tab-body" id="tb-recipes">
-          <div id="recipes-site-only" style="display:none;padding:20px;text-align:center;color:var(--muted);font-size:12px">
+          <div id="recipes-site-only"
+            style="display:none;padding:20px;text-align:center;color:var(--muted);font-size:12px">
             <div style="font-size:32px;margin-bottom:8px">🍽️</div>
             Recipes are configured on <strong>Site</strong> nodes only.<br>
             Select a site node to manage its recipe list.
           </div>
           <div id="recipes-editor" style="display:none">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
+            <div
+              style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
               <span style="font-size:12px;font-weight:600;flex:1">🍽️ Recipe List</span>
-              <button class="btn btn-primary" style="font-size:11px;padding:4px 10px" onclick="addRecipe()">＋ Add Recipe</button>
+              <button class="btn btn-primary" style="font-size:11px;padding:4px 10px" onclick="addRecipe()">＋ Add
+                Recipe</button>
             </div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-              Recipes defined here appear in the dashboard Control panel. Tags with the <code style="color:var(--green)">recipe</code> simulation profile publish the active recipe name.
+              Recipes defined here appear in the dashboard Control panel. Tags with the <code
+                style="color:var(--green)">recipe</code> simulation profile publish the active recipe name.
             </div>
             <div id="recipes-list"></div>
           </div>
@@ -179,7 +187,8 @@
     <div class="modal" style="max-width:700px;width:95vw">
       <h3>🧩 Insert Asset</h3>
       <p style="color:var(--muted);font-size:12px;margin-bottom:12px">
-        Select a predefined asset to add its tags to the current node. Tags come pre-configured with simulation profiles.
+        Select a predefined asset to add its tags to the current node. Tags come pre-configured with simulation
+        profiles.
       </p>
       <div class="asset-filter-bar" id="asset-cat-filters"></div>
       <div class="asset-grid" id="asset-grid"></div>
