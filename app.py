@@ -6,7 +6,7 @@ Author : Ilja Bartels  |  https://github.com/Ilja0101
 License: MIT  |  https://github.com/Ilja0101/UNS-Design-Studio
 """
 
-import os, sys, time, json, socket, threading, subprocess, hashlib
+import os, sys, time, json, socket, threading, subprocess, hashlib, atexit, signal
 from flask import Flask, render_template, jsonify, request
 from json_persistence import load_json, save_json_atomic
 from sim_state_service import get_site_recipes, merge_sim_state_update, sync_sim_state_with_uns
@@ -410,6 +410,44 @@ def _write_sim_state(data: dict):
     if not save_json_atomic(SIM_STATE_FILE, current, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
         raise OSError(f"Could not write {SIM_STATE_FILE}")
 
+def _all_sim_state_plants_stopped(sim_state: dict) -> bool:
+    """Return True when no persisted plant state claims to be running."""
+    plants = sim_state.get('plants', {}) if isinstance(sim_state, dict) else {}
+    for value in plants.values():
+        if isinstance(value, dict):
+            if bool(value.get('running', False)):
+                return False
+        elif bool(value):
+            return False
+    return not bool(sim_state.get('simulator_running', False)) if isinstance(sim_state, dict) else True
+
+def _mark_all_plants_stopped(reason: str = '') -> bool:
+    """Persist all plant running flags as stopped, preserving recipes and plant metadata."""
+    state = _read_sim_state_raw()
+    if _all_sim_state_plants_stopped(state):
+        return False
+
+    state['plants'] = _sim_state_plants(False)
+    state['simulator_running'] = False
+    if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
+        raise OSError(f"Could not write {SIM_STATE_FILE}")
+    with _locks['data']:
+        for plant in _state['plant_data'].values():
+            if isinstance(plant, dict):
+                plant['process_state'] = False
+                plant['maint_status'] = 'Stopped'
+    if reason:
+        _log(f"[sim-state] Marked all plants stopped: {reason}")
+    return True
+
+def _reconcile_sim_state_with_process(reason: str = ''):
+    """Clear stale persisted running flags whenever the managed factory process is not alive."""
+    try:
+        if not _server_alive():
+            _mark_all_plants_stopped(reason or 'factory process is not running')
+    except Exception as e:
+        _log(f"[sim-state] Reconcile failed: {e}")
+
 def _server_alive() -> bool:
     with _locks['proc']:
         p = _state['server_proc']
@@ -429,6 +467,7 @@ def start_factory_server():
     with _locks['proc']:
         if _state['server_proc'] and _state['server_proc'].poll() is None:
             return False, "Server is already running"
+        _state['server_proc'] = None
         factory_py = os.path.join(BASE_DIR, 'factory.py')
         if not os.path.exists(factory_py):
             return False, f"factory.py not found at {factory_py}"
@@ -463,6 +502,10 @@ def stop_factory_server():
         proc = _state['server_proc']
         if proc is None or proc.poll() is not None:
             _state['server_proc'] = None
+            try:
+                _mark_all_plants_stopped('factory process was already stopped')
+            except Exception as e:
+                _log(f"[sim-state] Stop reconcile failed: {e}")
             return True, "Server was not running"
         try:
             proc.terminate()
@@ -471,7 +514,40 @@ def stop_factory_server():
             proc.kill()
             proc.wait()  # Ensure OS reclaims the process (and its sockets) before returning
         _state['server_proc'] = None
+        try:
+            _mark_all_plants_stopped('factory process stopped')
+        except Exception as e:
+            _log(f"[sim-state] Stop reconcile failed: {e}")
         return True, "Server stopped"
+
+def _dashboard_shutdown():
+    try:
+        stop_bridge()
+    except Exception:
+        pass
+    try:
+        stop_factory_server()
+    except Exception:
+        try:
+            _mark_all_plants_stopped('dashboard shutdown')
+        except Exception:
+            pass
+
+def _install_shutdown_handlers():
+    def _handle_signal(sig, _frame):
+        _dashboard_shutdown()
+        try:
+            signal.signal(sig, signal.SIG_DFL)
+        except Exception:
+            pass
+        raise SystemExit(0)
+
+    atexit.register(_dashboard_shutdown)
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            signal.signal(sig, _handle_signal)
+        except Exception:
+            pass
 
 # ── OPC UA node-cache polling ──────────────────────────────────────────────────
 def _poll_loop():
@@ -628,6 +704,7 @@ def index():
 
 @app.route('/api/status')
 def api_status():
+    _reconcile_sim_state_with_process('status poll found no factory process')
     with _locks['data']:
         plants = dict(_state['plant_data'])
     with _locks['data']:
@@ -659,6 +736,7 @@ def api_logs():
 
 @app.route('/api/server/start', methods=['POST'])
 def api_server_start():
+    _mark_all_plants_stopped('dashboard starting factory process')
     ok, msg = start_factory_server()
     return jsonify({'ok': ok, 'msg': msg})
 
@@ -705,7 +783,14 @@ def api_server_config_save():
 @app.route('/api/plants/start-all', methods=['POST'])
 def api_start_all():
     # sim_state.json is the authoritative control source — no OPC writes needed
+    if not _server_alive():
+        _mark_all_plants_stopped('start-all requested without factory process')
+        return jsonify({'ok': False, 'msg': 'Start the OPC UA server before starting plants'}), 409
     _ensure_sim_state_synced()
+    # Force a clean stopped baseline before starting. This clears any stale
+    # persisted running flags from a previous dashboard/server lifetime and
+    # gives factory.py a deterministic stop→start transition to observe.
+    _mark_all_plants_stopped('start-all reset before start')
     state = _read_sim_state_raw()
     state['plants'] = _sim_state_plants(True)
     state['simulator_running'] = True
@@ -716,11 +801,7 @@ def api_start_all():
 @app.route('/api/plants/stop-all', methods=['POST'])
 def api_stop_all():
     _ensure_sim_state_synced()
-    state = _read_sim_state_raw()
-    state['plants'] = _sim_state_plants(False)
-    state['simulator_running'] = False
-    if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
-        raise OSError(f"Could not write {SIM_STATE_FILE}")
+    _mark_all_plants_stopped('stop-all requested')
     return jsonify({'ok': True, 'msg': 'All plants stopped'})
 
 @app.route('/api/plant/control', methods=['POST'])
@@ -732,6 +813,9 @@ def api_plant_control():
     value  = data['value']
     if action == 'set_state':
         plant_key = f"{group}|{plant}"
+        if bool(value) and not _server_alive():
+            _mark_all_plants_stopped('plant start requested without factory process')
+            return jsonify({'ok': False, 'msg': 'Start the OPC UA server before starting plants'}), 409
         _write_sim_state({plant_key: {'running': bool(value)}})
         sim_state = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
         current_plants = sim_state.get('plants', {}) if isinstance(sim_state, dict) else {}
@@ -1099,6 +1183,8 @@ def api_schemas_save():
 if __name__ == '__main__':
     # Ensure sim_state.json is synced with current uns_config.json
     _ensure_sim_state_synced()
+    _mark_all_plants_stopped('dashboard startup')
+    _install_shutdown_handlers()
     # Start periodic background sync to pick up changes made in the UNS Designer
     _start_periodic_sync(interval=10)
     print()
