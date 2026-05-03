@@ -11,6 +11,8 @@ Install deps:
 """
 
 import json, os, sys, time, signal, threading, logging
+from json_persistence import load_json, load_json_or_raise
+from uns_tree import build_bridge_entries
 
 logging.getLogger('opcua').setLevel(logging.ERROR)
 logging.basicConfig(level=logging.WARNING)
@@ -19,6 +21,9 @@ BASE_DIR         = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE      = os.path.join(BASE_DIR, 'bridge_config.json')
 UNS_CONFIG_FILE  = os.path.join(BASE_DIR, 'uns_config.json')
 SCHEMAS_FILE     = os.path.join(BASE_DIR, 'payload_schemas.json')
+
+def _json_log(msg: str):
+    print(msg, flush=True)
 
 stop_flag = False
 _stats    = {
@@ -38,8 +43,7 @@ signal.signal(signal.SIGTERM, _sig)
 
 def _load_cfg():
     try:
-        with open(CONFIG_FILE) as f:
-            return json.load(f)
+        return load_json_or_raise(CONFIG_FILE, logger=_json_log, label='bridge_config.json')
     except Exception as e:
         print(f"[bridge] Cannot read {CONFIG_FILE}: {e}", flush=True)
         sys.exit(1)
@@ -47,8 +51,7 @@ def _load_cfg():
 
 def _load_uns():
     try:
-        with open(UNS_CONFIG_FILE) as f:
-            return json.load(f)
+        return load_json_or_raise(UNS_CONFIG_FILE, logger=_json_log, label='uns_config.json')
     except Exception as e:
         print(f"[bridge] Cannot read {UNS_CONFIG_FILE}: {e}", flush=True)
         sys.exit(1)
@@ -69,53 +72,7 @@ def _build_entries(tree, sep, prefix):
     first site in the tree that defines tags for that workCenter name, so all plants
     are polled even if only one site has fully specified tags.
     """
-    # Walk tree and emit one entry per explicitly-defined tag.
-    # No canonical inheritance — the bridge only publishes what is explicitly
-    # configured in the UNS designer for each plant.
-    entries = []
-
-    def _sanitize(s: str) -> str:
-        """Replace characters invalid in MQTT topics / NATS subjects with underscores."""
-        import re
-        return re.sub(r'[\s#+]', '_', s)
-
-    def _walk(node, uns_parts, opc_parts, area_opc_parts):
-        ntype = node.get('type', '')
-        name  = node.get('name', '')
-        opc_name = ('Factory' + name) if ntype == 'site' else name
-
-        new_uns = uns_parts + [name]
-        new_opc = opc_parts + [opc_name]
-        new_area_opc = new_opc if ntype == 'area' else area_opc_parts
-
-        tags = node.get('tags', [])
-
-        for tag in tags:
-            t_uns       = tag['name']
-            t_unit      = tag.get('unit', '')
-            t_schema    = tag.get('payloadSchema', 'standard') or 'standard'
-            t_data_type = tag.get('dataType', 'Float')
-
-            if 'opcPath' in tag:
-                rel_parts   = tag['opcPath'].split('/')
-                t_opc_parts = new_area_opc + rel_parts
-            else:
-                t_opc_name  = tag.get('opcNodeName', t_uns)
-                t_opc_parts = new_opc + [t_opc_name]
-
-            # Sanitize every segment: spaces / # / + are invalid in MQTT topics
-            safe_uns_parts = [_sanitize(p) for p in new_uns]
-            safe_t_uns     = _sanitize(t_uns)
-            topic = sep.join(safe_uns_parts + [safe_t_uns])
-            if prefix:
-                topic = prefix + sep + topic
-            entries.append((topic, t_opc_parts, t_unit, t_schema, t_data_type, t_uns))
-
-        for child in node.get('children', []):
-            _walk(child, new_uns, new_opc, new_area_opc)
-
-    _walk(tree, [], [], [])
-    return entries
+    return build_bridge_entries(tree, sep, prefix)
 
 
 def _emit():
@@ -134,8 +91,7 @@ def _ser(v):
 def _load_schemas() -> dict:
     """Return {schema_id: schema_dict} from payload_schemas.json."""
     try:
-        with open(SCHEMAS_FILE) as f:
-            data = json.load(f)
+        data = load_json(SCHEMAS_FILE, {}, logger=_json_log, label='payload_schemas.json')
         return {s['id']: s for s in data.get('schemas', [])}
     except Exception:
         return {}
@@ -273,13 +229,12 @@ class OpcPoller:
     def _read_sim_state() -> dict:
         sim_file = os.path.join(BASE_DIR, 'sim_state.json')
         try:
-            with open(sim_file) as f:
-                data = json.load(f)
-                # Return both plants and global state
-                result = data.get('plants', {}).copy()
-                if 'simulator_running' in data:
-                    result['simulator_running'] = data['simulator_running']
-                return result
+            data = load_json(sim_file, {}, logger=_json_log, label='sim_state.json')
+            # Return both plants and global state
+            result = data.get('plants', {}).copy() if isinstance(data, dict) else {}
+            if isinstance(data, dict) and 'simulator_running' in data:
+                result['simulator_running'] = data['simulator_running']
+            return result
         except Exception:
             return {}
 

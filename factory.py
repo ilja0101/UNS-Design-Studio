@@ -21,20 +21,22 @@ import socket
 import time
 import datetime
 from opcua import Server, ua
+from json_persistence import load_json, load_json_or_raise
 
 logging.getLogger('opcua').setLevel(logging.ERROR)
 logging.basicConfig(level=logging.WARN)
+
+BASE_DIR = _os.path.dirname(_os.path.abspath(__file__))
+
+def _json_log(msg: str):
+    print(msg, flush=True)
 
 # ================================================================
 # CONFIG
 # ================================================================
 def _load_server_cfg():
-    cfg_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'server_config.json')
-    try:
-        with open(cfg_path) as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    cfg_path = _os.path.join(BASE_DIR, 'server_config.json')
+    return load_json(cfg_path, {}, logger=_json_log, label='server_config.json')
 
 _scfg            = _load_server_cfg()
 _OPC_BIND_IP     = _scfg.get('opc_bind_ip',    '0.0.0.0')
@@ -63,9 +65,8 @@ anomaly_overrides = {}
 def _get_enterprise_name() -> str:
     """Return the root enterprise name from uns_config.json (supports any name set in UNS Designer)."""
     try:
-        path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'uns_config.json')
-        with open(path, encoding='utf-8') as f:
-            cfg = json.load(f)
+        path = _os.path.join(BASE_DIR, 'uns_config.json')
+        cfg = load_json(path, {}, logger=_json_log, label='uns_config.json')
         return cfg.get('tree', {}).get('name', 'GlobalFoodCo')
     except Exception:
         return 'GlobalFoodCo'
@@ -73,21 +74,20 @@ def _get_enterprise_name() -> str:
 # ================================================================
 # SIM STATE  (read on every tick — picks up recipe changes live)
 # ================================================================
-SIM_STATE_FILE = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'sim_state.json')
+SIM_STATE_FILE = _os.path.join(BASE_DIR, 'sim_state.json')
 
 def _read_sim_state() -> dict:
     try:
-        with open(SIM_STATE_FILE) as f:
-            data   = json.load(f)
-            result = {}
-            plants = data.get('plants', {})
-            for k, v in plants.items():
-                if isinstance(v, dict):
-                    result[k] = v          # new format: {running, recipe, recipes, ...}
-                else:
-                    result[k] = {'running': bool(v)}  # legacy format: bool
-            result['simulator_running'] = data.get('simulator_running', True)
-            return result
+        data = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
+        result = {}
+        plants = data.get('plants', {}) if isinstance(data, dict) else {}
+        for k, v in plants.items():
+            if isinstance(v, dict):
+                result[k] = v          # new format: {running, recipe, recipes, ...}
+            else:
+                result[k] = {'running': bool(v)}  # legacy format: bool
+        result['simulator_running'] = data.get('simulator_running', True) if isinstance(data, dict) else True
+        return result
     except Exception:
         return {}
 
@@ -520,9 +520,8 @@ SIMULATION_PROFILES = {
 # UNS CONFIG LOADER
 # ================================================================
 def _load_uns_config():
-    path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'uns_config.json')
-    with open(path, encoding='utf-8') as f:
-        return json.load(f)
+    path = _os.path.join(BASE_DIR, 'uns_config.json')
+    return load_json_or_raise(path, logger=_json_log, label='uns_config.json')
 
 
 # ================================================================

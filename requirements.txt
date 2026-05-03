@@ -3,3 +3,4 @@ opcua>=0.98
 paho-mqtt>=2.0
 nats-py>=2.3
 inquirer>=3.1
+pytest>=8.0
