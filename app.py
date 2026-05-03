@@ -388,6 +388,38 @@ def _collect_plant_data(ent, idx):
             }
     return plants
 
+def _plant_data_from_sim_state(force_stopped: bool = False) -> dict:
+    """Build dashboard plant payload from sim_state.json without OPC values.
+
+    Used when the managed factory process is stopped or the OPC-UA port is not
+    ready so the dashboard never renders stale live data from the last poll.
+    """
+    sim_state = load_json(SIM_STATE_FILE, {'plants': {}}, logger=_json_log, label='sim_state.json')
+    if not isinstance(sim_state, dict):
+        sim_state = {'plants': {}}
+
+    plants = {}
+    for group, plant_names in _get_enterprise_structure().items():
+        for plant in plant_names:
+            plant_key = f"{group}|{plant}"
+            plant_val = sim_state.get('plants', {}).get(plant_key, False)
+            if isinstance(plant_val, dict):
+                process_state = bool(plant_val.get('running', False))
+                recipe = plant_val.get('recipe', '--NA--') or '--NA--'
+            else:
+                process_state = bool(plant_val)
+                recipe = '--NA--'
+            if force_stopped:
+                process_state = False
+            plants[plant_key] = {
+                'group': group, 'plant': plant,
+                'process_state': process_state, 'recipe': recipe,
+                'maint_status': 'Running' if process_state else 'Stopped',
+                'opc_ready': False,
+                'oee': 0.0, 'power': 0.0, 'good_tons': 0.0, 'trucks_recv': 0.0,
+            }
+    return plants
+
 def _sim_state_plants(running: bool) -> dict:
     """Return {plant_key: {running: bool}} for every plant, preserving existing recipe data."""
     sim_state = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
@@ -451,8 +483,7 @@ def _all_sim_state_plants_stopped(sim_state: dict) -> bool:
 def _mark_all_plants_stopped(reason: str = '') -> bool:
     """Persist all plant running flags as stopped, preserving recipes and plant metadata."""
     state = _read_sim_state_raw()
-    if _all_sim_state_plants_stopped(state):
-        return False
+    already_stopped = _all_sim_state_plants_stopped(state)
 
     state['plants'] = _sim_state_plants(False)
     state['simulator_running'] = False
@@ -465,7 +496,7 @@ def _mark_all_plants_stopped(reason: str = '') -> bool:
                 plant['maint_status'] = 'Stopped'
     if reason:
         _log(f"[sim-state] Marked all plants stopped: {reason}")
-    return True
+    return not already_stopped
 
 def _write_all_plants_running(reason: str = ''):
     """Persist all plant running flags as running, preserving recipes and plant metadata."""
@@ -811,8 +842,18 @@ def index():
 @app.route('/api/status')
 def api_status():
     _reconcile_sim_state_with_process('status poll found no factory process')
-    with _locks['data']:
-        plants = dict(_state['plant_data'])
+    server_running = _server_alive()
+    server_ready = server_running and _opc_tcp_port_open()
+    if not server_ready:
+        _state['opc_connected'] = False
+        plants = _plant_data_from_sim_state(force_stopped=True)
+        with _locks['data']:
+            _state['plant_data'] = plants
+    else:
+        with _locks['data']:
+            plants = dict(_state['plant_data'])
+        if not plants:
+            plants = _plant_data_from_sim_state(force_stopped=False)
     with _locks['data']:
         bstats = dict(_state['bridge_stats'])
     cfg = _load_bridge_cfg()
@@ -821,8 +862,9 @@ def api_status():
     struct_hash = hashlib.md5(json.dumps(struct, sort_keys=True).encode()).hexdigest()[:8]
     enterprise_name = _get_enterprise_name()
     return jsonify(dict(
-        server_running=_server_alive(),
-        opc_connected=_state['opc_connected'],
+        server_running=server_running,
+        server_ready=server_ready,
+        opc_connected=server_ready and _state['opc_connected'],
         opc_host=_state['opc_host'],
         opc_port=_state['opc_port'],
         plants=plants,
@@ -901,7 +943,7 @@ def api_start_all():
 def api_stop_all():
     _ensure_sim_state_synced()
     _mark_all_plants_stopped('stop-all requested')
-    return jsonify({'ok': True, 'msg': 'All plants stopped'})
+    return jsonify({'ok': True, 'msg': 'Plants stopped'})
 
 @app.route('/api/plant/control', methods=['POST'])
 def api_plant_control():

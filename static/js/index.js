@@ -7,6 +7,8 @@ let _pollTimer = null;
 let _plantsCache = {};
 let _structureHash = null;
 let _serverRunning = false;
+let _serverReady = false;
+let _plantsRunning = false;
 
 // ── Polling ────────────────────────────────────────────────────────────────────
 async function poll() {
@@ -24,9 +26,11 @@ async function poll() {
     }
     _plantsCache = d.plants || {};
     _serverRunning = !!d.server_running;
+    _serverReady = !!d.server_ready;
+    _plantsRunning = plantsHaveRunningState(_plantsCache);
     updateHeader(d);
     updateCards(_plantsCache);
-    updatePlantBreaker(_plantsCache, _serverRunning);
+    updatePlantBreaker(_plantsCache, _serverReady);
     updateBridgeUI(d);
     // sync host/port inputs
     if (document.activeElement.id !== 'inpHost') document.getElementById('inpHost').value = d.opc_host;
@@ -52,7 +56,8 @@ function updateHeader(d) {
     srvDot.className = 'status-dot red';
     srvLbl.textContent = 'Server: Stopped';
   }
-  if (d.opc_connected) {
+  const opcConnected = !!(d.server_running && d.server_ready !== false && d.opc_connected);
+  if (opcConnected) {
     opcDot.className = 'status-dot green';
     opcLbl.textContent = `OPC UA: Connected (${d.opc_host}:${d.opc_port})`;
   } else {
@@ -102,6 +107,21 @@ function updateCards(plants) {
     goodEl.textContent = live ? `${p.good_tons}` : '--';
     trEl.textContent = live ? `${p.trucks_recv}` : '--';
   }
+}
+
+function plantsHaveRunningState(plants) {
+  return Object.values(plants || {}).some(p => p.process_state && p.maint_status === 'Running');
+}
+
+function renderStoppedSnapshot() {
+  _plantsRunning = false;
+  for (const p of Object.values(_plantsCache || {})) {
+    p.process_state = false;
+    p.maint_status = 'Stopped';
+    p.opc_ready = false;
+  }
+  updateCards(_plantsCache);
+  updatePlantBreaker(_plantsCache, _serverReady);
 }
 
 // Log polling
@@ -196,13 +216,18 @@ async function serverStop() {
   const r = await fetch('/api/server/stop', { method: 'POST' });
   const d = await r.json();
   toast(d.ok ? 'Server stopped' : `Error: ${d.msg}`, d.ok ? 'warn' : 'error');
+  if (d.ok) {
+    _serverRunning = false;
+    _serverReady = false;
+    renderStoppedSnapshot();
+  }
   await poll();
 }
 
 // ── Bulk plant control ──────────────────────────────────────────────────────────
 async function startAll() {
-  if (!_serverRunning) {
-    toast('Start the OPC UA server before starting plants.', 'warn', 5000);
+  if (!_serverReady) {
+    toast(_serverRunning ? 'Wait for the OPC UA server port to become ready before starting plants.' : 'Start the OPC UA server before starting plants.', 'warn', 5000);
     return;
   }
   toast('Starting all plants…', 'info');
@@ -216,22 +241,19 @@ async function stopAll() {
   toast('Stopping all plants…', 'info');
   const r = await fetch('/api/plants/stop-all', { method: 'POST' });
   const d = await r.json();
-  toast(d.ok ? 'All plants stopped' : `Error: ${d.msg}`, d.ok ? 'warn' : 'error');
+  toast(d.ok ? (d.msg || 'Plants stopped') : `Error: ${d.msg}`, d.ok ? 'warn' : 'error');
+  if (d.ok) renderStoppedSnapshot();
   await poll();
 }
 
 async function toggleAllPlants() {
-  const breaker = document.getElementById('plantBreaker');
-  if (breaker && breaker.classList.contains('is-disabled')) {
-    toast('Start the OPC UA server before starting plants.', 'warn', 5000);
-    return;
-  }
-  const running = breaker && breaker.classList.contains('is-on');
-  if (running) await stopAll();
-  else await startAll();
+  if (_plantsRunning) await stopAll();
+  else if (_serverReady) await startAll();
+  else if (_serverRunning) toast('Wait for the OPC UA server port to become ready before starting plants.', 'warn', 5000);
+  else toast('Start the OPC UA server before starting plants.', 'warn', 5000);
 }
 
-function updatePlantBreaker(plants, serverRunning = _serverRunning) {
+function updatePlantBreaker(plants, serverReady = _serverReady) {
   const breaker = document.getElementById('plantBreaker');
   const caption = document.getElementById('plantBreakerCaption');
   if (!breaker || !caption) return;
@@ -239,12 +261,13 @@ function updatePlantBreaker(plants, serverRunning = _serverRunning) {
   const plantList = Object.values(plants || {});
   const runningCount = plantList.filter(p => p.process_state && p.maint_status === 'Running').length;
   const anyRunning = runningCount > 0;
+  _plantsRunning = anyRunning;
   breaker.classList.toggle('is-on', anyRunning);
-  breaker.classList.toggle('is-disabled', !serverRunning && !anyRunning);
+  breaker.classList.toggle('is-disabled', !serverReady && !anyRunning);
   breaker.setAttribute('aria-pressed', anyRunning ? 'true' : 'false');
-  breaker.title = !serverRunning && !anyRunning ? 'Start the OPC UA server before starting plants' : anyRunning ? 'Stop all plants' : 'Start all plants';
-  caption.textContent = !serverRunning && !anyRunning
-    ? 'Start server first'
+  breaker.title = !serverReady && !anyRunning ? (_serverRunning ? 'Wait for OPC UA server readiness' : 'Start the OPC UA server before starting plants') : anyRunning ? 'Stop all plants' : 'Start all plants';
+  caption.textContent = !serverReady && !anyRunning
+    ? (_serverRunning ? 'Server starting…' : 'Start server first')
     : anyRunning
       ? `${runningCount}/${plantList.length} plants running`
       : 'Plants stopped';
