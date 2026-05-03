@@ -183,8 +183,9 @@ async function serverStart() {
   });
   const d = await r.json();
   if (d.ok) {
-    toast('Server starting (connecting to localhost)…', 'success');
+    toast(d.msg || 'Server started and OPC UA port is ready', 'success');
     document.getElementById('inpHost').value = '127.0.0.1';
+    await poll();
   } else {
     toast(`Server error: ${d.msg}`, 'error');
   }
@@ -195,6 +196,7 @@ async function serverStop() {
   const r = await fetch('/api/server/stop', { method: 'POST' });
   const d = await r.json();
   toast(d.ok ? 'Server stopped' : `Error: ${d.msg}`, d.ok ? 'warn' : 'error');
+  await poll();
 }
 
 // ── Bulk plant control ──────────────────────────────────────────────────────────
@@ -207,6 +209,7 @@ async function startAll() {
   const r = await fetch('/api/plants/start-all', { method: 'POST' });
   const d = await r.json();
   toast(d.ok ? '🚀 All plants started' : `Error: ${d.msg}`, d.ok ? 'success' : 'error');
+  await poll();
 }
 
 async function stopAll() {
@@ -214,6 +217,7 @@ async function stopAll() {
   const r = await fetch('/api/plants/stop-all', { method: 'POST' });
   const d = await r.json();
   toast(d.ok ? 'All plants stopped' : `Error: ${d.msg}`, d.ok ? 'warn' : 'error');
+  await poll();
 }
 
 async function toggleAllPlants() {

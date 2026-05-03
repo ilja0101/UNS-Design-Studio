@@ -154,6 +154,8 @@ _locks = {
 }
 
 SIM_STATE_START_RESET_SECONDS = 2.0
+SERVER_START_TIMEOUT_SECONDS = 12.0
+SERVER_STOP_PORT_RELEASE_SECONDS = 8.0
 
 def _start_periodic_sync(interval: int = 10):
     """Start a background thread that periodically calls _ensure_sim_state_synced()."""
@@ -170,6 +172,28 @@ def _start_periodic_sync(interval: int = 10):
 # ── Helper functions ───────────────────────────────────────────────────────────
 def _endpoint():
     return f"opc.tcp://{_state['opc_host']}:{_state['opc_port']}/freeopcua/server/"
+
+def _opc_tcp_port_open(timeout: float = 0.25) -> bool:
+    """Return True when the configured OPC-UA TCP endpoint accepts connections."""
+    try:
+        with socket.create_connection((_state['opc_host'], int(_state['opc_port'])), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+def _wait_for_opc_port(open_expected: bool, timeout_seconds: float, proc=None) -> bool:
+    """Wait for the configured OPC-UA TCP port to become open/closed.
+
+    When waiting for startup with a child process, stop early if the child exits.
+    """
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        if proc is not None and proc.poll() is not None:
+            return False
+        if _opc_tcp_port_open() is open_expected:
+            return True
+        time.sleep(0.2)
+    return _opc_tcp_port_open() is open_expected
 
 def _default_recipe(group: str, plant: str = '') -> str:
     """Return the first recipe name for a plant from sim_state.json, or empty string."""
@@ -523,6 +547,12 @@ def start_factory_server():
         if _state['server_proc'] and _state['server_proc'].poll() is None:
             return False, "Server is already running"
         _state['server_proc'] = None
+        _ensure_sim_state_synced()
+        _mark_all_plants_stopped('starting fresh factory process')
+        if _opc_tcp_port_open():
+            msg = f"OPC UA port {_state['opc_port']} is already in use; stop the existing process before starting the dashboard-managed server"
+            _log(f"[server] {msg}")
+            return False, msg
         factory_py = os.path.join(BASE_DIR, 'factory.py')
         if not os.path.exists(factory_py):
             return False, f"factory.py not found at {factory_py}"
@@ -537,23 +567,42 @@ def start_factory_server():
             _state['server_proc'] = proc
             threading.Thread(target=_capture_output, args=(proc,), daemon=True).start()
 
-            time.sleep(0.8)
-            if proc.poll() is not None:
+            if not _wait_for_opc_port(True, SERVER_START_TIMEOUT_SECONDS, proc=proc):
+                try:
+                    if proc.poll() is None:
+                        proc.terminate()
+                        proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+                except Exception:
+                    pass
                 try:
                     remaining = proc.stdout.read() or ''
                 except Exception:
                     remaining = ''
-                msg = f"Server process exited with code {proc.returncode}. Output: {remaining.strip()[:1000]}"
+                exit_part = f"exited with code {proc.returncode}" if proc.poll() is not None else "did not open the OPC UA port"
+                msg = f"Server process {exit_part}. Output: {remaining.strip()[:1000]}"
                 _log(f"[server] {msg}")
                 _state['server_proc'] = None
+                _mark_all_plants_stopped('factory process failed to start')
                 return False, msg
 
-            return True, "Server process started"
+            return True, "Server process started and OPC UA port is accepting connections"
         except Exception as e:
+            _state['server_proc'] = None
+            try:
+                _mark_all_plants_stopped('factory process start raised exception')
+            except Exception:
+                pass
             return False, str(e)
 
 def stop_factory_server():
     with _locks['proc']:
+        try:
+            _mark_all_plants_stopped('factory process stopping')
+        except Exception as e:
+            _log(f"[sim-state] Stop pre-reconcile failed: {e}")
         proc = _state['server_proc']
         if proc is None or proc.poll() is not None:
             _state['server_proc'] = None
@@ -569,6 +618,8 @@ def stop_factory_server():
             proc.kill()
             proc.wait()  # Ensure OS reclaims the process (and its sockets) before returning
         _state['server_proc'] = None
+        if not _wait_for_opc_port(False, SERVER_STOP_PORT_RELEASE_SECONDS):
+            _log(f"[server] OPC UA port {_state['opc_port']} still accepts connections after factory process stop")
         try:
             _mark_all_plants_stopped('factory process stopped')
         except Exception as e:
@@ -791,9 +842,8 @@ def api_logs():
 
 @app.route('/api/server/start', methods=['POST'])
 def api_server_start():
-    _mark_all_plants_stopped('dashboard starting factory process')
     ok, msg = start_factory_server()
-    return jsonify({'ok': ok, 'msg': msg})
+    return jsonify({'ok': ok, 'msg': msg}), 200 if ok else 409
 
 @app.route('/api/server/stop', methods=['POST'])
 def api_server_stop():
@@ -841,6 +891,9 @@ def api_start_all():
     if not _server_alive():
         _mark_all_plants_stopped('start-all requested without factory process')
         return jsonify({'ok': False, 'msg': 'Start the OPC UA server before starting plants'}), 409
+    if not _opc_tcp_port_open():
+        _mark_all_plants_stopped('start-all requested before OPC UA port was ready')
+        return jsonify({'ok': False, 'msg': 'OPC UA server process is running, but the OPC UA port is not ready yet'}), 409
     ok, msg = _reset_then_start_all_plants()
     return jsonify({'ok': ok, 'msg': msg}), 200 if ok else 409
 
@@ -862,6 +915,9 @@ def api_plant_control():
         if bool(value) and not _server_alive():
             _mark_all_plants_stopped('plant start requested without factory process')
             return jsonify({'ok': False, 'msg': 'Start the OPC UA server before starting plants'}), 409
+        if bool(value) and not _opc_tcp_port_open():
+            _mark_all_plants_stopped('plant start requested before OPC UA port was ready')
+            return jsonify({'ok': False, 'msg': 'OPC UA server process is running, but the OPC UA port is not ready yet'}), 409
         if bool(value):
             ok, msg = _reset_then_start_plant(plant_key)
             if not ok:
