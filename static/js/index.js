@@ -75,12 +75,6 @@ function updateCards(plants) {
     const bar = document.getElementById(`bar-${g}-${pl}`);
 
     if (!led) continue;
-    if (card && !card.dataset.visualReady) {
-      const visualSeed = hashString(`${g}|${pl}`);
-      card.classList.add(`factory-variant-${visualSeed % 10}`, `truck-speed-${visualSeed % 3}`);
-      card.dataset.visualReady = '1';
-    }
-
     // Status
     const running = p.process_state && p.maint_status === 'Running';
     const down = p.maint_status === 'Down';
@@ -108,12 +102,6 @@ function updateCards(plants) {
     goodEl.textContent = live ? `${p.good_tons}` : '--';
     trEl.textContent = live ? `${p.trucks_recv}` : '--';
   }
-}
-
-function hashString(s) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
 }
 
 // Log polling

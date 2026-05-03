@@ -7,7 +7,7 @@
   <title>UNS Design Studio</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
-  <script>(function () { var t = localStorage.getItem('uns-theme') || 'dark'; document.documentElement.setAttribute('data-theme', t); })();</script>
+  <script>document.documentElement.setAttribute('data-theme', 'light');</script>
 </head>
 
 <body>
@@ -103,6 +103,23 @@
 
   <!-- ── Control Bar ────────────────────────────────────────────────────────────── -->
   <div class="control-bar">
+    <button class="plant-breaker knife-breaker" id="plantBreaker" onclick="toggleAllPlants()" aria-pressed="false">
+      <span class="breaker-stage" aria-hidden="true">
+        <span class="breaker-backbox"></span>
+        <span class="emergency-plate">
+          <span class="switch-state switch-state-on">ON</span>
+          <span class="switch-state switch-state-off">OFF</span>
+          <span class="emergency-ring"></span>
+          <span class="emergency-dial">
+            <span class="dial-pointer"></span>
+            <span class="dial-screw"></span>
+          </span>
+        </span>
+      </span>
+      <span class="breaker-copy">
+        <span class="breaker-caption" id="plantBreakerCaption">Plants stopped</span>
+      </span>
+    </button>
     <div class="conn-config">
       <label>OPC UA&nbsp;Host</label>
       <input id="inpHost" placeholder="10.10.3.4" value="10.10.3.4">
@@ -164,8 +181,6 @@
               <span class="factory-window w1"></span>
               <span class="factory-window w2"></span>
               <span class="factory-window w3"></span>
-              <span class="theme-extra extra-a"></span>
-              <span class="theme-extra extra-b"></span>
             </div>
             <span class="factory-truck truck-in"><span class="truck-cab"></span><span class="truck-box"></span><span
                 class="truck-wheel wheel-a"></span><span class="truck-wheel wheel-b"></span></span>

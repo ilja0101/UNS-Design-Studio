@@ -7,7 +7,7 @@
   <title>UNS Topic Designer – GlobalFoodCo</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/uns_editor.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
-  <script>(function () { var t = localStorage.getItem('uns-theme') || 'dark'; document.documentElement.setAttribute('data-theme', t); })();</script>
+  <script>document.documentElement.setAttribute('data-theme', 'light');</script>
 </head>
 
 <body>
@@ -26,7 +26,6 @@
     <button class="btn btn-ghost" onclick="doExportJSON()">📤 Export JSON</button>
     <button class="btn btn-ghost" onclick="doExportPaths()">📋 Topic Paths</button>
     <button class="btn btn-primary" id="btn-save" onclick="saveConfig()">💾 Save</button>
-    <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
   </header>
 
   <div class="layout">

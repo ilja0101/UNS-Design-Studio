@@ -367,16 +367,13 @@ def _sim_state_plants(running: bool) -> dict:
     current = sim_state.get('plants', {}) if isinstance(sim_state, dict) else {}
 
     result = {}
-    for group, plants in _get_enterprise_structure().items():
-        for plant in plants:
-            pk = f"{group}|{plant}"
-            existing = current.get(pk, {})
-            if isinstance(existing, dict):
-                merged = dict(existing)
-                merged['running'] = running
-                result[pk] = merged
-            else:
-                result[pk] = {'running': running}
+    for pk, existing in current.items():
+        if isinstance(existing, dict):
+            merged = dict(existing)
+            merged['running'] = running
+            result[pk] = merged
+        else:
+            result[pk] = {'running': running}
     return result
 
 def _read_sim_state_raw() -> dict:
@@ -708,16 +705,20 @@ def api_server_config_save():
 @app.route('/api/plants/start-all', methods=['POST'])
 def api_start_all():
     # sim_state.json is the authoritative control source — no OPC writes needed
+    _ensure_sim_state_synced()
     state = _read_sim_state_raw()
-    state = merge_sim_state_update(state, {'plants': _sim_state_plants(True), 'simulator_running': True})
+    state['plants'] = _sim_state_plants(True)
+    state['simulator_running'] = True
     if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
         raise OSError(f"Could not write {SIM_STATE_FILE}")
     return jsonify({'ok': True, 'msg': 'All plants started'})
 
 @app.route('/api/plants/stop-all', methods=['POST'])
 def api_stop_all():
+    _ensure_sim_state_synced()
     state = _read_sim_state_raw()
-    state = merge_sim_state_update(state, {'plants': _sim_state_plants(False), 'simulator_running': False})
+    state['plants'] = _sim_state_plants(False)
+    state['simulator_running'] = False
     if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
         raise OSError(f"Could not write {SIM_STATE_FILE}")
     return jsonify({'ok': True, 'msg': 'All plants stopped'})
@@ -1027,6 +1028,10 @@ def uns_live():
 @app.route('/manual')
 def user_manual():
     return render_template('manual.html')
+
+@app.route('/settings')
+def settings_page():
+    return render_template('settings.html')
 
 # ── UNS Topic Designer ─────────────────────────────────────────────────────────
 @app.route('/uns')

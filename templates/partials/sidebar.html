@@ -29,48 +29,16 @@
             <span class="cc-nav-icon">↯</span>
             <span>Live UNS View</span>
         </a>
-        <a class="cc-nav-link" href="/#settings"
-            onclick="if (typeof openSettings === 'function') { openSettings(); return false; }">
-            <span class="cc-nav-icon">⚙</span>
-            <span>Network Settings</span>
-        </a>
-        <a class="cc-nav-link" href="/#broker-config"
-            onclick="if (typeof openBridgeCfg === 'function') { openBridgeCfg(); return false; }">
+        <a class="cc-nav-link" href="/settings">
             <span class="cc-nav-icon">▤</span>
-            <span>Broker Config</span>
+            <span>Settings</span>
         </a>
-        <button class="cc-nav-link cc-nav-button" type="button" onclick="toggleTheme()">
-            <span class="cc-nav-icon">◐</span>
-            <span>Toggle Theme</span>
-        </button>
-
         <div class="cc-nav-section">Help</div>
         <a class="cc-nav-link" href="/manual">
             <span class="cc-nav-icon">?</span>
             <span>User Manual</span>
         </a>
     </nav>
-
-    <div class="cc-sidebar-plant-switch">
-        <button class="plant-breaker knife-breaker" id="plantBreaker" onclick="toggleAllPlants()" aria-pressed="false">
-            <span class="breaker-stage" aria-hidden="true">
-                <span class="breaker-backbox"></span>
-                <span class="emergency-plate">
-                    <span class="switch-state switch-state-on">ON</span>
-                    <span class="switch-state switch-state-off">OFF</span>
-                    <span class="emergency-ring"></span>
-                    <span class="emergency-dial">
-                        <span class="dial-pointer"></span>
-                        <span class="dial-screw"></span>
-                    </span>
-                </span>
-            </span>
-            <span class="breaker-copy">
-                <span class="breaker-title">Emergency plant switch</span>
-                <span class="breaker-caption" id="plantBreakerCaption">Plants stopped</span>
-            </span>
-        </button>
-    </div>
 
     <div class="cc-sidebar-footer">
         <div class="cc-sidebar-status"><span class="cc-status-dot"></span><span>dashboard ready</span></div>
