@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings — UNS Design Studio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
+    <script>document.documentElement.setAttribute('data-theme', 'light');</script>
+</head>
+
+<body>
+    {% include 'partials/sidebar.html' %}
+
+    <header class="app-header">
+        <div class="header-brand">
+            <span class="logo" aria-hidden="true"></span>
+            <div>
+                <h1>Settings</h1>
+                <span class="sub">Network and broker configuration</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content settings-page">
+        <section class="settings-hero cc-card">
+            <h2>Application Settings</h2>
+            <p>Configure OPC UA connectivity, anomaly TCP port, and broker bridge publishing from one place.</p>
+        </section>
+
+        <section class="settings-grid">
+            <article class="settings-card cc-card">
+                <div class="settings-card-head">
+                    <div>
+                        <h3>Network Settings</h3>
+                        <p>Server bind settings and dashboard OPC UA client target.</p>
+                    </div>
+                    <button class="settings-save" onclick="saveNetworkSettings()">Save Network</button>
+                </div>
+                <div class="settings-form">
+                    <label>OPC-UA bind IP<input id="cfg-bind-ip" placeholder="0.0.0.0"></label>
+                    <label>OPC-UA port<input id="cfg-opc-port" type="number" placeholder="4840"></label>
+                    <label>OPC-UA client host<input id="cfg-client-host" placeholder="127.0.0.1"></label>
+                    <label>Anomaly TCP port<input id="cfg-tcp-port" type="number" placeholder="9999"></label>
+                    <label>Host IP (info only)<input id="cfg-host-ip" placeholder="10.10.3.4"></label>
+                </div>
+                <p class="settings-note">Server bind changes take effect on the next OPC UA server start.</p>
+            </article>
+
+            <article class="settings-card cc-card">
+                <div class="settings-card-head">
+                    <div>
+                        <h3>Broker Bridge</h3>
+                        <p>Publish OPC UA simulation values to MQTT or NATS.</p>
+                    </div>
+                    <button class="settings-save" onclick="saveBrokerSettings()">Save Broker</button>
+                </div>
+                <div class="settings-form">
+                    <label>Protocol<select id="bridge-protocol" onchange="syncBrokerPortLabel()">
+                            <option value="mqtt">MQTT</option>
+                            <option value="nats">NATS</option>
+                        </select></label>
+                    <label>Broker host<input id="bridge-host" placeholder="localhost"></label>
+                    <label id="bridge-port-label">Broker port<input id="bridge-port" type="number"
+                            placeholder="1883"></label>
+                    <label>Username<input id="bridge-user" placeholder="optional"></label>
+                    <label>Password<input id="bridge-pass" type="password"
+                            placeholder="leave blank to keep unchanged"></label>
+                    <label>Topic / subject prefix<input id="bridge-prefix" placeholder="optional"></label>
+                    <label>Publish interval (s)<input id="bridge-interval" type="number" step="0.5" min="0.5"
+                            placeholder="2.0"></label>
+                </div>
+            </article>
+        </section>
+    </main>
+
+    <div id="toasts"></div>
+
+    <script>
+        const DEFAULT_PORTS = { mqtt: 1883, nats: 4222 };
+        function toast(msg, type = 'info', ms = 3500) {
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            el.textContent = msg;
+            document.getElementById('toasts').appendChild(el);
+            setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, ms);
+        }
+        async function loadSettings() {
+            const net = await fetch('/api/server-config').then(r => r.json());
+            document.getElementById('cfg-bind-ip').value = net.opc_bind_ip || '0.0.0.0';
+            document.getElementById('cfg-opc-port').value = net.opc_port || 4840;
+            document.getElementById('cfg-client-host').value = net.opc_client_host || '127.0.0.1';
+            document.getElementById('cfg-tcp-port').value = net.tcp_port || 9999;
+            document.getElementById('cfg-host-ip').value = net.host_ip || '';
+
+            const bridge = await fetch('/api/bridge/config').then(r => r.json());
+            document.getElementById('bridge-protocol').value = bridge.protocol || 'mqtt';
+            document.getElementById('bridge-host').value = bridge.broker_host || 'localhost';
+            document.getElementById('bridge-port').value = bridge.broker_port || DEFAULT_PORTS[bridge.protocol || 'mqtt'];
+            document.getElementById('bridge-user').value = bridge.username || '';
+            document.getElementById('bridge-prefix').value = bridge.topic_prefix || '';
+            document.getElementById('bridge-interval').value = bridge.interval || 2.0;
+            syncBrokerPortLabel();
+        }
+        function syncBrokerPortLabel() {
+            const proto = document.getElementById('bridge-protocol').value;
+            document.getElementById('bridge-port-label').firstChild.textContent = proto === 'nats' ? 'Broker port (NATS = 4222)' : 'Broker port (MQTT = 1883)';
+        }
+        async function saveNetworkSettings() {
+            const payload = {
+                opc_bind_ip: document.getElementById('cfg-bind-ip').value.trim(),
+                opc_port: parseInt(document.getElementById('cfg-opc-port').value) || 4840,
+                opc_client_host: document.getElementById('cfg-client-host').value.trim(),
+                tcp_port: parseInt(document.getElementById('cfg-tcp-port').value) || 9999,
+                host_ip: document.getElementById('cfg-host-ip').value.trim(),
+            };
+            const d = await fetch('/api/server-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r => r.json());
+            toast(d.ok ? 'Network settings saved' : 'Network save failed', d.ok ? 'success' : 'error');
+        }
+        async function saveBrokerSettings() {
+            const proto = document.getElementById('bridge-protocol').value;
+            const payload = {
+                protocol: proto,
+                broker_host: document.getElementById('bridge-host').value.trim(),
+                broker_port: parseInt(document.getElementById('bridge-port').value) || DEFAULT_PORTS[proto],
+                username: document.getElementById('bridge-user').value.trim(),
+                password: document.getElementById('bridge-pass').value,
+                topic_prefix: document.getElementById('bridge-prefix').value.trim(),
+                interval: parseFloat(document.getElementById('bridge-interval').value) || 2.0,
+            };
+            const d = await fetch('/api/bridge/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r => r.json());
+            toast(d.ok ? (d.restarted ? 'Broker saved and bridge restarted' : 'Broker settings saved') : `Broker save failed: ${d.msg}`, d.ok ? 'success' : 'error');
+        }
+        loadSettings().catch(() => toast('Could not load settings', 'error'));
+    </script>
+</body>
+
+</html>

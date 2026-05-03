@@ -1,816 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Payload Schema Designer — GlobalFoodCo</title>
-  <style>
-    :root {
-      --bg: #0d1117;
-      --surface: #161b22;
-      --surface2: #21262d;
-      --border: #30363d;
-      --text: #e6edf3;
-      --text-muted: #8b949e;
-      --accent: #58a6ff;
-      --accent-dim: #1f6feb;
-      --green: #3fb950;
-      --red: #f85149;
-      --yellow: #d29922;
-      --purple: #a371f7;
-      --on-accent: #ffffff;
-    }
-    [data-theme="light"] {
-      --bg: #f6f8fa;
-      --surface: #ffffff;
-      --surface2: #f0f2f5;
-      --border: #d0d7de;
-      --text: #1f2328;
-      --text-muted: #656d76;
-      --accent: #0969da;
-      --accent-dim: #0969da;
-      --green: #1a7f37;
-      --red: #cf222e;
-      --yellow: #9a6700;
-      --purple: #8250df;
-      --on-accent: #ffffff;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Segoe UI', sans-serif;
-      font-size: 14px;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    /* ── Header ── */
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 16px;
-      height: 48px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex-shrink: 0;
-    }
-    header h1 {
-      font-size: 16px;
-      font-weight: 600;
-      flex: 1;
-    }
-    header a {
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 13px;
-      padding: 4px 8px;
-      border-radius: 4px;
-      transition: color 0.15s, background 0.15s;
-    }
-    header a:hover {
-      color: var(--text);
-      background: var(--surface2);
-    }
-    #save-ind {
-      font-size: 12px;
-      color: var(--text-muted);
-      min-width: 80px;
-      text-align: right;
-    }
-    #save-ind.saved { color: var(--green); }
-
-    /* ── Buttons ── */
-    .btn-primary {
-      background: var(--accent-dim);
-      color: var(--on-accent);
-      border: none;
-      border-radius: 4px;
-      padding: 6px 14px;
-      cursor: pointer;
-      font-size: 13px;
-      transition: opacity 0.15s;
-    }
-    .btn-primary:hover { opacity: 0.85; }
-    .btn-ghost {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 4px;
-      padding: 6px 14px;
-      cursor: pointer;
-      font-size: 13px;
-      transition: background 0.15s;
-    }
-    .btn-ghost:hover { background: var(--surface2); }
-    .btn-icon {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-size: 13px;
-      transition: color 0.15s, background 0.15s;
-    }
-    .btn-icon:hover { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); }
-
-    /* ── Main layout ── */
-    .main {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-
-    /* ── Left sidebar ── */
-    .sidebar {
-      width: 280px;
-      min-width: 200px;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .sidebar-header {
-      padding: 12px 12px 10px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-shrink: 0;
-    }
-    .sidebar-header span {
-      font-weight: 600;
-      font-size: 13px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    #schema-list {
-      list-style: none;
-      overflow-y: auto;
-      flex: 1;
-      padding: 6px;
-    }
-    #schema-list li {
-      padding: 8px 12px;
-      cursor: pointer;
-      border-radius: 4px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: var(--text);
-      transition: background 0.1s;
-      margin-bottom: 2px;
-    }
-    #schema-list li:hover { background: var(--surface2); }
-    #schema-list li.active {
-      background: var(--surface2);
-      color: var(--accent);
-    }
-    #schema-list li .schema-name {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 13px;
-    }
-
-    /* ── Right panel ── */
-    .editor-panel {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .empty-state {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-muted);
-      font-size: 16px;
-    }
-
-    /* ── Form fields ── */
-    .form-section {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    .form-section-header {
-      padding: 10px 14px;
-      background: var(--surface2);
-      border-bottom: 1px solid var(--border);
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-    }
-    .form-section-body { padding: 14px; }
-
-    .field-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    .field-row label {
-      width: 110px;
-      flex-shrink: 0;
-      color: var(--text-muted);
-      font-size: 13px;
-    }
-    input[type="text"], select, textarea {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 4px 8px;
-      border-radius: 4px;
-      outline: none;
-      font-family: 'Segoe UI', sans-serif;
-      font-size: 13px;
-      transition: border-color 0.15s;
-    }
-    input[type="text"]:focus, select:focus, textarea:focus {
-      border-color: var(--accent-dim);
-    }
-    .full-width { width: 100%; }
-
-    /* ── Fields table ── */
-    .fields-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .fields-table thead tr {
-      background: var(--surface2);
-    }
-    .fields-table th {
-      padding: 7px 8px;
-      text-align: left;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      border-bottom: 1px solid var(--border);
-    }
-    .fields-table tbody tr:nth-child(odd) { background: transparent; }
-    .fields-table tbody tr:nth-child(even) { background: var(--surface2); }
-    .fields-table tbody tr:hover { background: var(--surface2); }
-    .fields-table td {
-      padding: 6px 8px;
-      vertical-align: middle;
-    }
-    .fields-table td input[type="text"] { width: 100%; }
-    .fields-table td select { width: 100%; }
-    .col-key { width: 200px; }
-    .col-source { width: 260px; }
-    .col-static { width: 160px; }
-    .col-del { width: 40px; text-align: center; }
-    .static-val-input {
-      width: 100%;
-      display: none;
-    }
-    .static-val-input.visible { display: inline-block; }
-
-    .add-field-row {
-      padding: 10px 0 0;
-    }
-
-    /* ── JSON Preview ── */
-    .preview-section {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    .preview-header {
-      padding: 10px 14px;
-      background: var(--surface2);
-      border-bottom: 1px solid var(--border);
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      cursor: pointer;
-      user-select: none;
-    }
-    .preview-header:hover { background: var(--surface2); }
-    .preview-toggle {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    #preview-json {
-      background: var(--bg);
-      border: none;
-      border-radius: 0;
-      padding: 12px;
-      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-      font-size: 12px;
-      color: var(--green);
-      white-space: pre;
-      overflow: auto;
-      max-height: 200px;
-      display: block;
-    }
-    #preview-json.collapsed { display: none; }
-
-    /* ── Toast notifications ── */
-    #toast-container {
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      pointer-events: none;
-    }
-    .toast {
-      padding: 10px 16px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 500;
-      border-left: 4px solid;
-      min-width: 220px;
-      max-width: 360px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-      animation: toast-in 0.2s ease forwards;
-      pointer-events: auto;
-    }
-    .toast.ok {
-      background: var(--surface);
-      border-color: var(--green);
-      color: var(--green);
-    }
-    .toast.err {
-      background: var(--surface);
-      border-color: var(--red);
-      color: var(--red);
-    }
-    .toast.info {
-      background: var(--surface);
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    .toast.fade-out {
-      animation: toast-out 0.3s ease forwards;
-    }
-    @keyframes toast-in {
-      from { opacity: 0; transform: translateX(20px); }
-      to   { opacity: 1; transform: translateX(0); }
-    }
-    @keyframes toast-out {
-      from { opacity: 1; transform: translateX(0); }
-      to   { opacity: 0; transform: translateX(20px); }
-    }
-
-    /* ── Scrollbar styling ── */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #484f58; }
-    .btn-theme{background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);padding:5px 10px;border-radius:6px;font-size:13px;cursor:pointer}
-    .btn-theme:hover{border-color:var(--accent);color:var(--accent)}
-    .btn-theme::before{content:'Light'}
-    [data-theme="light"] .btn-theme::before{content:'Dark'}
-  </style>
-  <script>(function(){var t=localStorage.getItem('uns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/payload_schemas.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
+  <script>document.documentElement.setAttribute('data-theme', 'light');</script>
 </head>
+
 <body>
+  {% include 'partials/sidebar.html' %}
 
-<header>
-  <a href="/">← Dashboard</a>
-  <h1>⚙️ Payload Schema Designer</h1>
-  <a href="/uns">🌐 UNS Designer</a>
-  <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
-  <button class="btn-primary" id="btn-save-all">💾 Save All</button>
-  <span id="save-ind">● Unsaved</span>
-</header>
+  <header>
+    <h1>⚙️ Payload Schema Designer</h1>
+    <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
+    <button class="btn-primary" id="btn-save-all">💾 Save All</button>
+    <span id="save-ind">● Unsaved</span>
+  </header>
 
-<div class="main">
+  <div class="main">
 
-  <!-- Left sidebar -->
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <span>Schemas</span>
-      <button class="btn-ghost" id="btn-new" style="padding: 4px 10px; font-size: 13px;">＋ New</button>
+    <!-- Left sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span>Schemas</span>
+        <button class="btn-ghost" id="btn-new" style="padding: 4px 10px; font-size: 13px;">＋ New</button>
+      </div>
+      <ul id="schema-list"></ul>
     </div>
-    <ul id="schema-list"></ul>
+
+    <!-- Right panel -->
+    <div class="editor-panel" id="editor-panel">
+      <div class="empty-state" id="empty-state">← Select a schema to edit</div>
+
+      <div id="schema-editor" style="display:none; display:flex; flex-direction:column; gap:20px;">
+
+        <!-- Meta -->
+        <div class="form-section">
+          <div class="form-section-header">Schema Details</div>
+          <div class="form-section-body">
+            <div class="field-row">
+              <label for="schema-name">Name</label>
+              <input type="text" id="schema-name" class="full-width" placeholder="e.g. SparkplugB Telemetry" />
+            </div>
+            <div class="field-row" style="margin-bottom:0;">
+              <label for="schema-desc">Description</label>
+              <input type="text" id="schema-desc" class="full-width" placeholder="Optional description" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Fields -->
+        <div class="form-section">
+          <div class="form-section-header">Fields</div>
+          <div class="form-section-body" style="padding: 0;">
+            <table class="fields-table">
+              <thead>
+                <tr>
+                  <th class="col-key">Key</th>
+                  <th class="col-source">Source</th>
+                  <th class="col-static">Static Value</th>
+                  <th class="col-del"></th>
+                </tr>
+              </thead>
+              <tbody id="fields-tbody"></tbody>
+            </table>
+            <div class="add-field-row" style="padding: 10px 14px;">
+              <button class="btn-ghost" id="btn-add-field" style="font-size: 13px;">＋ Add Field</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- JSON Preview -->
+        <div class="preview-section">
+          <div class="preview-header" id="preview-toggle-header">
+            <span>📄 Live JSON Preview</span>
+            <span class="preview-toggle" id="preview-toggle-label">▼ collapse</span>
+          </div>
+          <pre id="preview-json">{}</pre>
+        </div>
+
+      </div>
+    </div>
+
   </div>
 
-  <!-- Right panel -->
-  <div class="editor-panel" id="editor-panel">
-    <div class="empty-state" id="empty-state">← Select a schema to edit</div>
+  <!-- Toast container -->
+  <div id="toast-container"></div>
 
-    <div id="schema-editor" style="display:none; display:flex; flex-direction:column; gap:20px;">
-
-      <!-- Meta -->
-      <div class="form-section">
-        <div class="form-section-header">Schema Details</div>
-        <div class="form-section-body">
-          <div class="field-row">
-            <label for="schema-name">Name</label>
-            <input type="text" id="schema-name" class="full-width" placeholder="e.g. SparkplugB Telemetry" />
-          </div>
-          <div class="field-row" style="margin-bottom:0;">
-            <label for="schema-desc">Description</label>
-            <input type="text" id="schema-desc" class="full-width" placeholder="Optional description" />
-          </div>
-        </div>
-      </div>
-
-      <!-- Fields -->
-      <div class="form-section">
-        <div class="form-section-header">Fields</div>
-        <div class="form-section-body" style="padding: 0;">
-          <table class="fields-table">
-            <thead>
-              <tr>
-                <th class="col-key">Key</th>
-                <th class="col-source">Source</th>
-                <th class="col-static">Static Value</th>
-                <th class="col-del"></th>
-              </tr>
-            </thead>
-            <tbody id="fields-tbody"></tbody>
-          </table>
-          <div class="add-field-row" style="padding: 10px 14px;">
-            <button class="btn-ghost" id="btn-add-field" style="font-size: 13px;">＋ Add Field</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- JSON Preview -->
-      <div class="preview-section">
-        <div class="preview-header" id="preview-toggle-header">
-          <span>📄 Live JSON Preview</span>
-          <span class="preview-toggle" id="preview-toggle-label">▼ collapse</span>
-        </div>
-        <pre id="preview-json">{}</pre>
-      </div>
-
-    </div>
-  </div>
-
-</div>
-
-<!-- Toast container -->
-<div id="toast-container"></div>
-
-<script>
-  // ── Sample values for preview ──────────────────────────────────────────────
-  const SAMPLE = {
-    value:          42.5,
-    ts_epoch:       1713523200,
-    ts_ms:          1713523200000,
-    ts_iso:         '2024-04-19T12:00:00.000Z',
-    quality:        'good',
-    is_good:        true,
-    quality_code:   192,
-    unit:           'kW',
-    dataType:       'Float',
-    tagName:        'CurrentPowerkW',
-    topicPath:      'GlobalFoodCo.CrispCraft.Antwerp.ProductionLine.Energy.CurrentPowerkW',
-    siteName:       'Antwerp',
-    workCenterName: 'Energy',
-  };
-
-  const SOURCE_OPTIONS = [
-    { v: 'value',           l: 'value — raw tag value' },
-    { v: 'ts_epoch',        l: 'ts_epoch — Unix timestamp (s)' },
-    { v: 'ts_ms',           l: 'ts_ms — Unix timestamp (ms)' },
-    { v: 'ts_iso',          l: 'ts_iso — ISO 8601 string' },
-    { v: 'quality',         l: 'quality — \'good\'/\'bad\'' },
-    { v: 'is_good',         l: 'is_good — true/false' },
-    { v: 'quality_code',    l: 'quality_code — 192/0 (OPC-UA)' },
-    { v: 'unit',            l: 'unit — engineering unit' },
-    { v: 'dataType',        l: 'dataType — tag data type' },
-    { v: 'tagName',         l: 'tagName — last topic segment' },
-    { v: 'topicPath',       l: 'topicPath — full topic string' },
-    { v: 'siteName',        l: 'siteName — site name' },
-    { v: 'workCenterName',  l: 'workCenterName — work center name' },
-    { v: 'static',          l: 'static — fixed value' },
-  ];
-
-  // ── State ──────────────────────────────────────────────────────────────────
-  let schemas = [];      // [{id, name, description, fields:[{key,source,staticVal}]}]
-  let activeId = null;
-  let previewCollapsed = false;
-
-  // ── DOM refs ───────────────────────────────────────────────────────────────
-  const schemaListEl    = document.getElementById('schema-list');
-  const emptyStateEl    = document.getElementById('empty-state');
-  const schemaEditorEl  = document.getElementById('schema-editor');
-  const schemaNameEl    = document.getElementById('schema-name');
-  const schemaDescEl    = document.getElementById('schema-desc');
-  const fieldsTbody     = document.getElementById('fields-tbody');
-  const previewJson     = document.getElementById('preview-json');
-  const saveInd         = document.getElementById('save-ind');
-  const previewHeader   = document.getElementById('preview-toggle-header');
-  const previewLabel    = document.getElementById('preview-toggle-label');
-
-  // ── Toast ──────────────────────────────────────────────────────────────────
-  function toast(msg, type = 'info') {
-    const el = document.createElement('div');
-    el.className = `toast ${type}`;
-    el.textContent = msg;
-    document.getElementById('toast-container').appendChild(el);
-    setTimeout(() => {
-      el.classList.add('fade-out');
-      el.addEventListener('animationend', () => el.remove());
-    }, 2800);
-  }
-
-  // ── Save indicator ─────────────────────────────────────────────────────────
-  function markUnsaved() {
-    saveInd.textContent = '● Unsaved';
-    saveInd.className = '';
-  }
-  function markSaved() {
-    saveInd.textContent = '● Saved';
-    saveInd.className = 'saved';
-  }
-
-  // ── Render sidebar list ────────────────────────────────────────────────────
-  function renderList() {
-    schemaListEl.innerHTML = '';
-    schemas.forEach(s => {
-      const li = document.createElement('li');
-      if (s.id === activeId) li.classList.add('active');
-
-      const nameSpan = document.createElement('span');
-      nameSpan.className = 'schema-name';
-      nameSpan.textContent = s.name || '(unnamed)';
-
-      const delBtn = document.createElement('button');
-      delBtn.className = 'btn-icon';
-      delBtn.textContent = '✕';
-      delBtn.title = 'Delete schema';
-      delBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        deleteSchema(s.id);
-      });
-
-      li.appendChild(nameSpan);
-      li.appendChild(delBtn);
-      li.addEventListener('click', () => selectSchema(s.id));
-      schemaListEl.appendChild(li);
-    });
-  }
-
-  // ── Select a schema ────────────────────────────────────────────────────────
-  function selectSchema(id) {
-    activeId = id;
-    const s = schemas.find(x => x.id === id);
-    if (!s) {
-      showEmptyState();
-      return;
-    }
-    emptyStateEl.style.display = 'none';
-    schemaEditorEl.style.display = 'flex';
-    schemaNameEl.value = s.name || '';
-    schemaDescEl.value = s.description || '';
-    renderFields(s.fields || []);
-    updatePreview();
-    renderList();
-  }
-
-  function showEmptyState() {
-    emptyStateEl.style.display = 'flex';
-    schemaEditorEl.style.display = 'none';
-    activeId = null;
-    renderList();
-  }
-
-  // ── Delete schema ──────────────────────────────────────────────────────────
-  function deleteSchema(id) {
-    schemas = schemas.filter(s => s.id !== id);
-    if (activeId === id) showEmptyState();
-    renderList();
-    markUnsaved();
-  }
-
-  // ── New schema ─────────────────────────────────────────────────────────────
-  document.getElementById('btn-new').addEventListener('click', () => {
-    const newSchema = {
-      id:          'schema-' + Date.now(),
-      name:        'New Schema',
-      description: '',
-      fields:      [],
-    };
-    schemas.push(newSchema);
-    renderList();
-    selectSchema(newSchema.id);
-    markUnsaved();
-    schemaNameEl.focus();
-    schemaNameEl.select();
-  });
-
-  // ── Render fields table ────────────────────────────────────────────────────
-  function renderFields(fields) {
-    fieldsTbody.innerHTML = '';
-    fields.forEach((f, idx) => addFieldRow(f.key, f.source, f.staticVal));
-  }
-
-  function addFieldRow(key = '', source = 'value', staticVal = '') {
-    const tr = document.createElement('tr');
-
-    // Key cell
-    const tdKey = document.createElement('td');
-    tdKey.className = 'col-key';
-    const keyInput = document.createElement('input');
-    keyInput.type = 'text';
-    keyInput.placeholder = 'e.g. v';
-    keyInput.value = key;
-    keyInput.addEventListener('input', onEditorChange);
-    tdKey.appendChild(keyInput);
-
-    // Source cell
-    const tdSource = document.createElement('td');
-    tdSource.className = 'col-source';
-    const srcSelect = document.createElement('select');
-    SOURCE_OPTIONS.forEach(opt => {
-      const o = document.createElement('option');
-      o.value = opt.v;
-      o.textContent = opt.l;
-      if (opt.v === source) o.selected = true;
-      srcSelect.appendChild(o);
-    });
-    srcSelect.addEventListener('change', () => {
-      toggleStaticInput(tr, srcSelect.value === 'static');
-      onEditorChange();
-    });
-    tdSource.appendChild(srcSelect);
-
-    // Static val cell
-    const tdStatic = document.createElement('td');
-    tdStatic.className = 'col-static';
-    const staticInput = document.createElement('input');
-    staticInput.type = 'text';
-    staticInput.className = 'static-val-input' + (source === 'static' ? ' visible' : '');
-    staticInput.placeholder = 'fixed value';
-    staticInput.value = staticVal || '';
-    staticInput.addEventListener('input', onEditorChange);
-    tdStatic.appendChild(staticInput);
-
-    // Delete cell
-    const tdDel = document.createElement('td');
-    tdDel.className = 'col-del';
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-icon';
-    delBtn.textContent = '✕';
-    delBtn.title = 'Remove field';
-    delBtn.addEventListener('click', () => {
-      tr.remove();
-      onEditorChange();
-    });
-    tdDel.appendChild(delBtn);
-
-    tr.appendChild(tdKey);
-    tr.appendChild(tdSource);
-    tr.appendChild(tdStatic);
-    tr.appendChild(tdDel);
-    fieldsTbody.appendChild(tr);
-  }
-
-  function toggleStaticInput(tr, show) {
-    const inp = tr.querySelector('.static-val-input');
-    if (inp) inp.classList.toggle('visible', show);
-  }
-
-  // ── Add field button ───────────────────────────────────────────────────────
-  document.getElementById('btn-add-field').addEventListener('click', () => {
-    if (!activeId) return;
-    addFieldRow('', 'value', '');
-    onEditorChange();
-  });
-
-  // ── Collect current editor state into active schema ────────────────────────
-  function collectActiveSchema() {
-    if (!activeId) return;
-    const s = schemas.find(x => x.id === activeId);
-    if (!s) return;
-    s.name        = schemaNameEl.value.trim() || 'Unnamed Schema';
-    s.description = schemaDescEl.value.trim();
-    s.fields = [];
-    fieldsTbody.querySelectorAll('tr').forEach(tr => {
-      const key    = tr.querySelector('td.col-key input').value.trim();
-      const source = tr.querySelector('td.col-source select').value;
-      const sv     = tr.querySelector('td.col-static input').value;
-      s.fields.push({ key, source, staticVal: source === 'static' ? sv : '' });
-    });
-    // Update sidebar name
-    renderList();
-  }
-
-  // ── On any editor change ───────────────────────────────────────────────────
-  function onEditorChange() {
-    collectActiveSchema();
-    updatePreview();
-    markUnsaved();
-  }
-
-  schemaNameEl.addEventListener('input', onEditorChange);
-  schemaDescEl.addEventListener('input', onEditorChange);
-
-  // ── Live JSON Preview ──────────────────────────────────────────────────────
-  function buildPreviewPayload() {
-    if (!activeId) return {};
-    const s = schemas.find(x => x.id === activeId);
-    if (!s || !s.fields || s.fields.length === 0) return {};
-    const obj = {};
-    s.fields.forEach(f => {
-      if (!f.key) return;
-      if (f.source === 'static') {
-        // Try to parse as number/bool, else keep as string
-        const raw = f.staticVal;
-        if (raw === 'true')       obj[f.key] = true;
-        else if (raw === 'false') obj[f.key] = false;
-        else if (raw !== '' && !isNaN(Number(raw))) obj[f.key] = Number(raw);
-        else obj[f.key] = raw;
-      } else {
-        obj[f.key] = SAMPLE[f.source] !== undefined ? SAMPLE[f.source] : null;
-      }
-    });
-    return obj;
-  }
-
-  function updatePreview() {
-    const payload = buildPreviewPayload();
-    previewJson.textContent = JSON.stringify(payload, null, 2);
-  }
-
-  // ── Preview collapse toggle ────────────────────────────────────────────────
-  previewHeader.addEventListener('click', () => {
-    previewCollapsed = !previewCollapsed;
-    previewJson.classList.toggle('collapsed', previewCollapsed);
-    previewLabel.textContent = previewCollapsed ? '▶ expand' : '▼ collapse';
-  });
-
-  // ── Save All ───────────────────────────────────────────────────────────────
-  document.getElementById('btn-save-all').addEventListener('click', async () => {
-    collectActiveSchema();
-    try {
-      const res = await fetch('/api/payload-schemas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ schemas }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      markSaved();
-      toast('Schemas saved successfully.', 'ok');
-    } catch (err) {
-      console.error('Save failed:', err);
-      toast('Save failed: ' + err.message, 'err');
-    }
-  });
-
-  // ── Initial load ───────────────────────────────────────────────────────────
-  async function loadSchemas() {
-    try {
-      const res = await fetch('/api/payload-schemas');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      schemas = Array.isArray(data.schemas) ? data.schemas : [];
-      renderList();
-      if (schemas.length > 0) {
-        selectSchema(schemas[0].id);
-      } else {
-        showEmptyState();
-      }
-      markSaved();
-    } catch (err) {
-      console.warn('Could not load schemas from API:', err.message);
-      // Start with empty list — this is fine for offline/dev use
-      schemas = [];
-      renderList();
-      showEmptyState();
-      toast('Could not reach API — starting empty.', 'info');
-    }
-  }
-
-  loadSchemas();
-
-  function toggleTheme() {
-    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('uns-theme', next);
-  }
-</script>
+  <script src="{{ url_for('static', filename='js/payload_schemas.js') }}"></script>
 </body>
+
 </html>

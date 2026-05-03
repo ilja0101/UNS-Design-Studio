@@ -1,0 +1,383 @@
+:root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-dim: #1f6feb;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+      --purple: #a371f7;
+      --on-accent: #ffffff;
+    }
+    [data-theme="light"] {
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface2: #f0f2f5;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --text-muted: #656d76;
+      --accent: #0969da;
+      --accent-dim: #0969da;
+      --green: #1a7f37;
+      --red: #cf222e;
+      --yellow: #9a6700;
+      --purple: #8250df;
+      --on-accent: #ffffff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 14px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      flex: 1;
+    }
+    header a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+    header a:hover {
+      color: var(--text);
+      background: var(--surface2);
+    }
+    #save-ind {
+      font-size: 12px;
+      color: var(--text-muted);
+      min-width: 80px;
+      text-align: right;
+    }
+    #save-ind.saved { color: var(--green); }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      background: var(--accent-dim);
+      color: var(--on-accent);
+      border: none;
+      border-radius: 4px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.15s;
+    }
+    .btn-ghost:hover { background: var(--surface2); }
+    .btn-icon {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 13px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .btn-icon:hover { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); }
+
+    /* ── Main layout ── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Left sidebar ── */
+    .sidebar {
+      width: 280px;
+      min-width: 200px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 12px 12px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .sidebar-header span {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    #schema-list {
+      list-style: none;
+      overflow-y: auto;
+      flex: 1;
+      padding: 6px;
+    }
+    #schema-list li {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text);
+      transition: background 0.1s;
+      margin-bottom: 2px;
+    }
+    #schema-list li:hover { background: var(--surface2); }
+    #schema-list li.active {
+      background: var(--surface2);
+      color: var(--accent);
+    }
+    #schema-list li .schema-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    /* ── Right panel ── */
+    .editor-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    /* ── Form fields ── */
+    .form-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .form-section-header {
+      padding: 10px 14px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+    .form-section-body { padding: 14px; }
+
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .field-row label {
+      width: 110px;
+      flex-shrink: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    input[type="text"], select, textarea {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 4px 8px;
+      border-radius: 4px;
+      outline: none;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 13px;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus, select:focus, textarea:focus {
+      border-color: var(--accent-dim);
+    }
+    .full-width { width: 100%; }
+
+    /* ── Fields table ── */
+    .fields-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .fields-table thead tr {
+      background: var(--surface2);
+    }
+    .fields-table th {
+      padding: 7px 8px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .fields-table tbody tr:nth-child(odd) { background: transparent; }
+    .fields-table tbody tr:nth-child(even) { background: var(--surface2); }
+    .fields-table tbody tr:hover { background: var(--surface2); }
+    .fields-table td {
+      padding: 6px 8px;
+      vertical-align: middle;
+    }
+    .fields-table td input[type="text"] { width: 100%; }
+    .fields-table td select { width: 100%; }
+    .col-key { width: 200px; }
+    .col-source { width: 260px; }
+    .col-static { width: 160px; }
+    .col-del { width: 40px; text-align: center; }
+    .static-val-input {
+      width: 100%;
+      display: none;
+    }
+    .static-val-input.visible { display: inline-block; }
+
+    .add-field-row {
+      padding: 10px 0 0;
+    }
+
+    /* ── JSON Preview ── */
+    .preview-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .preview-header {
+      padding: 10px 14px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+    .preview-header:hover { background: var(--surface2); }
+    .preview-toggle {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    #preview-json {
+      background: var(--bg);
+      border: none;
+      border-radius: 0;
+      padding: 12px;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 12px;
+      color: var(--green);
+      white-space: pre;
+      overflow: auto;
+      max-height: 200px;
+      display: block;
+    }
+    #preview-json.collapsed { display: none; }
+
+    /* ── Toast notifications ── */
+    #toast-container {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      border-left: 4px solid;
+      min-width: 220px;
+      max-width: 360px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      animation: toast-in 0.2s ease forwards;
+      pointer-events: auto;
+    }
+    .toast.ok {
+      background: var(--surface);
+      border-color: var(--green);
+      color: var(--green);
+    }
+    .toast.err {
+      background: var(--surface);
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .toast.info {
+      background: var(--surface);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .toast.fade-out {
+      animation: toast-out 0.3s ease forwards;
+    }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toast-out {
+      from { opacity: 1; transform: translateX(0); }
+      to   { opacity: 0; transform: translateX(20px); }
+    }
+
+    /* ── Scrollbar styling ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+    .btn-theme{background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);padding:5px 10px;border-radius:6px;font-size:13px;cursor:pointer}
+    .btn-theme:hover{border-color:var(--accent);color:var(--accent)}
+    .btn-theme::before{content:'Light'}
+    [data-theme="light"] .btn-theme::before{content:'Dark'}

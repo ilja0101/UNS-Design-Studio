@@ -1,10 +1,10 @@
 @echo off
-title GlobalFoodCo – UNS Simulator Dashboard
+title UNS Design Studio Dashboard
 echo.
-echo  ╔══════════════════════════════════════════════════════════════╗
-echo  ║   UNS Design Studio       ║
-echo  ║   Starting web dashboard on http://localhost:5000            ║
-echo  ╚══════════════════════════════════════════════════════════════╝
+echo  ==============================================================
+echo  UNS Design Studio
+echo  Starting web dashboard on http://localhost:5000
+echo  ==============================================================
 echo.
 
 REM Check Python
@@ -22,8 +22,8 @@ if %ERRORLEVEL% NEQ 0 (
     pip install flask
 )
 
-REM Open browser after 2 seconds
-start /b cmd /c "timeout /t 2 >nul && start http://localhost:5000"
+REM Open browser shortly after startup. Flask readiness is also checked by the Docker healthcheck.
+start "" /b cmd /c "timeout /t 3 /nobreak >nul && start "" "http://localhost:5000""
 
 REM Start the dashboard
 cd /d "%~dp0"

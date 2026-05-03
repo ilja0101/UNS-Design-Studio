@@ -1,1191 +1,411 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UNS Design Studio</title>
-<style>
-/* ── Reset & Base ─────────────────────────────────────────────────────────── */
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#0d1117;
-  --surface:#161b22;
-  --surface2:#1c2128;
-  --surface3:#21262d;
-  --border:#30363d;
-  --text:#e6edf3;
-  --muted:#8b949e;
-  --accent:#58a6ff;
-  --green:#3fb950;
-  --red:#f85149;
-  --yellow:#e3b341;
-  --orange:#d29922;
-  --purple:#a371f7;
-  --radius:8px;
-  --shadow:0 4px 16px rgba(0,0,0,.5);
-  --on-accent:#0d1117;
-}
-[data-theme="light"]{
-  --bg:#f6f8fa;
-  --surface:#ffffff;
-  --surface2:#f0f2f5;
-  --surface3:#e8ebef;
-  --border:#d0d7de;
-  --text:#1f2328;
-  --muted:#656d76;
-  --accent:#0969da;
-  --green:#1a7f37;
-  --red:#cf222e;
-  --yellow:#9a6700;
-  --orange:#953800;
-  --purple:#8250df;
-  --shadow:0 4px 16px rgba(0,0,0,.1);
-  --on-accent:#ffffff;
-}
-html,body{height:100%;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
-  background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
-button{cursor:pointer;border:none;border-radius:6px;font:inherit;transition:opacity .15s,transform .1s}
-button:active{transform:scale(.97)}
-input,select{font:inherit;background:var(--surface3);color:var(--text);
-  border:1px solid var(--border);border-radius:6px;padding:6px 10px;outline:none}
-input:focus,select:focus{border-color:var(--accent)}
-
-/* ── Layout ──────────────────────────────────────────────────────────────── */
-body{display:flex;flex-direction:column;min-height:100vh}
-.app-header{background:var(--surface);border-bottom:1px solid var(--border);
-  padding:0 20px;height:56px;display:flex;align-items:center;gap:16px;flex-shrink:0;
-  position:sticky;top:0;z-index:100}
-.header-brand{display:flex;align-items:center;gap:10px}
-.header-brand .logo{font-size:24px}
-.header-brand h1{font-size:15px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
-.header-brand .sub{font-size:11px;color:var(--muted);display:block;letter-spacing:.5px;text-transform:uppercase}
-.header-sep{width:1px;height:32px;background:var(--border);margin:0 4px}
-.header-status{display:flex;align-items:center;gap:6px;font-size:12px}
-.status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .4s}
-.status-dot.green{background:var(--green);box-shadow:0 0 6px var(--green)}
-.status-dot.red{background:var(--red)}
-.status-dot.yellow{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
-.header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
-.btn-server-start{background:#1a7f37;color:#fff;padding:6px 14px;font-size:13px}
-.btn-server-start:hover{background:#238636}
-.btn-server-stop{background:#8b1a1a;color:#fff;padding:6px 14px;font-size:13px}
-.btn-server-stop:hover{background:#b91c1c}
-
-/* ── Control Bar ─────────────────────────────────────────────────────────── */
-.control-bar{background:var(--surface2);border-bottom:1px solid var(--border);
-  padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0}
-.btn-start-all{background:#1a7f37;color:#fff;padding:7px 16px;font-weight:600}
-.btn-start-all:hover{background:#238636}
-.btn-stop-all{background:#6e3c3c;color:#fff;padding:7px 16px;font-weight:600}
-.btn-stop-all:hover{background:#8b1a1a}
-.conn-config{display:flex;align-items:center;gap:6px;margin-left:auto}
-.conn-config label{font-size:12px;color:var(--muted)}
-.conn-config input{width:140px}
-.conn-config input.port-inp{width:72px}
-.btn-apply{background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:6px 12px}
-.btn-apply:hover{border-color:var(--accent);color:var(--accent)}
-
-/* ── Bridge Bar ──────────────────────────────────────────────────────────── */
-.bridge-bar{background:var(--bg);border-bottom:1px solid var(--border);
-  padding:8px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0}
-.bridge-label{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap}
-.bridge-sep{width:1px;height:18px;background:var(--border)}
-.proto-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;
-  letter-spacing:.05em;white-space:nowrap}
-.proto-badge.nats{background:color-mix(in srgb, var(--purple) 15%, transparent);color:var(--purple);border:1px solid color-mix(in srgb, var(--purple) 30%, transparent)}
-.proto-badge.mqtt{background:color-mix(in srgb, var(--accent) 15%, transparent);color:var(--accent);border:1px solid color-mix(in srgb, var(--accent) 30%, transparent)}
-.proto-badge.off{background:var(--surface3);color:var(--muted);border:1px solid var(--border)}
-.bridge-addr{font-size:11px;color:var(--muted);font-family:monospace}
-.bridge-stat{font-size:11px;color:var(--muted)}
-.bridge-stat strong{color:var(--text)}
-.bridge-right{margin-left:auto;display:flex;align-items:center;gap:6px}
-.btn-bridge-start{background:#1a4f7f;color:#fff;padding:5px 12px;font-size:12px}
-.btn-bridge-start:hover{background:#1d6096}
-.btn-bridge-stop{background:#4f1a1a;color:#fff;padding:5px 12px;font-size:12px}
-.btn-bridge-stop:hover{background:#7a1a1a}
-.btn-bridge-cfg{background:var(--surface3);border:1px solid var(--border);
-  color:var(--text);padding:5px 10px;font-size:12px}
-.btn-bridge-cfg:hover{border-color:var(--accent);color:var(--accent)}
-
-/* Protocol toggle inside modal */
-.proto-toggle{display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:16px}
-.proto-btn{flex:1;padding:8px;font-size:13px;font-weight:600;background:var(--surface3);
-  color:var(--muted);border-radius:0;border:none;transition:all .15s}
-.proto-btn.on{background:var(--accent);color:var(--on-accent)}
-
-/* ── Main content ────────────────────────────────────────────────────────── */
-.main-content{flex:1;padding:20px;overflow-y:auto}
-
-/* ── Division sections ───────────────────────────────────────────────────── */
-.division-section{margin-bottom:28px}
-.division-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:8px;
-  border-bottom:2px solid var(--div-color,var(--border))}
-.division-icon{font-size:20px}
-.division-name{font-size:15px;font-weight:700}
-.division-label{font-size:12px;color:var(--muted);background:var(--surface3);
-  padding:2px 8px;border-radius:12px;border:1px solid var(--border)}
-.factory-count{margin-left:auto;font-size:11px;color:var(--muted)}
-
-/* ── Factory cards ───────────────────────────────────────────────────────── */
-.factories-grid{display:flex;flex-wrap:wrap;gap:12px}
-.factory-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-  width:220px;display:flex;flex-direction:column;transition:border-color .3s,box-shadow .3s}
-.factory-card:hover{border-color:var(--accent);box-shadow:0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent)}
-.factory-card.status-running{border-left:3px solid var(--green)}
-.factory-card.status-down{border-left:3px solid var(--yellow)}
-.factory-card.status-stopped{border-left:3px solid var(--muted)}
-
-.card-top{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;
-  border-bottom:1px solid var(--border)}
-.card-led{width:10px;height:10px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .4s,box-shadow .4s}
-.card-led.green{background:var(--green);box-shadow:0 0 8px var(--green)}
-.card-led.yellow{background:var(--yellow);box-shadow:0 0 8px var(--yellow)}
-.card-led.red{background:var(--red)}
-.card-plant-name{font-weight:700;font-size:13px;flex:1}
-.card-maint{font-size:10px;color:var(--yellow);font-weight:600}
-
-.card-body{padding:8px 12px;flex:1}
-.card-recipe{font-size:11px;color:var(--muted);margin-bottom:6px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  border:1px solid var(--border);border-radius:4px;padding:3px 6px;background:var(--surface2)}
-
-.card-metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;margin-top:4px}
-.metric-item{display:flex;flex-direction:column}
-.metric-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
-.metric-value{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
-.metric-value.oee-high{color:var(--green)}
-.metric-value.oee-mid{color:var(--yellow)}
-.metric-value.oee-low{color:var(--red)}
-
-.oee-bar-wrap{grid-column:1/-1;height:4px;background:var(--surface3);border-radius:2px;margin-top:2px}
-.oee-bar{height:100%;border-radius:2px;transition:width .6s ease,background .4s}
-
-.card-footer{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border)}
-.app-footer{padding:8px 20px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);flex-shrink:0}
-.app-footer a{color:var(--muted);text-decoration:none;transition:color .15s}
-.app-footer a:hover{color:var(--text)}
-.app-footer .sep{opacity:.3}
-.btn-ctrl{flex:1;background:var(--surface3);border:1px solid var(--border);
-  color:var(--text);padding:5px 0;font-size:12px}
-.btn-ctrl:hover{border-color:var(--accent);color:var(--accent)}
-.btn-anomaly{flex:1;background:var(--surface3);border:1px solid var(--border);
-  color:var(--yellow);padding:5px 0;font-size:12px}
-.btn-anomaly:hover{border-color:var(--yellow);background:color-mix(in srgb, var(--yellow) 15%, transparent)}
-
-/* ── Log panel ───────────────────────────────────────────────────────────── */
-.log-panel{border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
-.log-toggle{padding:8px 20px;display:flex;align-items:center;gap:8px;
-  cursor:pointer;user-select:none;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
-.log-toggle:hover{color:var(--text)}
-.log-caret{transition:transform .2s}
-.log-body{height:160px;overflow-y:auto;display:none;
-  background:var(--bg);border-top:1px solid var(--border);padding:8px 20px}
-.log-body.open{display:block}
-.log-body pre{font-family:'Cascadia Code','Fira Code','Consolas',monospace;font-size:11px;
-  color:var(--muted);line-height:1.6;white-space:pre-wrap;word-break:break-all}
-.log-body pre .log-info{color:var(--accent)}
-.log-body pre .log-err{color:var(--red)}
-.log-actions{display:flex;gap:8px;padding:6px 20px;border-top:1px solid var(--border)}
-.btn-log{background:none;border:1px solid var(--border);color:var(--muted);padding:3px 10px;font-size:11px}
-.btn-log:hover{color:var(--text);border-color:var(--text)}
-
-/* ── Modals ──────────────────────────────────────────────────────────────── */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);
-  display:none;align-items:center;justify-content:center;z-index:500;backdrop-filter:blur(2px)}
-.modal-overlay.open{display:flex}
-.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;
-  width:520px;max-width:calc(100vw - 32px);max-height:90vh;display:flex;flex-direction:column;
-  box-shadow:0 20px 60px rgba(0,0,0,.6)}
-.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:10px}
-.modal-header h2{font-size:15px;font-weight:700;flex:1}
-.modal-close{background:none;border:1px solid var(--border);color:var(--muted);
-  width:28px;height:28px;border-radius:6px;font-size:16px;line-height:1}
-.modal-close:hover{color:var(--red);border-color:var(--red)}
-.modal-body{padding:20px;overflow-y:auto;flex:1}
-.modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
-
-/* ── Form elements ───────────────────────────────────────────────────────── */
-.form-group{margin-bottom:14px}
-.form-group label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;
-  text-transform:uppercase;letter-spacing:.4px}
-.form-group input,.form-group select{width:100%;padding:8px 10px}
-.form-group textarea{width:100%;background:var(--surface3);color:var(--text);
-  border:1px solid var(--border);border-radius:6px;padding:8px 10px;
-  font:inherit;resize:vertical;min-height:60px;outline:none}
-
-.toggle-row{display:flex;gap:8px;margin-bottom:14px}
-.toggle-btn{flex:1;padding:8px;border:2px solid var(--border);background:var(--surface2);color:var(--muted);font-weight:600}
-.toggle-btn.active-on{border-color:var(--green);color:var(--green);background:color-mix(in srgb, var(--green) 12%, transparent)}
-.toggle-btn.active-off{border-color:var(--red);color:var(--red);background:color-mix(in srgb, var(--red) 12%, transparent)}
-
-.checkbox-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;max-height:140px;overflow-y:auto}
-.cb-item{display:flex;align-items:center;gap:6px;padding:4px 8px;
-  border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px}
-.cb-item input{width:14px;height:14px;cursor:pointer;accent-color:var(--accent)}
-.cb-item:hover{border-color:var(--accent)}
-
-.btn-primary{background:var(--accent);color:var(--on-accent);padding:8px 20px;font-weight:700}
-.btn-primary:hover{opacity:.9}
-.btn-danger{background:#8b1a1a;color:#fff;padding:8px 20px;font-weight:700}
-.btn-danger:hover{background:var(--red)}
-.btn-secondary{background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:8px 16px}
-.btn-secondary:hover{border-color:var(--muted)}
-
-/* ── Anomaly wizard steps ─────────────────────────────────────────────────── */
-.step-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px}
-.step-tab{padding:8px 14px;font-size:12px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
-.step-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-
-.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.cat-btn{padding:10px;border:1px solid var(--border);border-radius:8px;
-  background:var(--surface2);color:var(--text);font-size:12px;font-weight:600;text-align:center;
-  display:flex;flex-direction:column;align-items:center;gap:4px}
-.cat-btn .cat-icon{font-size:18px}
-.cat-btn:hover,.cat-btn.selected{border-color:var(--yellow);color:var(--yellow);background:#2d2506}
-
-/* ── Toast notifications ─────────────────────────────────────────────────── */
-#toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:999}
-.toast{padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;
-  animation:slideIn .3s ease;max-width:300px;box-shadow:var(--shadow)}
-.toast.success{background:color-mix(in srgb, var(--green) 15%, transparent);border:1px solid var(--green);color:var(--green)}
-.toast.error{background:color-mix(in srgb, var(--red) 15%, transparent);border:1px solid var(--red);color:var(--red)}
-.toast.info{background:color-mix(in srgb, var(--accent) 15%, transparent);border:1px solid var(--accent);color:var(--accent)}
-.toast.warn{background:color-mix(in srgb, var(--yellow) 15%, transparent);border:1px solid var(--yellow);color:var(--yellow)}
-@keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
-
-/* ── Scrollbar ────────────────────────────────────────────────────────────── */
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:var(--surface)}
-::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-::-webkit-scrollbar-thumb:hover{background:var(--muted)}
-.btn-theme{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:6px 10px;border-radius:6px;font-size:13px}
-.btn-theme:hover{border-color:var(--accent);color:var(--accent)}
-.btn-theme::before{content:'Light'}
-[data-theme="light"] .btn-theme::before{content:'Dark'}
-</style>
-<script>(function(){var t=localStorage.getItem('uns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNS Design Studio</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
+  <script>document.documentElement.setAttribute('data-theme', 'light');</script>
 </head>
+
 <body>
+  {% include 'partials/sidebar.html' %}
 
-<!-- ── Header ────────────────────────────────────────────────────────────────── -->
-<header class="app-header">
-  <div class="header-brand">
-    <span class="logo">🏭</span>
-    <div>
-      <h1 id="enterprise-name">Virtual UNS</h1>
-      <span class="sub">UNS Design Studio</span>
-    </div>
-  </div>
-  <div class="header-sep"></div>
-  <div class="header-status">
-    <span class="status-dot" id="dotServer"></span>
-    <span id="lblServer">Server: unknown</span>
-  </div>
-  <div class="header-sep"></div>
-  <div class="header-status">
-    <span class="status-dot" id="dotOpc"></span>
-    <span id="lblOpc">OPC UA: disconnected</span>
-  </div>
-  <div class="header-right">
-    <a href="/live" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:13px;text-decoration:none;white-space:nowrap" title="Live UNS Topic Tree">📡 Live View</a>
-    <a href="/uns" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:13px;text-decoration:none;white-space:nowrap" title="Open UNS Topic Designer">🌐 UNS Designer</a>
-    <a href="/payload-schemas" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:13px;text-decoration:none;white-space:nowrap" title="Open Payload Schema Designer">⚙️ Payload Schemas</a>
-    <button style="background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:13px;cursor:pointer" onclick="openSettings()" title="Network &amp; server settings">🔧 Settings</button>
-    <button style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:13px;cursor:pointer" onclick="document.getElementById('about-modal').style.display='flex'" title="About">ℹ️</button>
-    <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
-    <button class="btn-server-start" onclick="serverStart()">▶ Start Server</button>
-    <button class="btn-server-stop" onclick="serverStop()">■ Stop Server</button>
-  </div>
-</header>
-
-<!-- ── Settings Modal ──────────────────────────────────────────────────────────── -->
-<div id="settings-modal" class="overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;display:none">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;width:480px;max-width:95vw;padding:0;overflow:hidden">
-    <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <span style="font-weight:600;font-size:15px">🔧 Network &amp; Server Settings</span>
-      <button onclick="closeSettings()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;line-height:1">×</button>
-    </div>
-    <div style="padding:18px;display:flex;flex-direction:column;gap:14px">
-      <p style="color:var(--text-muted);font-size:12px;margin-top:-4px">Changes are saved to <code>server_config.json</code> and take effect on next server start.</p>
-
-      <div style="display:grid;grid-template-columns:200px 1fr;gap:8px 12px;align-items:center">
-        <label style="color:var(--text-muted);font-size:13px">OPC-UA bind IP<br><small style="font-size:11px">IP factory.py listens on</small></label>
-        <input id="cfg-bind-ip" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px" placeholder="0.0.0.0">
-
-        <label style="color:var(--text-muted);font-size:13px">OPC-UA port</label>
-        <input id="cfg-opc-port" type="number" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px" placeholder="4840">
-
-        <label style="color:var(--text-muted);font-size:13px">OPC-UA client host<br><small style="font-size:11px">IP dashboard uses to connect</small></label>
-        <input id="cfg-client-host" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px" placeholder="127.0.0.1">
-
-        <label style="color:var(--text-muted);font-size:13px">Anomaly TCP port</label>
-        <input id="cfg-tcp-port" type="number" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px" placeholder="9999">
-
-        <label style="color:var(--text-muted);font-size:13px">Host IP (info only)<br><small style="font-size:11px">Shown in banner / documentation</small></label>
-        <input id="cfg-host-ip" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px" placeholder="10.10.3.4">
-      </div>
-
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text-muted)">
-        <strong style="color:var(--text)">Local / dev setup:</strong> bind IP = <code>0.0.0.0</code>, client host = <code>127.0.0.1</code><br>
-        <strong style="color:var(--text)">Remote / Docker setup:</strong> bind IP = <code>0.0.0.0</code>, client host = machine IP (e.g. <code>10.10.3.4</code>)
+  <!-- ── Header ────────────────────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <h1 id="enterprise-name">Virtual UNS</h1>
+        <span class="sub">UNS Design Studio</span>
       </div>
     </div>
-    <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
-      <button onclick="closeSettings()" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 16px;border-radius:4px;cursor:pointer">Cancel</button>
-      <button onclick="saveSettings()" style="background:var(--accent-dim);color:#fff;border:none;padding:6px 16px;border-radius:4px;cursor:pointer">💾 Save</button>
+    <div class="header-sep"></div>
+    <div class="header-status">
+      <span class="status-dot" id="dotServer"></span>
+      <span id="lblServer">Server: unknown</span>
     </div>
-  </div>
-</div>
+    <div class="header-sep"></div>
+    <div class="header-status">
+      <span class="status-dot" id="dotOpc"></span>
+      <span id="lblOpc">OPC UA: disconnected</span>
+    </div>
+    <div class="header-right">
+      <button class="btn-server-start" onclick="serverStart()">Start Server</button>
+      <button class="btn-server-stop" onclick="serverStop()">Stop Server</button>
+    </div>
+  </header>
 
-<!-- ── Control Bar ────────────────────────────────────────────────────────────── -->
-<div class="control-bar">
-  <button class="btn-start-all" onclick="startAll()">🚀 Start All Plants</button>
-  <button class="btn-stop-all" onclick="stopAll()">🛑 Stop All Plants</button>
-  <div class="conn-config">
-    <label>OPC UA&nbsp;Host</label>
-    <input id="inpHost" placeholder="10.10.3.4" value="10.10.3.4">
-    <label>Port</label>
-    <input class="port-inp" id="inpPort" placeholder="4840" value="4840">
-    <button class="btn-apply" onclick="applyConfig()">Apply</button>
-  </div>
-</div>
-
-<!-- ── Bridge Bar ─────────────────────────────────────────────────────────────── -->
-<div class="bridge-bar">
-  <span class="bridge-label">🌉 Broker Bridge</span>
-  <div class="bridge-sep"></div>
-  <span class="proto-badge off" id="bridgeProtoBadge">—</span>
-  <span class="bridge-addr" id="bridgeAddr">not configured</span>
-  <div class="bridge-sep"></div>
-  <span class="bridge-stat" id="bridgeOpcStat">OPC: <strong>—</strong></span>
-  <span class="bridge-stat" id="bridgeBrokerStat">Broker: <strong>—</strong></span>
-  <span class="bridge-stat" id="bridgeRateStat">Rate: <strong>—</strong></span>
-  <span class="bridge-stat" id="bridgePubStat">Published: <strong>—</strong></span>
-  <div class="bridge-right">
-    <button class="btn-bridge-cfg" onclick="openBridgeCfg()">⚙ Configure</button>
-    <button class="btn-bridge-start" id="btnBridgeStart" onclick="bridgeStart()">▶ Start Bridge</button>
-    <button class="btn-bridge-stop"  id="btnBridgeStop"  onclick="bridgeStop()" style="display:none">■ Stop Bridge</button>
-  </div>
-</div>
-
-<!-- ── Main content ───────────────────────────────────────────────────────────── -->
-<main class="main-content">
-{% for group, plants in structure.items() %}
-<div class="division-section" style="--div-color:{{ (division_meta[group] | default({'color':'#58a6ff'}))['color'] }}">
-  <div class="division-header">
-    <span class="division-icon">{{ (division_meta[group] | default({'icon':'🏭'}))['icon'] }}</span>
-    <span class="division-name">{{ group }}</span>
-    <span class="division-label">{{ (division_meta[group] | default({'label':''}))['label'] }}</span>
-    <span class="factory-count">{{ plants|length }} {{ 'factory' if plants|length == 1 else 'factories' }}</span>
-  </div>
-  <div class="factories-grid">
-    {% for plant in plants %}
-    {% set short = plant.replace('Factory','') %}
-    <div class="factory-card" id="card-{{group}}-{{plant}}">
-      <div class="card-top">
-        <div class="card-led" id="led-{{group}}-{{plant}}"></div>
-        <span class="card-plant-name">{{ short }}</span>
-        <span class="card-maint" id="maint-{{group}}-{{plant}}"></span>
+  <!-- ── Settings Modal ──────────────────────────────────────────────────────────── -->
+  <div id="settings-modal" class="overlay"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;display:none">
+    <div
+      style="background:var(--surface);border:1px solid var(--border);border-radius:8px;width:480px;max-width:95vw;padding:0;overflow:hidden">
+      <div
+        style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:600;font-size:15px">Network &amp; Server Settings</span>
+        <button onclick="closeSettings()"
+          style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;line-height:1">×</button>
       </div>
-      <div class="card-body">
-        <div class="card-recipe" id="recipe-{{group}}-{{plant}}">No data</div>
-        <div class="card-metrics">
-          <div class="metric-item">
-            <span class="metric-label">OEE</span>
-            <span class="metric-value" id="oee-{{group}}-{{plant}}">--</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">Power</span>
-            <span class="metric-value" id="power-{{group}}-{{plant}}">--</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">Good (t)</span>
-            <span class="metric-value" id="good-{{group}}-{{plant}}">--</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">Trucks ↓</span>
-            <span class="metric-value" id="trucks-{{group}}-{{plant}}">--</span>
-          </div>
-          <div class="oee-bar-wrap">
-            <div class="oee-bar" id="bar-{{group}}-{{plant}}" style="width:0%;background:var(--muted)"></div>
-          </div>
+      <div style="padding:18px;display:flex;flex-direction:column;gap:14px">
+        <p style="color:var(--text-muted);font-size:12px;margin-top:-4px">Changes are saved to
+          <code>server_config.json</code> and take effect on next server start.
+        </p>
+
+        <div style="display:grid;grid-template-columns:200px 1fr;gap:8px 12px;align-items:center">
+          <label style="color:var(--text-muted);font-size:13px">OPC-UA bind IP<br><small style="font-size:11px">IP
+              factory.py listens on</small></label>
+          <input id="cfg-bind-ip"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"
+            placeholder="0.0.0.0">
+
+          <label style="color:var(--text-muted);font-size:13px">OPC-UA port</label>
+          <input id="cfg-opc-port" type="number"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"
+            placeholder="4840">
+
+          <label style="color:var(--text-muted);font-size:13px">OPC-UA client host<br><small style="font-size:11px">IP
+              dashboard uses to connect</small></label>
+          <input id="cfg-client-host"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"
+            placeholder="127.0.0.1">
+
+          <label style="color:var(--text-muted);font-size:13px">Anomaly TCP port</label>
+          <input id="cfg-tcp-port" type="number"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"
+            placeholder="9999">
+
+          <label style="color:var(--text-muted);font-size:13px">Host IP (info only)<br><small
+              style="font-size:11px">Shown in banner / documentation</small></label>
+          <input id="cfg-host-ip"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"
+            placeholder="10.10.3.4">
+        </div>
+
+        <div
+          style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text-muted)">
+          <strong style="color:var(--text)">Local / dev setup:</strong> bind IP = <code>0.0.0.0</code>, client host =
+          <code>127.0.0.1</code><br>
+          <strong style="color:var(--text)">Remote / Docker setup:</strong> bind IP = <code>0.0.0.0</code>, client host
+          = machine IP (e.g. <code>10.10.3.4</code>)
         </div>
       </div>
-      <div class="card-footer">
-        <button class="btn-ctrl" onclick="openCtrlModal('{{group}}','{{plant}}','{{short}}')">⚙ Control</button>
-        <button class="btn-anomaly" onclick="openAnomalyModal('{{group}}','{{plant}}','{{short}}')">⚡ Anomaly</button>
+      <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="closeSettings()"
+          style="background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 16px;border-radius:4px;cursor:pointer">Cancel</button>
+        <button onclick="saveSettings()"
+          style="background:var(--accent-dim);color:#fff;border:none;padding:6px 16px;border-radius:4px;cursor:pointer">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Control Bar ────────────────────────────────────────────────────────────── -->
+  <div class="control-bar">
+    <button class="plant-breaker knife-breaker" id="plantBreaker" onclick="toggleAllPlants()" aria-pressed="false">
+      <span class="breaker-stage" aria-hidden="true">
+        <span class="breaker-backbox"></span>
+        <span class="emergency-plate">
+          <span class="switch-state switch-state-on">ON</span>
+          <span class="switch-state switch-state-off">OFF</span>
+          <span class="emergency-ring"></span>
+          <span class="emergency-dial">
+            <span class="dial-pointer"></span>
+            <span class="dial-screw"></span>
+          </span>
+        </span>
+      </span>
+      <span class="breaker-copy">
+        <span class="breaker-caption" id="plantBreakerCaption">Plants stopped</span>
+      </span>
+    </button>
+    <div class="conn-config">
+      <label>OPC UA&nbsp;Host</label>
+      <input id="inpHost" placeholder="10.10.3.4" value="10.10.3.4">
+      <label>Port</label>
+      <input class="port-inp" id="inpPort" placeholder="4840" value="4840">
+      <button class="btn-apply" onclick="applyConfig()">Apply</button>
+    </div>
+  </div>
+
+  <!-- ── Bridge Bar ─────────────────────────────────────────────────────────────── -->
+  <div class="bridge-bar">
+    <span class="bridge-label">Broker Bridge</span>
+    <div class="bridge-sep"></div>
+    <span class="proto-badge off" id="bridgeProtoBadge">—</span>
+    <span class="bridge-addr" id="bridgeAddr">not configured</span>
+    <div class="bridge-sep"></div>
+    <span class="bridge-stat" id="bridgeOpcStat">OPC: <strong>—</strong></span>
+    <span class="bridge-stat" id="bridgeBrokerStat">Broker: <strong>—</strong></span>
+    <span class="bridge-stat" id="bridgeRateStat">Rate: <strong>—</strong></span>
+    <span class="bridge-stat" id="bridgePubStat">Published: <strong>—</strong></span>
+    <div class="bridge-right">
+      <button class="btn-bridge-cfg" onclick="openBridgeCfg()">Configure</button>
+      <button class="btn-bridge-start" id="btnBridgeStart" onclick="bridgeStart()">Start Bridge</button>
+      <button class="btn-bridge-stop" id="btnBridgeStop" onclick="bridgeStop()" style="display:none">Stop
+        Bridge</button>
+    </div>
+  </div>
+
+  <div class="dashboard-helper-bar">
+    <span>Workflow: start server, start plants, configure broker, then start bridge.</span>
+    <a href="/manual">Open user manual</a>
+  </div>
+
+  <!-- ── Main content ───────────────────────────────────────────────────────────── -->
+  <main class="main-content">
+    {% for group, plants in structure.items() %}
+    <div class="division-section"
+      style="--div-color:{{ (division_meta[group] | default({'color':'#58a6ff'}))['color'] }}">
+      <div class="division-header">
+        <span class="division-name">{{ group }}</span>
+        <span class="division-label">{{ (division_meta[group] | default({'label':''}))['label'] }}</span>
+        <span class="factory-count">{{ plants|length }} {{ 'factory' if plants|length == 1 else 'factories' }}</span>
+      </div>
+      <div class="factories-grid">
+        {% for plant in plants %}
+        {% set short = plant.replace('Factory','') %}
+        <div class="factory-card factory-faceplate" id="card-{{group}}-{{plant}}">
+          <div class="factory-graphic" aria-hidden="true">
+            <div class="factory-skyline">
+              <span class="smoke smoke-a"></span>
+              <span class="smoke smoke-b"></span>
+              <span class="smoke smoke-c"></span>
+              <span class="chimney chimney-a"></span>
+              <span class="chimney chimney-b"></span>
+              <span class="roof roof-a"></span>
+              <span class="roof roof-b"></span>
+              <span class="factory-block block-a"></span>
+              <span class="factory-block block-b"></span>
+              <span class="factory-window w1"></span>
+              <span class="factory-window w2"></span>
+              <span class="factory-window w3"></span>
+            </div>
+            <span class="factory-truck truck-in"><span class="truck-cab"></span><span class="truck-box"></span><span
+                class="truck-wheel wheel-a"></span><span class="truck-wheel wheel-b"></span></span>
+            <div class="factory-status-pill"><span class="card-led" id="led-{{group}}-{{plant}}"></span><span
+                id="maint-{{group}}-{{plant}}">idle</span></div>
+          </div>
+          <div class="card-top">
+            <span class="card-plant-name">{{ short }}</span>
+          </div>
+          <div class="card-body">
+            <div class="card-recipe" id="recipe-{{group}}-{{plant}}">No data</div>
+            <div class="card-metrics">
+              <div class="metric-item">
+                <span class="metric-label">OEE</span>
+                <span class="metric-value" id="oee-{{group}}-{{plant}}">--</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Power</span>
+                <span class="metric-value" id="power-{{group}}-{{plant}}">--</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Good (t)</span>
+                <span class="metric-value" id="good-{{group}}-{{plant}}">--</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Trucks ↓</span>
+                <span class="metric-value" id="trucks-{{group}}-{{plant}}">--</span>
+              </div>
+              <div class="oee-bar-wrap">
+                <div class="oee-bar" id="bar-{{group}}-{{plant}}" style="width:0%;background:var(--muted)"></div>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="btn-ctrl" onclick="openCtrlModal('{{group}}','{{plant}}','{{short}}')">Control</button>
+            <button class="btn-anomaly" onclick="openAnomalyModal('{{group}}','{{plant}}','{{short}}')">Anomaly</button>
+          </div>
+        </div>
+        {% endfor %}
       </div>
     </div>
     {% endfor %}
-  </div>
-</div>
-{% endfor %}
-</main>
+  </main>
 
-<!-- ── Log Panel ──────────────────────────────────────────────────────────────── -->
-<div class="log-panel">
-  <div class="log-toggle" onclick="toggleLog()">
-    <span class="log-caret" id="logCaret">▶</span>
-    Server Log
-    <span id="logCount" style="color:var(--muted);font-weight:400;margin-left:4px"></span>
-  </div>
-  <div class="log-body" id="logBody">
-    <pre id="logPre">Waiting for log output…</pre>
-  </div>
-  <div id="logActions" style="display:none" class="log-actions">
-    <button class="btn-log" onclick="clearLog()">Clear</button>
-    <button class="btn-log" onclick="scrollLogBottom()">↓ Bottom</button>
-    <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="logLines"></span>
-  </div>
-</div>
-
-<!-- ── Control Modal ──────────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="ctrlModal">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h2 id="ctrlTitle">Plant Control</h2>
-      <button class="modal-close" onclick="closeModal('ctrlModal')">✕</button>
+  <!-- ── Log Panel ──────────────────────────────────────────────────────────────── -->
+  <div class="log-panel">
+    <div class="log-toggle" onclick="toggleLog()">
+      <span class="log-caret" id="logCaret">▶</span>
+      Server Log
+      <span id="logCount" style="color:var(--muted);font-weight:400;margin-left:4px"></span>
     </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>Process State</label>
-        <div class="toggle-row">
-          <button class="toggle-btn" id="btnStateOn" onclick="setToggle(true)">▶ Running</button>
-          <button class="toggle-btn" id="btnStateOff" onclick="setToggle(false)">■ Stopped</button>
-        </div>
-      </div>
-      <div class="form-group" id="recipeRow">
-        <label>Recipe</label>
-        <select id="selRecipe"></select>
-      </div>
+    <div class="log-body" id="logBody">
+      <pre id="logPre">Waiting for log output…</pre>
     </div>
-    <div class="modal-footer">
-      <button class="btn-secondary" onclick="closeModal('ctrlModal')">Cancel</button>
-      <button class="btn-primary" onclick="applyControl()">Apply</button>
+    <div id="logActions" style="display:none" class="log-actions">
+      <button class="btn-log" onclick="clearLog()">Clear</button>
+      <button class="btn-log" onclick="scrollLogBottom()">↓ Bottom</button>
+      <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="logLines"></span>
     </div>
   </div>
-</div>
 
-<!-- ── Anomaly Modal ──────────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="anomalyModal">
-  <div class="modal-box" style="width:560px">
-    <div class="modal-header">
-      <h2 id="anomalyTitle">Anomaly Injection</h2>
-      <button class="modal-close" onclick="closeModal('anomalyModal')">✕</button>
-    </div>
-    <div class="modal-body" id="anomalyBody">
-      <!-- dynamically rendered -->
-    </div>
-    <div class="modal-footer">
-      <button class="btn-secondary" onclick="closeModal('anomalyModal')">Cancel</button>
-      <button class="btn-danger" id="btnInject" onclick="injectAnomaly()">⚡ Inject</button>
+  <!-- ── Control Modal ──────────────────────────────────────────────────────────── -->
+  <div class="modal-overlay" id="ctrlModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="ctrlTitle">Plant Control</h2>
+        <button class="modal-close" onclick="closeModal('ctrlModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Process State</label>
+          <div class="toggle-row">
+            <button class="toggle-btn" id="btnStateOn" onclick="setToggle(true)">Running</button>
+            <button class="toggle-btn" id="btnStateOff" onclick="setToggle(false)">Stopped</button>
+          </div>
+        </div>
+        <div class="form-group" id="recipeRow">
+          <label>Recipe</label>
+          <select id="selRecipe"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('ctrlModal')">Cancel</button>
+        <button class="btn-primary" onclick="applyControl()">Apply</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- ── Bridge Config Modal ────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="bridgeCfgModal">
-  <div class="modal-box" style="width:480px">
-    <div class="modal-header">
-      <span>🌉 Broker Bridge Configuration</span>
-      <button class="modal-close" onclick="closeModal('bridgeCfgModal')">✕</button>
+  <!-- ── Anomaly Modal ──────────────────────────────────────────────────────────── -->
+  <div class="modal-overlay" id="anomalyModal">
+    <div class="modal-box" style="width:560px">
+      <div class="modal-header">
+        <h2 id="anomalyTitle">Anomaly Injection</h2>
+        <button class="modal-close" onclick="closeModal('anomalyModal')">✕</button>
+      </div>
+      <div class="modal-body" id="anomalyBody">
+        <!-- dynamically rendered -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('anomalyModal')">Cancel</button>
+        <button class="btn-danger" id="btnInject" onclick="injectAnomaly()">Inject</button>
+      </div>
     </div>
-    <div class="modal-body">
-      <label style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px">Protocol</label>
-      <div class="proto-toggle" id="protoToggle">
-        <button class="proto-btn on" id="protoBtnMqtt" onclick="selectProto('mqtt')">MQTT</button>
-        <button class="proto-btn"   id="protoBtnNats" onclick="selectProto('nats')">NATS (native)</button>
-      </div>
+  </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div class="form-group" style="margin:0">
-          <label>Broker Host</label>
-          <input id="cfgHost" placeholder="localhost" value="localhost">
-        </div>
-        <div class="form-group" style="margin:0">
-          <label id="cfgPortLabel">Port (MQTT = 1883)</label>
-          <input id="cfgPort" type="number" placeholder="1883" value="1883">
-        </div>
+  <!-- ── Bridge Config Modal ────────────────────────────────────────────────────── -->
+  <div class="modal-overlay" id="bridgeCfgModal">
+    <div class="modal-box" style="width:480px">
+      <div class="modal-header">
+        <span>Broker Bridge Configuration</span>
+        <button class="modal-close" onclick="closeModal('bridgeCfgModal')">✕</button>
       </div>
+      <div class="modal-body">
+        <label
+          style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px">Protocol</label>
+        <div class="proto-toggle" id="protoToggle">
+          <button class="proto-btn on" id="protoBtnMqtt" onclick="selectProto('mqtt')">MQTT</button>
+          <button class="proto-btn" id="protoBtnNats" onclick="selectProto('nats')">NATS (native)</button>
+        </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div class="form-group" style="margin:0">
-          <label>Username (optional)</label>
-          <input id="cfgUser" placeholder="">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="form-group" style="margin:0">
+            <label>Broker Host</label>
+            <input id="cfgHost" placeholder="localhost" value="localhost">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label id="cfgPortLabel">Port (MQTT = 1883)</label>
+            <input id="cfgPort" type="number" placeholder="1883" value="1883">
+          </div>
         </div>
-        <div class="form-group" style="margin:0">
-          <label>Password (optional)</label>
-          <input id="cfgPass" type="password" placeholder="">
-        </div>
-      </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div class="form-group" style="margin:0">
-          <label>Topic / Subject Prefix (optional)</label>
-          <input id="cfgPrefix" placeholder="e.g. rfc">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="form-group" style="margin:0">
+            <label>Username (optional)</label>
+            <input id="cfgUser" placeholder="">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Password (optional)</label>
+            <input id="cfgPass" type="password" placeholder="">
+          </div>
         </div>
-        <div class="form-group" style="margin:0">
-          <label>Publish Interval (s)</label>
-          <input id="cfgInterval" type="number" step="0.5" min="0.5" placeholder="2.0" value="2.0">
-        </div>
-      </div>
 
-      <div id="bridgeCfgNote" style="font-size:11px;color:var(--muted);padding:8px 10px;
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="form-group" style="margin:0">
+            <label>Topic / Subject Prefix (optional)</label>
+            <input id="cfgPrefix" placeholder="e.g. rfc">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Publish Interval (s)</label>
+            <input id="cfgInterval" type="number" step="0.5" min="0.5" placeholder="2.0" value="2.0">
+          </div>
+        </div>
+
+        <div id="bridgeCfgNote" style="font-size:11px;color:var(--muted);padding:8px 10px;
            background:var(--surface3);border-radius:6px;border:1px solid var(--border);line-height:1.6"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-secondary" onclick="closeModal('bridgeCfgModal')">Cancel</button>
-      <button class="btn-primary" onclick="saveBridgeCfg()">Save &amp; Apply</button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('bridgeCfgModal')">Cancel</button>
+        <button class="btn-primary" onclick="saveBridgeCfg()">Save &amp; Apply</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- ── Toast container ─────────────────────────────────────────────────────────── -->
-<div id="toasts"></div>
+  <!-- ── Toast container ─────────────────────────────────────────────────────────── -->
+  <div id="toasts"></div>
 
-<script>
-// ── State ──────────────────────────────────────────────────────────────────────
-let _ctrl = {group:'', plant:'', short:'', stateVal:null};
-let _anom = {group:'', plant:'', short:'', category:'', overrides:{}};
-let _logOpen = false;
-let _serverLogs = [];
-let _pollTimer = null;
-let _plantsCache = {};
-let _structureHash = null;
+  <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 
-// ── Polling ────────────────────────────────────────────────────────────────────
-async function poll() {
-  try {
-    const r = await fetch('/api/status');
-    if (!r.ok) return;
-    const d = await r.json();
-    // Reload page if enterprise structure changed (UNS designer was used)
-    if (d.structure_hash) {
-      if (_structureHash && _structureHash !== d.structure_hash) {
-        location.reload();
-        return;
-      }
-      _structureHash = d.structure_hash;
-    }
-    _plantsCache = d.plants || {};
-    updateHeader(d);
-    updateCards(_plantsCache);
-    updateBridgeUI(d);
-    // sync host/port inputs
-    if (document.activeElement.id !== 'inpHost') document.getElementById('inpHost').value = d.opc_host;
-    if (document.activeElement.id !== 'inpPort') document.getElementById('inpPort').value = d.opc_port;
-  } catch(e) {}
-}
+  <footer class="app-footer">
+    <span>UNS Design Studio</span>
+    <span class="sep">·</span>
+    <span>v2.0</span>
+    <span class="sep">·</span>
+    <span>Built by <a href="https://github.com/Ilja0101" target="_blank" rel="noopener">Ilja Bartels</a></span>
+    <span class="sep">·</span>
+    <a href="https://github.com/Ilja0101/UNS-Design-Studio" target="_blank" rel="noopener">GitHub</a>
+    <span class="sep">·</span>
+    <span>MIT License</span>
+  </footer>
+  <!-- About modal -->
+  <div id="about-modal"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center"
+    onclick="if(event.target===this)this.style.display='none'">
+    <div
+      style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:440px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5);text-align:center">
+      <h2 style="font-size:18px;font-weight:700;margin-bottom:4px">UNS Design Studio</h2>
+      <div style="font-size:12px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:24px">
+        Version 2.0</div>
 
-function updateHeader(d) {
-  const srvDot = document.getElementById('dotServer');
-  const srvLbl = document.getElementById('lblServer');
-  const opcDot = document.getElementById('dotOpc');
-  const opcLbl = document.getElementById('lblOpc');
-  // Update enterprise name from UNS config
-  if (d.enterprise_name) {
-    const h1 = document.getElementById('enterprise-name');
-    if (h1 && h1.textContent !== d.enterprise_name) h1.textContent = d.enterprise_name;
-    _enterpriseName = d.enterprise_name;
-  }
-  if (d.server_running) {
-    srvDot.className = 'status-dot green';
-    srvLbl.textContent = 'Server: Running';
-  } else {
-    srvDot.className = 'status-dot red';
-    srvLbl.textContent = 'Server: Stopped';
-  }
-  if (d.opc_connected) {
-    opcDot.className = 'status-dot green';
-    opcLbl.textContent = `OPC UA: Connected (${d.opc_host}:${d.opc_port})`;
-  } else {
-    opcDot.className = 'status-dot red';
-    opcLbl.textContent = `OPC UA: Disconnected`;
-  }
-}
-
-function updateCards(plants) {
-  for (const [key, p] of Object.entries(plants)) {
-    const g = p.group, pl = p.plant;
-    const led    = document.getElementById(`led-${g}-${pl}`);
-    const card   = document.getElementById(`card-${g}-${pl}`);
-    const maint  = document.getElementById(`maint-${g}-${pl}`);
-    const recipe = document.getElementById(`recipe-${g}-${pl}`);
-    const oeeEl  = document.getElementById(`oee-${g}-${pl}`);
-    const pwrEl  = document.getElementById(`power-${g}-${pl}`);
-    const goodEl = document.getElementById(`good-${g}-${pl}`);
-    const trEl   = document.getElementById(`trucks-${g}-${pl}`);
-    const bar    = document.getElementById(`bar-${g}-${pl}`);
-
-    if (!led) continue;
-
-    // Status
-    const running = p.process_state && p.maint_status === 'Running';
-    const down    = p.maint_status === 'Down';
-    const stopped = !p.process_state;
-
-    led.className = 'card-led ' + (running ? 'green' : down ? 'yellow' : '');
-    card.className = 'factory-card ' + (running ? 'status-running' : down ? 'status-down' : 'status-stopped');
-    maint.textContent = down ? '⚠ Down' : '';
-
-    // Recipe (shorten)
-    const rec = p.recipe && p.recipe !== '--NA--' ? p.recipe : '— idle —';
-    recipe.textContent = rec;
-    recipe.title = rec;
-
-    // OEE — only show live values when OPC data is confirmed ready
-    const oee  = p.oee;
-    const live = running && p.opc_ready !== false;
-    oeeEl.textContent = live ? `${oee}%` : '--';
-    oeeEl.className = 'metric-value ' + (oee >= 80 ? 'oee-high' : oee >= 60 ? 'oee-mid' : 'oee-low');
-    bar.style.width = live ? `${Math.min(oee,100)}%` : '0%';
-    bar.style.background = oee >= 80 ? 'var(--green)' : oee >= 60 ? 'var(--yellow)' : 'var(--red)';
-
-    // Metrics
-    pwrEl.textContent  = live ? `${p.power} kW`  : '--';
-    goodEl.textContent = live ? `${p.good_tons}` : '--';
-    trEl.textContent   = live ? `${p.trucks_recv}` : '--';
-  }
-}
-
-// Log polling
-async function pollLogs() {
-  if (!_logOpen) return;
-  try {
-    const r = await fetch('/api/logs');
-    const d = await r.json();
-    _serverLogs = d.logs;
-    renderLog();
-  } catch(e){}
-}
-
-function renderLog() {
-  const pre = document.getElementById('logPre');
-  if (!_serverLogs.length) { pre.textContent = 'No log output yet…'; return; }
-  pre.innerHTML = _serverLogs.map(l => {
-    if (l.includes('✓') || l.includes('gestart') || l.includes('Connected'))
-      return `<span class="log-info">${escHtml(l)}</span>`;
-    if (l.includes('✗') || l.includes('Fout') || l.includes('Error') || l.includes('error'))
-      return `<span class="log-err">${escHtml(l)}</span>`;
-    return escHtml(l);
-  }).join('\n');
-  document.getElementById('logLines').textContent = `${_serverLogs.length} lines`;
-}
-
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function startPolling() {
-  poll();
-  setInterval(poll, 2000);
-  setInterval(pollLogs, 3000);
-}
-
-// ── Settings modal ─────────────────────────────────────────────────────────────
-async function openSettings() {
-  try {
-    const r = await fetch('/api/server-config');
-    const d = await r.json();
-    document.getElementById('cfg-bind-ip').value     = d.opc_bind_ip    || '0.0.0.0';
-    document.getElementById('cfg-opc-port').value    = d.opc_port       || 4840;
-    document.getElementById('cfg-client-host').value = d.opc_client_host|| '127.0.0.1';
-    document.getElementById('cfg-tcp-port').value    = d.tcp_port       || 9999;
-    document.getElementById('cfg-host-ip').value     = d.host_ip        || '';
-  } catch(e) { toast('Could not load settings','error'); return; }
-  document.getElementById('settings-modal').style.display = 'flex';
-}
-function closeSettings() {
-  document.getElementById('settings-modal').style.display = 'none';
-}
-async function saveSettings() {
-  const body = {
-    opc_bind_ip:     document.getElementById('cfg-bind-ip').value.trim(),
-    opc_port:        parseInt(document.getElementById('cfg-opc-port').value) || 4840,
-    opc_client_host: document.getElementById('cfg-client-host').value.trim(),
-    tcp_port:        parseInt(document.getElementById('cfg-tcp-port').value) || 9999,
-    host_ip:         document.getElementById('cfg-host-ip').value.trim(),
-  };
-  const r = await fetch('/api/server-config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-  const d = await r.json();
-  if (d.ok) { toast('Settings saved — restart server to apply','ok'); closeSettings(); }
-  else       { toast('Save failed','error'); }
-}
-document.getElementById('settings-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('settings-modal')) closeSettings();
-});
-
-// ── Server management ──────────────────────────────────────────────────────────
-async function serverStart() {
-  toast('Starting OPC UA server…','info');
-  const r = await fetch('/api/server/start', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({local:true})
-  });
-  const d = await r.json();
-  if (d.ok) {
-    toast('Server starting (connecting to localhost)…','success');
-    document.getElementById('inpHost').value = '127.0.0.1';
-  } else {
-    toast(`Server error: ${d.msg}`,'error');
-  }
-}
-
-async function serverStop() {
-  if (!confirm('Stop the OPC UA server process?')) return;
-  const r = await fetch('/api/server/stop',{method:'POST'});
-  const d = await r.json();
-  toast(d.ok ? 'Server stopped' : `Error: ${d.msg}`, d.ok ? 'warn' : 'error');
-}
-
-// ── Bulk plant control ──────────────────────────────────────────────────────────
-async function startAll() {
-  toast('Starting all plants…','info');
-  const r = await fetch('/api/plants/start-all',{method:'POST'});
-  const d = await r.json();
-  toast(d.ok ? '🚀 All plants started' : `Error: ${d.msg}`, d.ok ? 'success' : 'error');
-}
-
-async function stopAll() {
-  if (!confirm('Stop all plants? (ProcessState=False)')) return;
-  toast('Stopping all plants…','info');
-  const r = await fetch('/api/plants/stop-all',{method:'POST'});
-  const d = await r.json();
-  toast(d.ok ? '🛑 All plants stopped' : `Error: ${d.msg}`, d.ok ? 'warn' : 'error');
-}
-
-// ── Connection config ──────────────────────────────────────────────────────────
-async function applyConfig() {
-  const host = document.getElementById('inpHost').value.trim();
-  const port = parseInt(document.getElementById('inpPort').value) || 4840;
-  if (!host) { toast('Enter a host address','error'); return; }
-  await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({host,port})});
-  toast(`Config applied: ${host}:${port}`,'info');
-}
-
-// ── Control Modal ─────────────────────────────────────────────────────────────
-async function openCtrlModal(group, plant, short) {
-  _ctrl = {group, plant, short, stateVal: null};
-  document.getElementById('ctrlTitle').textContent = `⚙ Control — ${short}`;
-
-  // Load recipes from sim_state via new per-plant endpoint
-  const r   = await fetch(`/api/recipes/${group}/${plant}`);
-  const d   = await r.json();
-  const sel = document.getElementById('selRecipe');
-
-  if (d.recipes && d.recipes.length) {
-    sel.innerHTML = d.recipes.map(rec =>
-      `<option value="${escAttr(rec)}">${escHtml(rec)}</option>`).join('');
-    sel.style.display = '';
-    document.getElementById('recipeRow').style.display = '';
-  } else {
-    // No recipes configured for this plant — hide the dropdown
-    sel.innerHTML = '<option value="">— no recipes configured —</option>';
-    document.getElementById('recipeRow').style.display = 'none';
-  }
-
-  const key     = `${group}|${plant}`;
-  const current = _plantsCache[key] || {};
-  setToggle(typeof current.process_state === 'boolean' ? current.process_state : null);
-  if (d.active) sel.value = d.active;
-  else if (current.recipe && current.recipe !== '--NA--') sel.value = current.recipe;
-
-  openModal('ctrlModal');
-}
-
-function setToggle(val) {
-  _ctrl.stateVal = val;
-  document.getElementById('btnStateOn').className  = 'toggle-btn' + (val === true  ? ' active-on'  : '');
-  document.getElementById('btnStateOff').className = 'toggle-btn' + (val === false ? ' active-off' : '');
-}
-
-async function applyControl() {
-  const {group, plant, stateVal} = _ctrl;
-  const recipe = document.getElementById('selRecipe').value;
-  const ops = [];
-  if (stateVal !== null) ops.push(apiPlantCtrl(group, plant, 'set_state', stateVal));
-  ops.push(apiPlantCtrl(group, plant, 'set_recipe', recipe));
-  const results = await Promise.all(ops);
-  const allOk = results.every(r => r.ok);
-  toast(allOk ? `✓ ${_ctrl.short} updated` : `⚠ Partial error`, allOk ? 'success' : 'warn');
-  closeModal('ctrlModal');
-}
-
-async function apiPlantCtrl(group, plant, action, value) {
-  try {
-    const r = await fetch('/api/plant/control',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({group, plant, action, value})
-    });
-    return await r.json();
-  } catch(e) { return {ok:false}; }
-}
-
-// ── Anomaly Modal (dynamic, driven by UNS tag list) ───────────────────────────
-async function openAnomalyModal(group, plant, short) {
-  _anom = {group, plant, short, overrides:{}};
-  document.getElementById('anomalyTitle').textContent = `⚡ Anomaly — ${short}`;
-  const body = document.getElementById('anomalyBody');
-  body.innerHTML = '<p style="color:var(--muted);font-size:12px;padding:8px 0">Loading tags…</p>';
-  openModal('anomalyModal');
-
-  try {
-    const r = await fetch(`/api/plant/tags/${encodeURIComponent(group)}/${encodeURIComponent(plant)}`);
-    const d = await r.json();
-    _renderDynamicAnomaly(d.tags || []);
-  } catch(e) {
-    body.innerHTML = '<p style="color:var(--red);font-size:12px">Failed to load tag list.</p>';
-  }
-}
-
-function _renderDynamicAnomaly(tags) {
-  const body = document.getElementById('anomalyBody');
-
-  // Only numeric types make sense to override with a number
-  const numericTags = tags.filter(t => t.dataType === 'Float' || t.dataType === 'Int');
-
-  // Group by workCenter
-  const groups = {};
-  for (const t of numericTags) {
-    const wc = t.workCenter || '—';
-    if (!groups[wc]) groups[wc] = [];
-    groups[wc].push(t);
-  }
-
-  if (numericTags.length === 0) {
-    body.innerHTML = `
-      <p style="font-size:12px;color:var(--muted)">
-        No numeric tags found for <strong>${_anom.short}</strong>.<br>
-        Add Float/Int tags to this plant in the UNS Designer to enable anomaly injection.
-      </p>`;
-    return;
-  }
-
-  let tagRows = '';
-  for (const [wc, wcTags] of Object.entries(groups)) {
-    tagRows += `<div class="anom-wc-group" data-wc="${wc.toLowerCase()}">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);padding:4px 8px;
-           text-transform:uppercase;letter-spacing:.4px;background:var(--surface2);
-           position:sticky;top:0">${escHtml(wc)}</div>`;
-    for (const t of wcTags) {
-      const unit = t.unit ? ` <span style="color:var(--muted);font-size:10px">${escHtml(t.unit)}</span>` : '';
-      tagRows += `<label class="cb-item anom-tag-item"
-          data-search="${(t.name + ' ' + wc).toLowerCase()}"
-          style="border-radius:0;border-left:none;border-right:none;border-top:none">
-        <input type="checkbox" class="anom-tag-cb" value="${escAttr(t.anomalyKey)}">
-        ${escHtml(t.name)}${unit}
-      </label>`;
-    }
-    tagRows += `</div>`;
-  }
-
-  body.innerHTML = `
-    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
-      Plant: <strong>${escHtml(_anom.short)}</strong> &nbsp;·&nbsp;
-      Override tag values in real-time (auto-reset after duration)
-    </p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-      <div class="form-group" style="margin:0">
-        <label>Override Value</label>
-        <input type="number" id="anomValue" step="any" placeholder="e.g. 0 or 999" style="width:100%">
+      <div style="background:var(--surface2);border-radius:8px;padding:16px;margin-bottom:20px;text-align:left">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">
+          Built by</div>
+        <div style="font-size:15px;font-weight:600">Ilja Bartels</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Industrial IoT · UNS Architecture · IIoT
+          Automation</div>
       </div>
-      <div class="form-group" style="margin:0">
-        <label>Duration (s, 0 = permanent)</label>
-        <input type="number" id="anomDuration" value="30" min="0" style="width:100%">
+
+      <div style="display:flex;gap:10px;justify-content:center;margin-bottom:24px">
+        <a href="https://github.com/Ilja0101" target="_blank" rel="noopener"
+          style="display:flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500">
+          <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+            <path
+              d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+          </svg>
+          github.com/Ilja0101
+        </a>
+        <a href="https://github.com/Ilja0101/UNS-Design-Studio" target="_blank" rel="noopener"
+          style="display:flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500">
+          ⭐ Star on GitHub
+        </a>
       </div>
-    </div>
-    <div class="form-group" style="margin:0">
-      <label>Tags to override
-        <span id="anomSelCount" style="color:var(--accent);font-weight:600;margin-left:6px"></span>
-      </label>
-      <input type="text" id="anomSearch" placeholder="Search tags…"
-             style="width:100%;margin-bottom:6px" oninput="_filterAnomalyTags(this.value)">
-      <div id="anomTagList"
-           style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px">
-        ${tagRows}
+
+      <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:20px">
+        A free, open-source UNS simulator for industrial IoT engineers.<br>
+        Licensed under the <strong style="color:var(--text)">MIT License</strong> — free to use, modify and share.<br>
+        Attribution appreciated. ☕
       </div>
-    </div>`;
 
-  // Live selection counter
-  document.getElementById('anomTagList').addEventListener('change', () => {
-    const n = document.querySelectorAll('.anom-tag-cb:checked').length;
-    document.getElementById('anomSelCount').textContent = n ? `${n} selected` : '';
-  });
-}
-
-function _filterAnomalyTags(q) {
-  const lq = q.trim().toLowerCase();
-  document.querySelectorAll('.anom-tag-item').forEach(el => {
-    el.style.display = (!lq || el.dataset.search.includes(lq)) ? '' : 'none';
-  });
-  document.querySelectorAll('.anom-wc-group').forEach(grp => {
-    const visible = [...grp.querySelectorAll('.anom-tag-item')].some(el => el.style.display !== 'none');
-    grp.style.display = visible ? '' : 'none';
-  });
-}
-
-async function injectAnomaly() {
-  const valueEl = document.getElementById('anomValue');
-  if (!valueEl) { toast('Open the anomaly modal first','error'); return; }
-  const value = parseFloat(valueEl.value);
-  if (isNaN(value)) { toast('Enter a numeric override value','error'); return; }
-
-  const overrides = {};
-  document.querySelectorAll('.anom-tag-cb:checked').forEach(cb => {
-    overrides[cb.value] = value;
-  });
-
-  if (Object.keys(overrides).length === 0) {
-    toast('Select at least one tag','error'); return;
-  }
-
-  const duration = parseFloat(document.getElementById('anomDuration').value) || 0;
-  const r = await fetch('/api/anomaly/inject', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({group:_anom.group, plant:_anom.plant, overrides, duration})
-  });
-  const d = await r.json();
-  if (d.ok) {
-    toast(`⚡ ${d.tags} tag(s) overridden${duration>0?' for '+duration+'s':' permanently'}`, 'warn');
-    closeModal('anomalyModal');
-  } else {
-    toast(`Inject failed: ${d.msg}`,'error');
-  }
-}
-
-// ── Log panel ──────────────────────────────────────────────────────────────────
-function toggleLog() {
-  _logOpen = !_logOpen;
-  const body = document.getElementById('logBody');
-  const caret = document.getElementById('logCaret');
-  const actions = document.getElementById('logActions');
-  body.classList.toggle('open', _logOpen);
-  actions.style.display = _logOpen ? 'flex' : 'none';
-  caret.textContent = _logOpen ? '▼' : '▶';
-  if (_logOpen) { pollLogs(); scrollLogBottom(); }
-}
-
-function scrollLogBottom() {
-  const b = document.getElementById('logBody');
-  b.scrollTop = b.scrollHeight;
-}
-
-function clearLog() { _serverLogs=[]; renderLog(); }
-
-// ── Modal helpers ──────────────────────────────────────────────────────────────
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-// Close on overlay click
-document.querySelectorAll('.modal-overlay').forEach(el => {
-  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open')
-    .forEach(el => el.classList.remove('open'));
-});
-
-// ── Toast ──────────────────────────────────────────────────────────────────────
-function toast(msg, type='info', ms=3500) {
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = msg;
-  document.getElementById('toasts').appendChild(el);
-  setTimeout(()=>{
-    el.style.transition = 'opacity .3s';
-    el.style.opacity = '0';
-    setTimeout(()=>el.remove(), 300);
-  }, ms);
-}
-
-// ── Attribute escape ───────────────────────────────────────────────────────────
-function escAttr(s) { return s.replace(/"/g,'&quot;'); }
-
-// ── Bridge ─────────────────────────────────────────────────────────────────────
-let _bridgeProto = 'mqtt';
-let _enterpriseName = 'Enterprise';
-
-function protoNotes() {
-  const e = _enterpriseName;
-  return {
-    mqtt: `<strong>MQTT mode</strong> — connects to NATS (or any MQTT broker) on port 1883.<br>
-           Topic format: <code>${e}/Division/Site/Line/WorkCenter/Tag</code><br>
-           Requires: <code>pip install paho-mqtt</code>`,
-    nats: `<strong>NATS native mode</strong> — connects to NATS server on port 4222 (not MQTT port).<br>
-           Subject format: <code>${e}.Division.Site.Line.WorkCenter.Tag</code><br>
-           Requires: <code>pip install nats-py</code>`,
-  };
-}
-
-const DEFAULT_PORTS = { mqtt: 1883, nats: 4222 };
-
-function updateBridgeUI(d) {
-  const running = d.bridge_running;
-  const bs      = d.bridge_stats || {};
-  const cfg     = d.bridge_cfg   || {};
-
-  // Protocol badge
-  const badge = document.getElementById('bridgeProtoBadge');
-  const proto = (cfg.protocol || '—').toLowerCase();
-  badge.textContent = proto === 'mqtt' ? 'MQTT' : proto === 'nats' ? 'NATS' : '—';
-  badge.className   = 'proto-badge ' + (running ? proto : 'off');
-
-  // Address
-  document.getElementById('bridgeAddr').textContent =
-    cfg.broker_host ? `${cfg.broker_host}:${cfg.broker_port}` : 'not configured';
-
-  // Stats
-  document.getElementById('bridgeOpcStat').innerHTML =
-    `OPC: <strong style="color:${bs.opc_ok ? 'var(--green)' : 'var(--red)'}">${bs.opc_ok ? '✓' : '✗'}</strong>`;
-  document.getElementById('bridgeBrokerStat').innerHTML =
-    `Broker: <strong style="color:${bs.connected ? 'var(--green)' : 'var(--red)'}">${bs.connected ? 'Connected' : 'Disconnected'}</strong>`;
-  document.getElementById('bridgeRateStat').innerHTML =
-    running ? `Rate: <strong>${bs.rate ?? 0} msg/s</strong>` : `Rate: <strong>—</strong>`;
-  document.getElementById('bridgePubStat').innerHTML =
-    running ? `Published: <strong>${(bs.published ?? 0).toLocaleString()}</strong>` : `Published: <strong>—</strong>`;
-
-  // Buttons
-  document.getElementById('btnBridgeStart').style.display = running ? 'none'  : '';
-  document.getElementById('btnBridgeStop').style.display  = running ? ''      : 'none';
-}
-
-async function bridgeStart() {
-  toast('Starting bridge…', 'info');
-  const r = await fetch('/api/bridge/start', { method: 'POST' });
-  const d = await r.json();
-  toast(d.ok ? '▶ Bridge started' : `Bridge error: ${d.msg}`, d.ok ? 'success' : 'error');
-}
-
-async function bridgeStop() {
-  if (!confirm('Stop the broker bridge?')) return;
-  const r = await fetch('/api/bridge/stop', { method: 'POST' });
-  const d = await r.json();
-  toast(d.ok ? '■ Bridge stopped' : `Error: ${d.msg}`, d.ok ? 'warn' : 'error');
-}
-
-function selectProto(p) {
-  _bridgeProto = p;
-  document.getElementById('protoBtnMqtt').className = 'proto-btn' + (p === 'mqtt' ? ' on' : '');
-  document.getElementById('protoBtnNats').className = 'proto-btn' + (p === 'nats' ? ' on' : '');
-  document.getElementById('cfgPortLabel').textContent =
-    p === 'nats' ? 'Port (NATS = 4222)' : 'Port (MQTT = 1883)';
-  document.getElementById('bridgeCfgNote').innerHTML = protoNotes()[p] || '';
-  // Only auto-fill port if user hasn't typed something custom
-  const portEl = document.getElementById('cfgPort');
-  if (!portEl.dataset.userEdited) {
-    portEl.value = DEFAULT_PORTS[p];
-  }
-}
-
-async function openBridgeCfg() {
-  // Load current config from server
-  try {
-    const r = await fetch('/api/bridge/config');
-    const cfg = await r.json();
-    _bridgeProto = cfg.protocol || 'mqtt';
-    document.getElementById('cfgHost').value     = cfg.broker_host || 'localhost';
-    document.getElementById('cfgPort').value     = cfg.broker_port || DEFAULT_PORTS[_bridgeProto];
-    document.getElementById('cfgUser').value     = cfg.username    || '';
-    document.getElementById('cfgPass').value     = '';            // never pre-fill password
-    document.getElementById('cfgPrefix').value   = cfg.topic_prefix || '';
-    document.getElementById('cfgInterval').value = cfg.interval    || 2.0;
-    const portEl = document.getElementById('cfgPort');
-    portEl.dataset.userEdited = '';
-  } catch(e) { /* use defaults */ }
-
-  selectProto(_bridgeProto);
-
-  // Mark port as user-edited when they type in it
-  document.getElementById('cfgPort').addEventListener('input', function() {
-    this.dataset.userEdited = '1';
-  }, { once: true });
-
-  openModal('bridgeCfgModal');
-}
-
-async function saveBridgeCfg() {
-  const payload = {
-    protocol:     _bridgeProto,
-    broker_host:  document.getElementById('cfgHost').value.trim(),
-    broker_port:  parseInt(document.getElementById('cfgPort').value) || DEFAULT_PORTS[_bridgeProto],
-    username:     document.getElementById('cfgUser').value.trim(),
-    password:     document.getElementById('cfgPass').value,
-    topic_prefix: document.getElementById('cfgPrefix').value.trim(),
-    interval:     parseFloat(document.getElementById('cfgInterval').value) || 2.0,
-  };
-  const r = await fetch('/api/bridge/config', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const d = await r.json();
-  if (d.ok) {
-    toast(d.restarted ? '⟳ Bridge config saved & restarted' : '✓ Bridge config saved', 'success');
-    closeModal('bridgeCfgModal');
-  } else {
-    toast(`Save failed: ${d.msg}`, 'error');
-  }
-}
-
-function toggleTheme() {
-  const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('uns-theme', next);
-}
-
-// ── Boot ───────────────────────────────────────────────────────────────────────
-startPolling();
-</script>
-
-<footer class="app-footer">
-  <span>🏭 UNS Design Studio</span>
-  <span class="sep">·</span>
-  <span>v3.1</span>
-  <span class="sep">·</span>
-  <span>Built by <a href="https://github.com/Ilja0101" target="_blank" rel="noopener">Ilja Bartels</a></span>
-  <span class="sep">·</span>
-  <a href="https://github.com/Ilja0101/UNS-Design-Studio" target="_blank" rel="noopener">GitHub</a>
-  <span class="sep">·</span>
-  <span>MIT License</span>
-</footer>
-<!-- About modal -->
-<div id="about-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:440px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5);text-align:center">
-    <div style="font-size:48px;margin-bottom:12px">🏭</div>
-    <h2 style="font-size:18px;font-weight:700;margin-bottom:4px">UNS Design Studio</h2>
-    <div style="font-size:12px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:24px">Version 3.1</div>
-
-    <div style="background:var(--surface2);border-radius:8px;padding:16px;margin-bottom:20px;text-align:left">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Built by</div>
-      <div style="font-size:15px;font-weight:600">Ilja Bartels</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:2px">Industrial IoT · UNS Architecture · IIoT Automation</div>
+      <button onclick="document.getElementById('about-modal').style.display='none'"
+        style="background:var(--accent);color:var(--on-accent);border:none;border-radius:6px;padding:8px 24px;font-size:13px;font-weight:600;cursor:pointer">
+        Close
+      </button>
     </div>
-
-    <div style="display:flex;gap:10px;justify-content:center;margin-bottom:24px">
-      <a href="https://github.com/Ilja0101" target="_blank" rel="noopener"
-         style="display:flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500">
-        <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        github.com/Ilja0101
-      </a>
-      <a href="https://github.com/Ilja0101/UNS-Design-Studio" target="_blank" rel="noopener"
-         style="display:flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500">
-        ⭐ Star on GitHub
-      </a>
-    </div>
-
-    <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:20px">
-      A free, open-source UNS simulator for industrial IoT engineers.<br>
-      Licensed under the <strong style="color:var(--text)">MIT License</strong> — free to use, modify and share.<br>
-      Attribution appreciated. ☕
-    </div>
-
-    <button onclick="document.getElementById('about-modal').style.display='none'"
-            style="background:var(--accent);color:var(--on-accent);border:none;border-radius:6px;padding:8px 24px;font-size:13px;font-weight:600;cursor:pointer">
-      Close
-    </button>
   </div>
-</div>
 
 </body>
+
 </html>

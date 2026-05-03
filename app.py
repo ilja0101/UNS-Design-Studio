@@ -8,6 +8,9 @@ License: MIT  |  https://github.com/Ilja0101/UNS-Design-Studio
 
 import os, sys, time, json, socket, threading, subprocess, hashlib
 from flask import Flask, render_template, jsonify, request
+from json_persistence import load_json, save_json_atomic
+from sim_state_service import get_site_recipes, merge_sim_state_update, sync_sim_state_with_uns
+from uns_tree import enterprise_structure
 
 # ── Adjust path so recipe.py is importable ────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,16 +24,15 @@ SCHEMAS_CONFIG_FILE  = os.path.join(BASE_DIR, 'payload_schemas.json')
 SERVER_CONFIG_FILE   = os.path.join(BASE_DIR, 'server_config.json')
 SIM_STATE_FILE       = os.path.join(BASE_DIR, 'sim_state.json')
 
+def _json_log(msg: str):
+    print(msg, flush=True)
+
 def _load_server_cfg() -> dict:
-    try:
-        with open(SERVER_CONFIG_FILE) as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    return load_json(SERVER_CONFIG_FILE, {}, logger=_json_log, label='server_config.json')
 
 def _save_server_cfg(data: dict):
-    with open(SERVER_CONFIG_FILE, 'w') as f:
-        json.dump(data, f, indent=2)
+    if not save_json_atomic(SERVER_CONFIG_FILE, data, ensure_ascii=False, logger=_json_log, label='server_config.json'):
+        raise OSError(f"Could not write {SERVER_CONFIG_FILE}")
 
 _scfg = _load_server_cfg()
 
@@ -51,27 +53,13 @@ def _get_enterprise_structure() -> dict:
     plant_key = f"{group}|{plant}" matches sim_state.json keys correctly,
     and respects the actual naming in imported templates.
     """
-    try:
-        with open(UNS_CONFIG_FILE) as f:
-            cfg = json.load(f)
-        struct = {}
-        for bu in cfg.get('tree', {}).get('children', []):
-            if bu.get('type') == 'businessUnit':
-                plants = [
-                    s['name']  # Use actual site name, no prefix
-                    for s in bu.get('children', [])
-                    if s.get('type') == 'site'
-                ]
-                if plants:
-                    struct[bu['name']] = plants
-        return struct if struct else _ENTERPRISE_FALLBACK
-    except Exception:
-        return _ENTERPRISE_FALLBACK
+    cfg = load_json(UNS_CONFIG_FILE, None, logger=_json_log, label='uns_config.json')
+    return enterprise_structure(cfg, _ENTERPRISE_FALLBACK)
 
 def _get_namespace_uri() -> str:
     try:
-        with open(UNS_CONFIG_FILE) as f:
-            return json.load(f).get('namespaceUri', NAMESPACE_URI)
+        cfg = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
+        return cfg.get('namespaceUri', NAMESPACE_URI) if isinstance(cfg, dict) else NAMESPACE_URI
     except Exception:
         return NAMESPACE_URI
 
@@ -81,8 +69,7 @@ def _get_enterprise_name() -> str:
     This is the critical fix that makes any custom namespace root (AcmeEnterprise, MyCompany, etc.)
     work with the dashboard, polling loop, and OPC-UA client."""
     try:
-        with open(UNS_CONFIG_FILE, encoding='utf-8') as f:
-            cfg = json.load(f)
+        cfg = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
         return cfg.get('tree', {}).get('name', 'GlobalFoodCo')
     except Exception:
         return 'GlobalFoodCo'
@@ -91,97 +78,49 @@ def _get_site_recipes(site_node: dict) -> list:
     """Return the recipe definitions stored directly on a site node.
     Recipes are defined in uns_config.json as site.recipes = [{name, params}, ...]
     and edited via the Recipes tab in the UNS designer."""
-    raw = site_node.get('recipes', [])
-    return [
-        r if isinstance(r, dict) else {'name': str(r), 'params': {}}
-        for r in raw
-    ]
+    return get_site_recipes(site_node)
 
 def _ensure_sim_state_synced():
     """Ensure sim_state.json has all plants from current uns_config.json.
     FIXED: Now ALWAYS refreshes the 'recipes' list for every plant when the UNS Designer saves changes.
     This solves the "recipes added in designer are not persisted / not selectable" issue."""
-    try:
-        with open(UNS_CONFIG_FILE) as f:
-            cfg = json.load(f)
-    except Exception:
+    cfg = load_json(UNS_CONFIG_FILE, None, logger=_json_log, label='uns_config.json')
+    if not isinstance(cfg, dict):
         return  # Can't sync without config
     
-    try:
-        with open(SIM_STATE_FILE) as f:
-            sim_state = json.load(f)
-    except Exception:
+    sim_state = load_json(SIM_STATE_FILE, {'plants': {}, 'simulator_running': False}, logger=_json_log, label='sim_state.json')
+    if not isinstance(sim_state, dict):
         sim_state = {'plants': {}, 'simulator_running': False}
-    
-    if 'plants' not in sim_state:
-        sim_state['plants'] = {}
-    
-    # Walk the current enterprise structure and ensure all plants exist + refresh recipes
-    for bu in cfg.get('tree', {}).get('children', []):
-        if bu.get('type') != 'businessUnit':
-            continue
-        
-        bu_name = bu.get('name')
-        
-        for site in bu.get('children', []):
-            if site.get('type') != 'site':
-                continue
-            
-            site_name = site.get('name')
-            plant_key = f"{bu_name}|{site_name}"
-            
-            # Recipes come from site.recipes in uns_config.json (set via UNS designer Recipes tab)
-            recipes = _get_site_recipes(site)
-            
-            if plant_key not in sim_state['plants']:
-                sim_state['plants'][plant_key] = {
-                    'running': False,
-                    'recipe': recipes[0]['name'] if recipes else '--NA--',
-                    'recipes': recipes,
-                }
-            else:
-                # Plant exists — make sure it has the latest recipes list
-                plant_state = sim_state['plants'][plant_key]
-                if 'recipes' not in plant_state or plant_state['recipes'] != recipes:
-                    plant_state['recipes'] = recipes
-                if 'recipe' not in plant_state or not any(r.get('name') == plant_state.get('recipe') for r in recipes):
-                    plant_state['recipe'] = recipes[0]['name'] if recipes else '--NA--'
-    
-    # Remove plants that no longer exist in enterprise structure
-    current_enterprise_keys = set()
-    for bu in cfg.get('tree', {}).get('children', []):
-        if bu.get('type') == 'businessUnit':
-            for site in bu.get('children', []):
-                if site.get('type') == 'site':
-                    current_enterprise_keys.add(f"{bu['name']}|{site['name']}")
-    
-    plants_to_remove = [k for k in sim_state['plants'].keys() if k not in current_enterprise_keys]
-    for k in plants_to_remove:
-        del sim_state['plants'][k]
+    sim_state = sync_sim_state_with_uns(cfg, sim_state)
     
     # Save updated sim_state
-    try:
-        with open(SIM_STATE_FILE, 'w') as f:
-            json.dump(sim_state, f, indent=2)
-    except Exception as e:
-        print(f"Warning: Could not write sim_state.json: {e}")
+    if not save_json_atomic(SIM_STATE_FILE, sim_state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
+        print("Warning: Could not write sim_state.json")
 
 def _get_division_meta() -> dict:
     """Return {buName: {color, icon, label}} from uns_config.json BU nodes.
     Falls back to generic defaults for any group not found."""
     _DEFAULT = {'color': '#58a6ff', 'icon': '🏭', 'label': ''}
     result = {}
+
+    def _business_units(node: dict):
+        if not isinstance(node, dict):
+            return
+        if node.get('type') == 'businessUnit':
+            yield node
+            return
+        for child in node.get('children', []):
+            yield from _business_units(child)
+
     try:
-        with open(UNS_CONFIG_FILE, encoding='utf-8') as f:
-            cfg = json.load(f)
-        for bu in cfg.get('tree', {}).get('children', []):
-            if bu.get('type') == 'businessUnit':
-                name = bu.get('name', '')
-                result[name] = {
-                    'color': bu.get('color', _DEFAULT['color']),
-                    'icon':  bu.get('icon',  _DEFAULT['icon']),
-                    'label': bu.get('description', bu.get('label', '')),
-                }
+        cfg = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
+        for bu in _business_units(cfg.get('tree', {})):
+            name = bu.get('name', '')
+            result[name] = {
+                'color': bu.get('color', _DEFAULT['color']),
+                'icon':  bu.get('icon',  _DEFAULT['icon']),
+                'label': bu.get('description', bu.get('label', '')),
+            }
     except Exception:
         pass
     return result
@@ -232,8 +171,7 @@ def _endpoint():
 def _default_recipe(group: str, plant: str = '') -> str:
     """Return the first recipe name for a plant from sim_state.json, or empty string."""
     try:
-        with open(SIM_STATE_FILE) as f:
-            sim = json.load(f)
+        sim = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
         plant_key = f"{group}|{plant}" if plant else None
         if plant_key:
             val = sim.get('plants', {}).get(plant_key, {})
@@ -305,10 +243,8 @@ def _find_dashboard_metric_paths(group: str, plant: str) -> dict:
 
     result = {}
     found  = set()
-    try:
-        with open(UNS_CONFIG_FILE, encoding='utf-8') as f:
-            cfg = json.load(f)
-    except Exception:
+    cfg = load_json(UNS_CONFIG_FILE, None, logger=_json_log, label='uns_config.json')
+    if not isinstance(cfg, dict):
         _metric_path_cache[cache_key] = result
         return result
 
@@ -351,10 +287,8 @@ def _collect_plant_data(ent, idx):
     • Metrics (OEE, power, etc.) — dynamically resolved via uns_config.json profiles,
       navigated from OPC.  Fails gracefully to 0.0 for any missing node.
     """
-    try:
-        with open(SIM_STATE_FILE) as f:
-            sim_state = json.load(f)
-    except Exception:
+    sim_state = load_json(SIM_STATE_FILE, {'plants': {}}, logger=_json_log, label='sim_state.json')
+    if not isinstance(sim_state, dict):
         sim_state = {'plants': {}}
 
     def _read_path(path):
@@ -429,32 +363,23 @@ def _collect_plant_data(ent, idx):
 
 def _sim_state_plants(running: bool) -> dict:
     """Return {plant_key: {running: bool}} for every plant, preserving existing recipe data."""
-    try:
-        with open(SIM_STATE_FILE) as f:
-            current = json.load(f).get('plants', {})
-    except Exception:
-        current = {}
+    sim_state = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
+    current = sim_state.get('plants', {}) if isinstance(sim_state, dict) else {}
 
     result = {}
-    for group, plants in _get_enterprise_structure().items():
-        for plant in plants:
-            pk = f"{group}|{plant}"
-            existing = current.get(pk, {})
-            if isinstance(existing, dict):
-                merged = dict(existing)
-                merged['running'] = running
-                result[pk] = merged
-            else:
-                result[pk] = {'running': running}
+    for pk, existing in current.items():
+        if isinstance(existing, dict):
+            merged = dict(existing)
+            merged['running'] = running
+            result[pk] = merged
+        else:
+            result[pk] = {'running': running}
     return result
 
 def _read_sim_state_raw() -> dict:
     """Return raw sim_state.json content."""
-    try:
-        with open(SIM_STATE_FILE) as f:
-            return json.load(f)
-    except Exception:
-        return {'plants': {}, 'simulator_running': True}
+    data = load_json(SIM_STATE_FILE, {'plants': {}, 'simulator_running': True}, logger=_json_log, label='sim_state.json')
+    return data if isinstance(data, dict) else {'plants': {}, 'simulator_running': True}
 
 def _plant_running(plant_key: str, sim_state: dict) -> bool:
     """Extract running bool from either old (bool) or new (dict) plant state format."""
@@ -479,38 +404,11 @@ def _plant_recipes(plant_key: str, sim_state: dict) -> list:
 
 def _write_sim_state(data: dict):
     """Merge data into sim_state.json. Handles both old bool and new dict plant formats."""
-    try:
-        with open(SIM_STATE_FILE) as f:
-            current = json.load(f)
-    except Exception:
-        current = {'plants': {}, 'simulator_running': True}
+    current = load_json(SIM_STATE_FILE, {'plants': {}, 'simulator_running': True}, logger=_json_log, label='sim_state.json')
+    current = merge_sim_state_update(current, data)
 
-    if 'plants' not in current:
-        current['plants'] = {}
-
-    if 'plants' in data:
-        for k, v in data['plants'].items():
-            if k in current['plants'] and isinstance(current['plants'][k], dict) and isinstance(v, dict):
-                current['plants'][k].update(v)
-            else:
-                current['plants'][k] = v
-    else:
-        for k, v in data.items():
-            if k == 'simulator_running':
-                current['simulator_running'] = v
-            elif '|' in k:
-                if k in current['plants'] and isinstance(current['plants'][k], dict):
-                    if isinstance(v, bool):
-                        current['plants'][k]['running'] = v
-                    elif isinstance(v, dict):
-                        current['plants'][k].update(v)
-                else:
-                    current['plants'][k] = {'running': bool(v)} if isinstance(v, bool) else v
-            else:
-                current[k] = v
-
-    with open(SIM_STATE_FILE, 'w') as f:
-        json.dump(current, f, indent=2)
+    if not save_json_atomic(SIM_STATE_FILE, current, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
+        raise OSError(f"Could not write {SIM_STATE_FILE}")
 
 def _server_alive() -> bool:
     with _locks['proc']:
@@ -680,10 +578,8 @@ def _opc_write(fn):
 
 # ── Plant tag introspection (for dynamic anomaly UI) ─────────────────────────
 def _get_plant_tags(group: str, plant: str) -> list:
-    try:
-        with open(UNS_CONFIG_FILE) as f:
-            cfg = json.load(f)
-    except Exception:
+    cfg = load_json(UNS_CONFIG_FILE, None, logger=_json_log, label='uns_config.json')
+    if not isinstance(cfg, dict):
         return []
     tree     = cfg.get('tree', {})
     site_name = plant[len('Factory'):] if plant.startswith('Factory') else plant
@@ -809,14 +705,22 @@ def api_server_config_save():
 @app.route('/api/plants/start-all', methods=['POST'])
 def api_start_all():
     # sim_state.json is the authoritative control source — no OPC writes needed
-    _write_sim_state(_sim_state_plants(True))
-    _write_sim_state({'simulator_running': True})
+    _ensure_sim_state_synced()
+    state = _read_sim_state_raw()
+    state['plants'] = _sim_state_plants(True)
+    state['simulator_running'] = True
+    if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
+        raise OSError(f"Could not write {SIM_STATE_FILE}")
     return jsonify({'ok': True, 'msg': 'All plants started'})
 
 @app.route('/api/plants/stop-all', methods=['POST'])
 def api_stop_all():
-    _write_sim_state(_sim_state_plants(False))
-    _write_sim_state({'simulator_running': False})
+    _ensure_sim_state_synced()
+    state = _read_sim_state_raw()
+    state['plants'] = _sim_state_plants(False)
+    state['simulator_running'] = False
+    if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
+        raise OSError(f"Could not write {SIM_STATE_FILE}")
     return jsonify({'ok': True, 'msg': 'All plants stopped'})
 
 @app.route('/api/plant/control', methods=['POST'])
@@ -829,11 +733,8 @@ def api_plant_control():
     if action == 'set_state':
         plant_key = f"{group}|{plant}"
         _write_sim_state({plant_key: {'running': bool(value)}})
-        try:
-            with open(SIM_STATE_FILE) as f:
-                current_plants = json.load(f).get('plants', {})
-        except Exception:
-            current_plants = {}
+        sim_state = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
+        current_plants = sim_state.get('plants', {}) if isinstance(sim_state, dict) else {}
         if bool(value):
             _write_sim_state({'simulator_running': True})
         else:
@@ -856,8 +757,7 @@ def api_recipes(group, plant):
     # Recipe definitions come from uns_config.json site.recipes
     recipes = []
     try:
-        with open(UNS_CONFIG_FILE, encoding='utf-8') as f:
-            cfg = json.load(f)
+        cfg = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
         for bu in cfg.get('tree', {}).get('children', []):
             if bu.get('name') == group:
                 for site in bu.get('children', []):
@@ -874,8 +774,8 @@ def api_recipes(group, plant):
     # Active selection comes from sim_state.json
     active = ''
     try:
-        with open(SIM_STATE_FILE) as f:
-            plant_val = json.load(f).get('plants', {}).get(plant_key, {})
+        sim_state = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
+        plant_val = sim_state.get('plants', {}).get(plant_key, {}) if isinstance(sim_state, dict) else {}
         active = plant_val.get('recipe', '') if isinstance(plant_val, dict) else ''
     except Exception:
         pass
@@ -888,8 +788,7 @@ def api_equipment(group):
     # Return tags that are writable (access=RW) for the given group as equipment options
     result = {}
     try:
-        with open(UNS_CONFIG_FILE, encoding='utf-8') as f:
-            cfg = json.load(f)
+        cfg = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
         for bu in cfg.get('tree', {}).get('children', []):
             if bu.get('name') == group:
                 for site in bu.get('children', []):
@@ -932,14 +831,11 @@ BRIDGE_CONFIG_FILE = os.path.join(BASE_DIR, 'bridge_config.json')
 BRIDGE_PY          = os.path.join(BASE_DIR, 'bridge.py')
 
 def _load_bridge_cfg() -> dict:
-    if os.path.exists(BRIDGE_CONFIG_FILE):
-        with open(BRIDGE_CONFIG_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
+    return load_json(BRIDGE_CONFIG_FILE, {}, logger=_json_log, label='bridge_config.json')
 
 def _save_bridge_cfg(data: dict):
-    with open(BRIDGE_CONFIG_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2)
+    if not save_json_atomic(BRIDGE_CONFIG_FILE, data, ensure_ascii=False, logger=_json_log, label='bridge_config.json'):
+        raise OSError(f"Could not write {BRIDGE_CONFIG_FILE}")
 
 def _bridge_alive() -> bool:
     with _locks['bridge']:
@@ -1044,11 +940,8 @@ def api_bridge_cfg_save():
 ASSET_LIBRARY_FILE = os.path.join(BASE_DIR, 'asset_library.json')
 
 def _load_asset_library() -> dict:
-    try:
-        with open(ASSET_LIBRARY_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception:
-        return {"assets": []}
+    data = load_json(ASSET_LIBRARY_FILE, {"assets": []}, logger=_json_log, label='asset_library.json')
+    return data if isinstance(data, dict) else {"assets": []}
 
 @app.route('/api/asset-library', methods=['GET'])
 def api_asset_library():
@@ -1132,6 +1025,14 @@ def api_simulation_profiles():
 def uns_live():
     return render_template('uns_live.html')
 
+@app.route('/manual')
+def user_manual():
+    return render_template('manual.html')
+
+@app.route('/settings')
+def settings_page():
+    return render_template('settings.html')
+
 # ── UNS Topic Designer ─────────────────────────────────────────────────────────
 @app.route('/uns')
 def uns_editor():
@@ -1139,17 +1040,15 @@ def uns_editor():
 
 @app.route('/api/uns', methods=['GET'])
 def api_uns_get():
-    if os.path.exists(UNS_CONFIG_FILE):
-        with open(UNS_CONFIG_FILE, 'r', encoding='utf-8') as f:
-            return jsonify(json.load(f))
-    return jsonify({})
+    data = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
+    return jsonify(data if isinstance(data, dict) else {})
 
 @app.route('/api/uns', methods=['POST'])
 def api_uns_save():
     data = request.json or {}
     data['lastModified'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-    with open(UNS_CONFIG_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    if not save_json_atomic(UNS_CONFIG_FILE, data, ensure_ascii=False, logger=_json_log, label='uns_config.json'):
+        return jsonify({'ok': False, 'error': 'Could not write UNS config'}), 500
     restarted = []
     factory_was_running = _server_alive()
     if factory_was_running:
@@ -1186,16 +1085,14 @@ def payload_schemas_page():
 
 @app.route('/api/payload-schemas', methods=['GET'])
 def api_schemas_get():
-    if os.path.exists(SCHEMAS_CONFIG_FILE):
-        with open(SCHEMAS_CONFIG_FILE, 'r', encoding='utf-8') as f:
-            return jsonify(json.load(f))
-    return jsonify({'schemas': []})
+    data = load_json(SCHEMAS_CONFIG_FILE, {'schemas': []}, logger=_json_log, label='payload_schemas.json')
+    return jsonify(data if isinstance(data, dict) else {'schemas': []})
 
 @app.route('/api/payload-schemas', methods=['POST'])
 def api_schemas_save():
     data = request.json or {}
-    with open(SCHEMAS_CONFIG_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    if not save_json_atomic(SCHEMAS_CONFIG_FILE, data, ensure_ascii=False, logger=_json_log, label='payload_schemas.json'):
+        return jsonify({'ok': False, 'error': 'Could not write payload schemas'}), 500
     return jsonify({'ok': True})
 
 # ── Entry point ────────────────────────────────────────────────────────────────
