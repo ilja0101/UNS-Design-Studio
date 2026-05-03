@@ -20,9 +20,16 @@ def sync_sim_state_with_uns(cfg: dict, sim_state: dict) -> dict:
 
     current_enterprise_keys = set()
 
-    for bu in cfg.get('tree', {}).get('children', []):
-        if bu.get('type') != 'businessUnit':
-            continue
+    def _business_units(node: dict):
+        if not isinstance(node, dict):
+            return
+        if node.get('type') == 'businessUnit':
+            yield node
+            return
+        for child in node.get('children', []):
+            yield from _business_units(child)
+
+    for bu in _business_units(cfg.get('tree', {})):
 
         bu_name = bu.get('name')
 
@@ -44,6 +51,8 @@ def sync_sim_state_with_uns(cfg: dict, sim_state: dict) -> dict:
             else:
                 plant_state = sim_state['plants'][plant_key]
                 if isinstance(plant_state, dict):
+                    if 'running' not in plant_state:
+                        plant_state['running'] = False
                     if 'recipes' not in plant_state or plant_state['recipes'] != recipes:
                         plant_state['recipes'] = recipes
                     if 'recipe' not in plant_state or not any(r.get('name') == plant_state.get('recipe') for r in recipes):

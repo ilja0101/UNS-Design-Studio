@@ -11,6 +11,7 @@
 </head>
 
 <body>
+  {% include 'partials/sidebar.html' %}
 
   <header>
     <div class="hlogo">🌐 <span>UNS Topic Designer</span><span class="hsub">— Virtual UNS Enterprise Simulator</span>
@@ -25,9 +26,7 @@
     <button class="btn btn-ghost" onclick="doExportJSON()">📤 Export JSON</button>
     <button class="btn btn-ghost" onclick="doExportPaths()">📋 Topic Paths</button>
     <button class="btn btn-primary" id="btn-save" onclick="saveConfig()">💾 Save</button>
-    <a href="/payload-schemas" class="btn btn-ghost">⚙️ Payload Schemas</a>
     <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
-    <a href="/" class="btn btn-ghost">← Dashboard</a>
   </header>
 
   <div class="layout">

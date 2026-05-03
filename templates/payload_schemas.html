@@ -11,11 +11,10 @@
 </head>
 
 <body>
+  {% include 'partials/sidebar.html' %}
 
   <header>
-    <a href="/">← Dashboard</a>
     <h1>⚙️ Payload Schema Designer</h1>
-    <a href="/uns">🌐 UNS Designer</a>
     <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
     <button class="btn-primary" id="btn-save-all">💾 Save All</button>
     <span id="save-ind">● Unsaved</span>

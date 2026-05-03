@@ -11,6 +11,7 @@
 </head>
 
 <body>
+  {% include 'partials/sidebar.html' %}
 
   <header>
     <span class="logo">📡</span>
@@ -20,12 +21,6 @@
     </div>
     <div class="hspace"></div>
     <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
-    <a href="/"
-      style="color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--border);padding:5px 10px;border-radius:5px">←
-      Dashboard</a>
-    <a href="/uns"
-      style="color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--border);padding:5px 10px;border-radius:5px">🌐
-      Designer</a>
   </header>
 
   <div class="statusbar">

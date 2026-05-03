@@ -1,341 +1,396 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UNS Design Studio</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
-<script>(function(){var t=localStorage.getItem('uns-theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNS Design Studio</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
+  <script>(function () { var t = localStorage.getItem('uns-theme') || 'dark'; document.documentElement.setAttribute('data-theme', t); })();</script>
 </head>
+
 <body>
+  {% include 'partials/sidebar.html' %}
 
-<!-- ── Header ────────────────────────────────────────────────────────────────── -->
-<header class="app-header">
-  <div class="header-brand">
-    <span class="logo">🏭</span>
-    <div>
-      <h1 id="enterprise-name">Virtual UNS</h1>
-      <span class="sub">UNS Design Studio</span>
-    </div>
-  </div>
-  <div class="header-sep"></div>
-  <div class="header-status">
-    <span class="status-dot" id="dotServer"></span>
-    <span id="lblServer">Server: unknown</span>
-  </div>
-  <div class="header-sep"></div>
-  <div class="header-status">
-    <span class="status-dot" id="dotOpc"></span>
-    <span id="lblOpc">OPC UA: disconnected</span>
-  </div>
-  <div class="header-right">
-    <a href="/live" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:13px;text-decoration:none;white-space:nowrap" title="Live UNS Topic Tree">📡 Live View</a>
-    <a href="/uns" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:13px;text-decoration:none;white-space:nowrap" title="Open UNS Topic Designer">🌐 UNS Designer</a>
-    <a href="/payload-schemas" style="background:var(--surface3);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:13px;text-decoration:none;white-space:nowrap" title="Open Payload Schema Designer">⚙️ Payload Schemas</a>
-    <button style="background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:13px;cursor:pointer" onclick="openSettings()" title="Network &amp; server settings">🔧 Settings</button>
-    <button style="background:var(--surface2);color:var(--muted);border:1px solid var(--border);padding:6px 12px;border-radius:6px;font-size:13px;cursor:pointer" onclick="document.getElementById('about-modal').style.display='flex'" title="About">ℹ️</button>
-    <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
-    <button class="btn-server-start" onclick="serverStart()">▶ Start Server</button>
-    <button class="btn-server-stop" onclick="serverStop()">■ Stop Server</button>
-  </div>
-</header>
-
-<!-- ── Settings Modal ──────────────────────────────────────────────────────────── -->
-<div id="settings-modal" class="overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;display:none">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;width:480px;max-width:95vw;padding:0;overflow:hidden">
-    <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <span style="font-weight:600;font-size:15px">🔧 Network &amp; Server Settings</span>
-      <button onclick="closeSettings()" style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;line-height:1">×</button>
-    </div>
-    <div style="padding:18px;display:flex;flex-direction:column;gap:14px">
-      <p style="color:var(--text-muted);font-size:12px;margin-top:-4px">Changes are saved to <code>server_config.json</code> and take effect on next server start.</p>
-
-      <div style="display:grid;grid-template-columns:200px 1fr;gap:8px 12px;align-items:center">
-        <label style="color:var(--text-muted);font-size:13px">OPC-UA bind IP<br><small style="font-size:11px">IP factory.py listens on</small></label>
-        <input id="cfg-bind-ip" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px" placeholder="0.0.0.0">
-
-        <label style="color:var(--text-muted);font-size:13px">OPC-UA port</label>
-        <input id="cfg-opc-port" type="number" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px" placeholder="4840">
-
-        <label style="color:var(--text-muted);font-size:13px">OPC-UA client host<br><small style="font-size:11px">IP dashboard uses to connect</small></label>
-        <input id="cfg-client-host" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px" placeholder="127.0.0.1">
-
-        <label style="color:var(--text-muted);font-size:13px">Anomaly TCP port</label>
-        <input id="cfg-tcp-port" type="number" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px" placeholder="9999">
-
-        <label style="color:var(--text-muted);font-size:13px">Host IP (info only)<br><small style="font-size:11px">Shown in banner / documentation</small></label>
-        <input id="cfg-host-ip" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px" placeholder="10.10.3.4">
-      </div>
-
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text-muted)">
-        <strong style="color:var(--text)">Local / dev setup:</strong> bind IP = <code>0.0.0.0</code>, client host = <code>127.0.0.1</code><br>
-        <strong style="color:var(--text)">Remote / Docker setup:</strong> bind IP = <code>0.0.0.0</code>, client host = machine IP (e.g. <code>10.10.3.4</code>)
+  <!-- ── Header ────────────────────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <h1 id="enterprise-name">Virtual UNS</h1>
+        <span class="sub">UNS Design Studio</span>
       </div>
     </div>
-    <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
-      <button onclick="closeSettings()" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 16px;border-radius:4px;cursor:pointer">Cancel</button>
-      <button onclick="saveSettings()" style="background:var(--accent-dim);color:#fff;border:none;padding:6px 16px;border-radius:4px;cursor:pointer">💾 Save</button>
+    <div class="header-sep"></div>
+    <div class="header-status">
+      <span class="status-dot" id="dotServer"></span>
+      <span id="lblServer">Server: unknown</span>
     </div>
-  </div>
-</div>
+    <div class="header-sep"></div>
+    <div class="header-status">
+      <span class="status-dot" id="dotOpc"></span>
+      <span id="lblOpc">OPC UA: disconnected</span>
+    </div>
+    <div class="header-right">
+      <button class="btn-server-start" onclick="serverStart()">Start Server</button>
+      <button class="btn-server-stop" onclick="serverStop()">Stop Server</button>
+    </div>
+  </header>
 
-<!-- ── Control Bar ────────────────────────────────────────────────────────────── -->
-<div class="control-bar">
-  <button class="btn-start-all" onclick="startAll()">🚀 Start All Plants</button>
-  <button class="btn-stop-all" onclick="stopAll()">🛑 Stop All Plants</button>
-  <div class="conn-config">
-    <label>OPC UA&nbsp;Host</label>
-    <input id="inpHost" placeholder="10.10.3.4" value="10.10.3.4">
-    <label>Port</label>
-    <input class="port-inp" id="inpPort" placeholder="4840" value="4840">
-    <button class="btn-apply" onclick="applyConfig()">Apply</button>
-  </div>
-</div>
-
-<!-- ── Bridge Bar ─────────────────────────────────────────────────────────────── -->
-<div class="bridge-bar">
-  <span class="bridge-label">🌉 Broker Bridge</span>
-  <div class="bridge-sep"></div>
-  <span class="proto-badge off" id="bridgeProtoBadge">—</span>
-  <span class="bridge-addr" id="bridgeAddr">not configured</span>
-  <div class="bridge-sep"></div>
-  <span class="bridge-stat" id="bridgeOpcStat">OPC: <strong>—</strong></span>
-  <span class="bridge-stat" id="bridgeBrokerStat">Broker: <strong>—</strong></span>
-  <span class="bridge-stat" id="bridgeRateStat">Rate: <strong>—</strong></span>
-  <span class="bridge-stat" id="bridgePubStat">Published: <strong>—</strong></span>
-  <div class="bridge-right">
-    <button class="btn-bridge-cfg" onclick="openBridgeCfg()">⚙ Configure</button>
-    <button class="btn-bridge-start" id="btnBridgeStart" onclick="bridgeStart()">▶ Start Bridge</button>
-    <button class="btn-bridge-stop"  id="btnBridgeStop"  onclick="bridgeStop()" style="display:none">■ Stop Bridge</button>
-  </div>
-</div>
-
-<!-- ── Main content ───────────────────────────────────────────────────────────── -->
-<main class="main-content">
-{% for group, plants in structure.items() %}
-<div class="division-section" style="--div-color:{{ (division_meta[group] | default({'color':'#58a6ff'}))['color'] }}">
-  <div class="division-header">
-    <span class="division-icon">{{ (division_meta[group] | default({'icon':'🏭'}))['icon'] }}</span>
-    <span class="division-name">{{ group }}</span>
-    <span class="division-label">{{ (division_meta[group] | default({'label':''}))['label'] }}</span>
-    <span class="factory-count">{{ plants|length }} {{ 'factory' if plants|length == 1 else 'factories' }}</span>
-  </div>
-  <div class="factories-grid">
-    {% for plant in plants %}
-    {% set short = plant.replace('Factory','') %}
-    <div class="factory-card" id="card-{{group}}-{{plant}}">
-      <div class="card-top">
-        <div class="card-led" id="led-{{group}}-{{plant}}"></div>
-        <span class="card-plant-name">{{ short }}</span>
-        <span class="card-maint" id="maint-{{group}}-{{plant}}"></span>
+  <!-- ── Settings Modal ──────────────────────────────────────────────────────────── -->
+  <div id="settings-modal" class="overlay"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;display:none">
+    <div
+      style="background:var(--surface);border:1px solid var(--border);border-radius:8px;width:480px;max-width:95vw;padding:0;overflow:hidden">
+      <div
+        style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-weight:600;font-size:15px">Network &amp; Server Settings</span>
+        <button onclick="closeSettings()"
+          style="background:none;border:none;color:var(--text-muted);font-size:18px;cursor:pointer;line-height:1">×</button>
       </div>
-      <div class="card-body">
-        <div class="card-recipe" id="recipe-{{group}}-{{plant}}">No data</div>
-        <div class="card-metrics">
-          <div class="metric-item">
-            <span class="metric-label">OEE</span>
-            <span class="metric-value" id="oee-{{group}}-{{plant}}">--</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">Power</span>
-            <span class="metric-value" id="power-{{group}}-{{plant}}">--</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">Good (t)</span>
-            <span class="metric-value" id="good-{{group}}-{{plant}}">--</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">Trucks ↓</span>
-            <span class="metric-value" id="trucks-{{group}}-{{plant}}">--</span>
-          </div>
-          <div class="oee-bar-wrap">
-            <div class="oee-bar" id="bar-{{group}}-{{plant}}" style="width:0%;background:var(--muted)"></div>
-          </div>
+      <div style="padding:18px;display:flex;flex-direction:column;gap:14px">
+        <p style="color:var(--text-muted);font-size:12px;margin-top:-4px">Changes are saved to
+          <code>server_config.json</code> and take effect on next server start.
+        </p>
+
+        <div style="display:grid;grid-template-columns:200px 1fr;gap:8px 12px;align-items:center">
+          <label style="color:var(--text-muted);font-size:13px">OPC-UA bind IP<br><small style="font-size:11px">IP
+              factory.py listens on</small></label>
+          <input id="cfg-bind-ip"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"
+            placeholder="0.0.0.0">
+
+          <label style="color:var(--text-muted);font-size:13px">OPC-UA port</label>
+          <input id="cfg-opc-port" type="number"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"
+            placeholder="4840">
+
+          <label style="color:var(--text-muted);font-size:13px">OPC-UA client host<br><small style="font-size:11px">IP
+              dashboard uses to connect</small></label>
+          <input id="cfg-client-host"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"
+            placeholder="127.0.0.1">
+
+          <label style="color:var(--text-muted);font-size:13px">Anomaly TCP port</label>
+          <input id="cfg-tcp-port" type="number"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"
+            placeholder="9999">
+
+          <label style="color:var(--text-muted);font-size:13px">Host IP (info only)<br><small
+              style="font-size:11px">Shown in banner / documentation</small></label>
+          <input id="cfg-host-ip"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:13px"
+            placeholder="10.10.3.4">
+        </div>
+
+        <div
+          style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 12px;font-size:12px;color:var(--text-muted)">
+          <strong style="color:var(--text)">Local / dev setup:</strong> bind IP = <code>0.0.0.0</code>, client host =
+          <code>127.0.0.1</code><br>
+          <strong style="color:var(--text)">Remote / Docker setup:</strong> bind IP = <code>0.0.0.0</code>, client host
+          = machine IP (e.g. <code>10.10.3.4</code>)
         </div>
       </div>
-      <div class="card-footer">
-        <button class="btn-ctrl" onclick="openCtrlModal('{{group}}','{{plant}}','{{short}}')">⚙ Control</button>
-        <button class="btn-anomaly" onclick="openAnomalyModal('{{group}}','{{plant}}','{{short}}')">⚡ Anomaly</button>
+      <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="closeSettings()"
+          style="background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 16px;border-radius:4px;cursor:pointer">Cancel</button>
+        <button onclick="saveSettings()"
+          style="background:var(--accent-dim);color:#fff;border:none;padding:6px 16px;border-radius:4px;cursor:pointer">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Control Bar ────────────────────────────────────────────────────────────── -->
+  <div class="control-bar">
+    <div class="conn-config">
+      <label>OPC UA&nbsp;Host</label>
+      <input id="inpHost" placeholder="10.10.3.4" value="10.10.3.4">
+      <label>Port</label>
+      <input class="port-inp" id="inpPort" placeholder="4840" value="4840">
+      <button class="btn-apply" onclick="applyConfig()">Apply</button>
+    </div>
+  </div>
+
+  <!-- ── Bridge Bar ─────────────────────────────────────────────────────────────── -->
+  <div class="bridge-bar">
+    <span class="bridge-label">Broker Bridge</span>
+    <div class="bridge-sep"></div>
+    <span class="proto-badge off" id="bridgeProtoBadge">—</span>
+    <span class="bridge-addr" id="bridgeAddr">not configured</span>
+    <div class="bridge-sep"></div>
+    <span class="bridge-stat" id="bridgeOpcStat">OPC: <strong>—</strong></span>
+    <span class="bridge-stat" id="bridgeBrokerStat">Broker: <strong>—</strong></span>
+    <span class="bridge-stat" id="bridgeRateStat">Rate: <strong>—</strong></span>
+    <span class="bridge-stat" id="bridgePubStat">Published: <strong>—</strong></span>
+    <div class="bridge-right">
+      <button class="btn-bridge-cfg" onclick="openBridgeCfg()">Configure</button>
+      <button class="btn-bridge-start" id="btnBridgeStart" onclick="bridgeStart()">Start Bridge</button>
+      <button class="btn-bridge-stop" id="btnBridgeStop" onclick="bridgeStop()" style="display:none">Stop
+        Bridge</button>
+    </div>
+  </div>
+
+  <div class="dashboard-helper-bar">
+    <span>Workflow: start server, start plants, configure broker, then start bridge.</span>
+    <a href="/manual">Open user manual</a>
+  </div>
+
+  <!-- ── Main content ───────────────────────────────────────────────────────────── -->
+  <main class="main-content">
+    {% for group, plants in structure.items() %}
+    <div class="division-section"
+      style="--div-color:{{ (division_meta[group] | default({'color':'#58a6ff'}))['color'] }}">
+      <div class="division-header">
+        <span class="division-name">{{ group }}</span>
+        <span class="division-label">{{ (division_meta[group] | default({'label':''}))['label'] }}</span>
+        <span class="factory-count">{{ plants|length }} {{ 'factory' if plants|length == 1 else 'factories' }}</span>
+      </div>
+      <div class="factories-grid">
+        {% for plant in plants %}
+        {% set short = plant.replace('Factory','') %}
+        <div class="factory-card factory-faceplate" id="card-{{group}}-{{plant}}">
+          <div class="factory-graphic" aria-hidden="true">
+            <div class="factory-skyline">
+              <span class="smoke smoke-a"></span>
+              <span class="smoke smoke-b"></span>
+              <span class="smoke smoke-c"></span>
+              <span class="chimney chimney-a"></span>
+              <span class="chimney chimney-b"></span>
+              <span class="roof roof-a"></span>
+              <span class="roof roof-b"></span>
+              <span class="factory-block block-a"></span>
+              <span class="factory-block block-b"></span>
+              <span class="factory-window w1"></span>
+              <span class="factory-window w2"></span>
+              <span class="factory-window w3"></span>
+              <span class="theme-extra extra-a"></span>
+              <span class="theme-extra extra-b"></span>
+            </div>
+            <span class="factory-truck truck-in"><span class="truck-cab"></span><span class="truck-box"></span><span
+                class="truck-wheel wheel-a"></span><span class="truck-wheel wheel-b"></span></span>
+            <div class="factory-status-pill"><span class="card-led" id="led-{{group}}-{{plant}}"></span><span
+                id="maint-{{group}}-{{plant}}">idle</span></div>
+          </div>
+          <div class="card-top">
+            <span class="card-plant-name">{{ short }}</span>
+          </div>
+          <div class="card-body">
+            <div class="card-recipe" id="recipe-{{group}}-{{plant}}">No data</div>
+            <div class="card-metrics">
+              <div class="metric-item">
+                <span class="metric-label">OEE</span>
+                <span class="metric-value" id="oee-{{group}}-{{plant}}">--</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Power</span>
+                <span class="metric-value" id="power-{{group}}-{{plant}}">--</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Good (t)</span>
+                <span class="metric-value" id="good-{{group}}-{{plant}}">--</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Trucks ↓</span>
+                <span class="metric-value" id="trucks-{{group}}-{{plant}}">--</span>
+              </div>
+              <div class="oee-bar-wrap">
+                <div class="oee-bar" id="bar-{{group}}-{{plant}}" style="width:0%;background:var(--muted)"></div>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer">
+            <button class="btn-ctrl" onclick="openCtrlModal('{{group}}','{{plant}}','{{short}}')">Control</button>
+            <button class="btn-anomaly" onclick="openAnomalyModal('{{group}}','{{plant}}','{{short}}')">Anomaly</button>
+          </div>
+        </div>
+        {% endfor %}
       </div>
     </div>
     {% endfor %}
-  </div>
-</div>
-{% endfor %}
-</main>
+  </main>
 
-<!-- ── Log Panel ──────────────────────────────────────────────────────────────── -->
-<div class="log-panel">
-  <div class="log-toggle" onclick="toggleLog()">
-    <span class="log-caret" id="logCaret">▶</span>
-    Server Log
-    <span id="logCount" style="color:var(--muted);font-weight:400;margin-left:4px"></span>
-  </div>
-  <div class="log-body" id="logBody">
-    <pre id="logPre">Waiting for log output…</pre>
-  </div>
-  <div id="logActions" style="display:none" class="log-actions">
-    <button class="btn-log" onclick="clearLog()">Clear</button>
-    <button class="btn-log" onclick="scrollLogBottom()">↓ Bottom</button>
-    <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="logLines"></span>
-  </div>
-</div>
-
-<!-- ── Control Modal ──────────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="ctrlModal">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h2 id="ctrlTitle">Plant Control</h2>
-      <button class="modal-close" onclick="closeModal('ctrlModal')">✕</button>
+  <!-- ── Log Panel ──────────────────────────────────────────────────────────────── -->
+  <div class="log-panel">
+    <div class="log-toggle" onclick="toggleLog()">
+      <span class="log-caret" id="logCaret">▶</span>
+      Server Log
+      <span id="logCount" style="color:var(--muted);font-weight:400;margin-left:4px"></span>
     </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>Process State</label>
-        <div class="toggle-row">
-          <button class="toggle-btn" id="btnStateOn" onclick="setToggle(true)">▶ Running</button>
-          <button class="toggle-btn" id="btnStateOff" onclick="setToggle(false)">■ Stopped</button>
-        </div>
-      </div>
-      <div class="form-group" id="recipeRow">
-        <label>Recipe</label>
-        <select id="selRecipe"></select>
-      </div>
+    <div class="log-body" id="logBody">
+      <pre id="logPre">Waiting for log output…</pre>
     </div>
-    <div class="modal-footer">
-      <button class="btn-secondary" onclick="closeModal('ctrlModal')">Cancel</button>
-      <button class="btn-primary" onclick="applyControl()">Apply</button>
+    <div id="logActions" style="display:none" class="log-actions">
+      <button class="btn-log" onclick="clearLog()">Clear</button>
+      <button class="btn-log" onclick="scrollLogBottom()">↓ Bottom</button>
+      <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="logLines"></span>
     </div>
   </div>
-</div>
 
-<!-- ── Anomaly Modal ──────────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="anomalyModal">
-  <div class="modal-box" style="width:560px">
-    <div class="modal-header">
-      <h2 id="anomalyTitle">Anomaly Injection</h2>
-      <button class="modal-close" onclick="closeModal('anomalyModal')">✕</button>
-    </div>
-    <div class="modal-body" id="anomalyBody">
-      <!-- dynamically rendered -->
-    </div>
-    <div class="modal-footer">
-      <button class="btn-secondary" onclick="closeModal('anomalyModal')">Cancel</button>
-      <button class="btn-danger" id="btnInject" onclick="injectAnomaly()">⚡ Inject</button>
+  <!-- ── Control Modal ──────────────────────────────────────────────────────────── -->
+  <div class="modal-overlay" id="ctrlModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="ctrlTitle">Plant Control</h2>
+        <button class="modal-close" onclick="closeModal('ctrlModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Process State</label>
+          <div class="toggle-row">
+            <button class="toggle-btn" id="btnStateOn" onclick="setToggle(true)">Running</button>
+            <button class="toggle-btn" id="btnStateOff" onclick="setToggle(false)">Stopped</button>
+          </div>
+        </div>
+        <div class="form-group" id="recipeRow">
+          <label>Recipe</label>
+          <select id="selRecipe"></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('ctrlModal')">Cancel</button>
+        <button class="btn-primary" onclick="applyControl()">Apply</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- ── Bridge Config Modal ────────────────────────────────────────────────────── -->
-<div class="modal-overlay" id="bridgeCfgModal">
-  <div class="modal-box" style="width:480px">
-    <div class="modal-header">
-      <span>🌉 Broker Bridge Configuration</span>
-      <button class="modal-close" onclick="closeModal('bridgeCfgModal')">✕</button>
+  <!-- ── Anomaly Modal ──────────────────────────────────────────────────────────── -->
+  <div class="modal-overlay" id="anomalyModal">
+    <div class="modal-box" style="width:560px">
+      <div class="modal-header">
+        <h2 id="anomalyTitle">Anomaly Injection</h2>
+        <button class="modal-close" onclick="closeModal('anomalyModal')">✕</button>
+      </div>
+      <div class="modal-body" id="anomalyBody">
+        <!-- dynamically rendered -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('anomalyModal')">Cancel</button>
+        <button class="btn-danger" id="btnInject" onclick="injectAnomaly()">Inject</button>
+      </div>
     </div>
-    <div class="modal-body">
-      <label style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px">Protocol</label>
-      <div class="proto-toggle" id="protoToggle">
-        <button class="proto-btn on" id="protoBtnMqtt" onclick="selectProto('mqtt')">MQTT</button>
-        <button class="proto-btn"   id="protoBtnNats" onclick="selectProto('nats')">NATS (native)</button>
-      </div>
+  </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div class="form-group" style="margin:0">
-          <label>Broker Host</label>
-          <input id="cfgHost" placeholder="localhost" value="localhost">
-        </div>
-        <div class="form-group" style="margin:0">
-          <label id="cfgPortLabel">Port (MQTT = 1883)</label>
-          <input id="cfgPort" type="number" placeholder="1883" value="1883">
-        </div>
+  <!-- ── Bridge Config Modal ────────────────────────────────────────────────────── -->
+  <div class="modal-overlay" id="bridgeCfgModal">
+    <div class="modal-box" style="width:480px">
+      <div class="modal-header">
+        <span>Broker Bridge Configuration</span>
+        <button class="modal-close" onclick="closeModal('bridgeCfgModal')">✕</button>
       </div>
+      <div class="modal-body">
+        <label
+          style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px">Protocol</label>
+        <div class="proto-toggle" id="protoToggle">
+          <button class="proto-btn on" id="protoBtnMqtt" onclick="selectProto('mqtt')">MQTT</button>
+          <button class="proto-btn" id="protoBtnNats" onclick="selectProto('nats')">NATS (native)</button>
+        </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div class="form-group" style="margin:0">
-          <label>Username (optional)</label>
-          <input id="cfgUser" placeholder="">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="form-group" style="margin:0">
+            <label>Broker Host</label>
+            <input id="cfgHost" placeholder="localhost" value="localhost">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label id="cfgPortLabel">Port (MQTT = 1883)</label>
+            <input id="cfgPort" type="number" placeholder="1883" value="1883">
+          </div>
         </div>
-        <div class="form-group" style="margin:0">
-          <label>Password (optional)</label>
-          <input id="cfgPass" type="password" placeholder="">
-        </div>
-      </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div class="form-group" style="margin:0">
-          <label>Topic / Subject Prefix (optional)</label>
-          <input id="cfgPrefix" placeholder="e.g. rfc">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="form-group" style="margin:0">
+            <label>Username (optional)</label>
+            <input id="cfgUser" placeholder="">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Password (optional)</label>
+            <input id="cfgPass" type="password" placeholder="">
+          </div>
         </div>
-        <div class="form-group" style="margin:0">
-          <label>Publish Interval (s)</label>
-          <input id="cfgInterval" type="number" step="0.5" min="0.5" placeholder="2.0" value="2.0">
-        </div>
-      </div>
 
-      <div id="bridgeCfgNote" style="font-size:11px;color:var(--muted);padding:8px 10px;
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="form-group" style="margin:0">
+            <label>Topic / Subject Prefix (optional)</label>
+            <input id="cfgPrefix" placeholder="e.g. rfc">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Publish Interval (s)</label>
+            <input id="cfgInterval" type="number" step="0.5" min="0.5" placeholder="2.0" value="2.0">
+          </div>
+        </div>
+
+        <div id="bridgeCfgNote" style="font-size:11px;color:var(--muted);padding:8px 10px;
            background:var(--surface3);border-radius:6px;border:1px solid var(--border);line-height:1.6"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-secondary" onclick="closeModal('bridgeCfgModal')">Cancel</button>
-      <button class="btn-primary" onclick="saveBridgeCfg()">Save &amp; Apply</button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeModal('bridgeCfgModal')">Cancel</button>
+        <button class="btn-primary" onclick="saveBridgeCfg()">Save &amp; Apply</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- ── Toast container ─────────────────────────────────────────────────────────── -->
-<div id="toasts"></div>
+  <!-- ── Toast container ─────────────────────────────────────────────────────────── -->
+  <div id="toasts"></div>
 
-<script src="{{ url_for('static', filename='js/index.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 
-<footer class="app-footer">
-  <span>🏭 UNS Design Studio</span>
-  <span class="sep">·</span>
-  <span>v3.1</span>
-  <span class="sep">·</span>
-  <span>Built by <a href="https://github.com/Ilja0101" target="_blank" rel="noopener">Ilja Bartels</a></span>
-  <span class="sep">·</span>
-  <a href="https://github.com/Ilja0101/UNS-Design-Studio" target="_blank" rel="noopener">GitHub</a>
-  <span class="sep">·</span>
-  <span>MIT License</span>
-</footer>
-<!-- About modal -->
-<div id="about-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:440px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5);text-align:center">
-    <div style="font-size:48px;margin-bottom:12px">🏭</div>
-    <h2 style="font-size:18px;font-weight:700;margin-bottom:4px">UNS Design Studio</h2>
-    <div style="font-size:12px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:24px">Version 3.1</div>
+  <footer class="app-footer">
+    <span>UNS Design Studio</span>
+    <span class="sep">·</span>
+    <span>v3.1</span>
+    <span class="sep">·</span>
+    <span>Built by <a href="https://github.com/Ilja0101" target="_blank" rel="noopener">Ilja Bartels</a></span>
+    <span class="sep">·</span>
+    <a href="https://github.com/Ilja0101/UNS-Design-Studio" target="_blank" rel="noopener">GitHub</a>
+    <span class="sep">·</span>
+    <span>MIT License</span>
+  </footer>
+  <!-- About modal -->
+  <div id="about-modal"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center"
+    onclick="if(event.target===this)this.style.display='none'">
+    <div
+      style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:440px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.5);text-align:center">
+      <h2 style="font-size:18px;font-weight:700;margin-bottom:4px">UNS Design Studio</h2>
+      <div style="font-size:12px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:24px">
+        Version 3.1</div>
 
-    <div style="background:var(--surface2);border-radius:8px;padding:16px;margin-bottom:20px;text-align:left">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Built by</div>
-      <div style="font-size:15px;font-weight:600">Ilja Bartels</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:2px">Industrial IoT · UNS Architecture · IIoT Automation</div>
+      <div style="background:var(--surface2);border-radius:8px;padding:16px;margin-bottom:20px;text-align:left">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">
+          Built by</div>
+        <div style="font-size:15px;font-weight:600">Ilja Bartels</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Industrial IoT · UNS Architecture · IIoT
+          Automation</div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:center;margin-bottom:24px">
+        <a href="https://github.com/Ilja0101" target="_blank" rel="noopener"
+          style="display:flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500">
+          <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+            <path
+              d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+          </svg>
+          github.com/Ilja0101
+        </a>
+        <a href="https://github.com/Ilja0101/UNS-Design-Studio" target="_blank" rel="noopener"
+          style="display:flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500">
+          ⭐ Star on GitHub
+        </a>
+      </div>
+
+      <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:20px">
+        A free, open-source UNS simulator for industrial IoT engineers.<br>
+        Licensed under the <strong style="color:var(--text)">MIT License</strong> — free to use, modify and share.<br>
+        Attribution appreciated. ☕
+      </div>
+
+      <button onclick="document.getElementById('about-modal').style.display='none'"
+        style="background:var(--accent);color:var(--on-accent);border:none;border-radius:6px;padding:8px 24px;font-size:13px;font-weight:600;cursor:pointer">
+        Close
+      </button>
     </div>
-
-    <div style="display:flex;gap:10px;justify-content:center;margin-bottom:24px">
-      <a href="https://github.com/Ilja0101" target="_blank" rel="noopener"
-         style="display:flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500">
-        <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        github.com/Ilja0101
-      </a>
-      <a href="https://github.com/Ilja0101/UNS-Design-Studio" target="_blank" rel="noopener"
-         style="display:flex;align-items:center;gap:6px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:8px 14px;color:var(--text);text-decoration:none;font-size:12px;font-weight:500">
-        ⭐ Star on GitHub
-      </a>
-    </div>
-
-    <div style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:20px">
-      A free, open-source UNS simulator for industrial IoT engineers.<br>
-      Licensed under the <strong style="color:var(--text)">MIT License</strong> — free to use, modify and share.<br>
-      Attribution appreciated. ☕
-    </div>
-
-    <button onclick="document.getElementById('about-modal').style.display='none'"
-            style="background:var(--accent);color:var(--on-accent);border:none;border-radius:6px;padding:8px 24px;font-size:13px;font-weight:600;cursor:pointer">
-      Close
-    </button>
   </div>
-</div>
 
 </body>
+
 </html>

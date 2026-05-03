@@ -22,8 +22,8 @@ if %ERRORLEVEL% NEQ 0 (
     pip install flask
 )
 
-REM Open browser when the Flask app is ready instead of using a fixed delay
-start "" /b cmd /c "for /l %%i in (1,1,30) do (powershell -NoProfile -Command ""try { Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:5000/api/status' -TimeoutSec 1 | Out-Null; exit 0 } catch { exit 1 }"" >nul 2>&1 && start "" http://localhost:5000 && exit /b 0 || timeout /t 1 >nul)"
+REM Open browser shortly after startup. Flask readiness is also checked by the Docker healthcheck.
+start "" /b cmd /c "timeout /t 3 /nobreak >nul && start "" "http://localhost:5000""
 
 REM Start the dashboard
 cd /d "%~dp0"

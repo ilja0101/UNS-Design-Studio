@@ -9,7 +9,17 @@ def enterprise_structure(cfg: dict, fallback: dict) -> dict:
     if not isinstance(cfg, dict):
         return fallback
     struct = {}
-    for bu in cfg.get('tree', {}).get('children', []):
+
+    def _business_units(node: dict):
+        if not isinstance(node, dict):
+            return
+        if node.get('type') == 'businessUnit':
+            yield node
+            return
+        for child in node.get('children', []):
+            yield from _business_units(child)
+
+    for bu in _business_units(cfg.get('tree', {})):
         if bu.get('type') == 'businessUnit':
             plants = [
                 site['name']
@@ -18,7 +28,7 @@ def enterprise_structure(cfg: dict, fallback: dict) -> dict:
             ]
             if plants:
                 struct[bu['name']] = plants
-    return struct if struct else fallback
+    return struct
 
 
 def sanitize_topic_part(value: str) -> str:

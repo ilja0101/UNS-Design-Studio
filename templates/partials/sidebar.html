@@ -29,15 +29,63 @@
             <span class="cc-nav-icon">↯</span>
             <span>Live UNS View</span>
         </a>
-        <button class="cc-nav-link cc-nav-button" type="button"
-            onclick="if (typeof openSettings === 'function') openSettings()">
+        <a class="cc-nav-link" href="/#settings"
+            onclick="if (typeof openSettings === 'function') { openSettings(); return false; }">
             <span class="cc-nav-icon">⚙</span>
             <span>Network Settings</span>
+        </a>
+        <a class="cc-nav-link" href="/#broker-config"
+            onclick="if (typeof openBridgeCfg === 'function') { openBridgeCfg(); return false; }">
+            <span class="cc-nav-icon">▤</span>
+            <span>Broker Config</span>
+        </a>
+        <button class="cc-nav-link cc-nav-button" type="button" onclick="toggleTheme()">
+            <span class="cc-nav-icon">◐</span>
+            <span>Toggle Theme</span>
         </button>
+
+        <div class="cc-nav-section">Help</div>
+        <a class="cc-nav-link" href="/manual">
+            <span class="cc-nav-icon">?</span>
+            <span>User Manual</span>
+        </a>
     </nav>
+
+    <div class="cc-sidebar-plant-switch">
+        <button class="plant-breaker knife-breaker" id="plantBreaker" onclick="toggleAllPlants()" aria-pressed="false">
+            <span class="breaker-stage" aria-hidden="true">
+                <span class="breaker-backbox"></span>
+                <span class="emergency-plate">
+                    <span class="switch-state switch-state-on">ON</span>
+                    <span class="switch-state switch-state-off">OFF</span>
+                    <span class="emergency-ring"></span>
+                    <span class="emergency-dial">
+                        <span class="dial-pointer"></span>
+                        <span class="dial-screw"></span>
+                    </span>
+                </span>
+            </span>
+            <span class="breaker-copy">
+                <span class="breaker-title">Emergency plant switch</span>
+                <span class="breaker-caption" id="plantBreakerCaption">Plants stopped</span>
+            </span>
+        </button>
+    </div>
 
     <div class="cc-sidebar-footer">
         <div class="cc-sidebar-status"><span class="cc-status-dot"></span><span>dashboard ready</span></div>
-        <div class="cc-sidebar-version"><span>v2 UI Branch</span><span class="cc-sidebar-pill">EDGE</span></div>
+        <button class="cc-about-button" type="button"
+            onclick="document.getElementById('cc-about-popover')?.classList.toggle('open')">
+            <span class="cc-about-icon">i</span>
+            <span>About this app</span>
+        </button>
+        <div class="cc-about-popover" id="cc-about-popover">
+            <strong>UNS Design Studio</strong>
+            <span>Version 3.2</span>
+            <span>Release: May 2026</span>
+            <span>Creator: Ilja Bartels</span>
+            <a href="https://github.com/Ilja0101/UNS-Design-Studio" target="_blank" rel="noopener">GitHub repository</a>
+        </div>
+        <div class="cc-sidebar-version"><span>v3.2</span><span class="cc-sidebar-pill">EDGE</span></div>
     </div>
 </aside>

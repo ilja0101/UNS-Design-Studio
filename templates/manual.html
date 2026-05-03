@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Manual — UNS Design Studio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
+    <script>(function () { var t = localStorage.getItem('uns-theme') || 'dark'; document.documentElement.setAttribute('data-theme', t); })();</script>
+</head>
+
+<body>
+    {% include 'partials/sidebar.html' %}
+
+    <header class="app-header">
+        <div class="header-brand">
+            <span class="logo" aria-hidden="true"></span>
+            <div>
+                <h1>User Manual</h1>
+                <span class="sub">UNS Design Studio</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="btn-theme" onclick="toggleTheme()" title="Toggle light/dark theme"></button>
+        </div>
+    </header>
+
+    <main class="main-content manual-page">
+        <section class="manual-hero cc-card">
+            <div>
+                <p class="manual-kicker">Operator guide</p>
+                <h2>Build, simulate, inspect, and publish a virtual UNS.</h2>
+                <p>UNS Design Studio is a local industrial simulator for designing a Unified Namespace tree, generating
+                    OPC UA data, injecting anomalies, and bridging live values to MQTT or NATS.</p>
+            </div>
+            <div class="manual-quick-actions">
+                <a href="/" class="manual-action">Open Dashboard</a>
+                <a href="/uns" class="manual-action">Design UNS</a>
+                <a href="/live" class="manual-action">Live View</a>
+            </div>
+        </section>
+
+        <section class="manual-grid">
+            <article class="manual-card cc-card">
+                <h3>1. Start the simulator</h3>
+                <ol>
+                    <li>Open the Dashboard.</li>
+                    <li>Press Start Server to launch the OPC UA server.</li>
+                    <li>Wait until Server and OPC UA both show connected.</li>
+                    <li>Use the red emergency plant switch to start or stop all plants.</li>
+                </ol>
+                <p class="manual-note">Plants cannot be started while the OPC UA server is stopped; the switch greys out
+                    and shows a warning.</p>
+            </article>
+
+            <article class="manual-card cc-card">
+                <h3>2. Understand the Dashboard</h3>
+                <ul>
+                    <li>Each plant card shows recipe, OEE, power, produced tons, inbound trucks, and run state.</li>
+                    <li>Running factories light up and emit smoke.</li>
+                    <li>Use Control to set a single plant running/stopped or change recipe.</li>
+                    <li>Use Anomaly to override numeric simulation tags for a configurable duration.</li>
+                </ul>
+            </article>
+
+            <article class="manual-card cc-card">
+                <h3>3. Design the UNS</h3>
+                <ul>
+                    <li>Open UNS Designer to edit enterprise, business units, sites, areas, work centers, work units,
+                        devices, and tags.</li>
+                    <li>Site names remain bare in state keys, while OPC UA site nodes use Factory-prefixed names
+                        internally.</li>
+                    <li>Save changes to rewrite the live UNS configuration, restart the simulator components, and sync
+                        simulation state.</li>
+                </ul>
+            </article>
+
+            <article class="manual-card cc-card">
+                <h3>4. Configure recipes and tags</h3>
+                <ul>
+                    <li>Add recipes at site level and select active recipes from the Dashboard plant control modal.</li>
+                    <li>Add simulation profiles to tags to make them discoverable for dashboard metrics and live
+                        publishing.</li>
+                    <li>Use Payload Schemas to document or shape payload expectations for downstream systems.</li>
+                </ul>
+            </article>
+
+            <article class="manual-card cc-card">
+                <h3>5. Bridge data to MQTT or NATS</h3>
+                <ol>
+                    <li>Open Broker Config from the left menu.</li>
+                    <li>Select MQTT or NATS, configure host, port, credentials, topic prefix, and interval.</li>
+                    <li>Start the bridge from the Dashboard bridge bar.</li>
+                    <li>Monitor OPC, broker status, publish rate, and published message count.</li>
+                </ol>
+            </article>
+
+            <article class="manual-card cc-card">
+                <h3>6. Live UNS View</h3>
+                <ul>
+                    <li>Use Live UNS View to inspect live broker traffic and topic structure.</li>
+                    <li>Start the bridge before expecting live MQTT or NATS updates.</li>
+                    <li>Use the topic tree to verify downstream namespace shape.</li>
+                </ul>
+            </article>
+        </section>
+
+        <section class="manual-card cc-card manual-troubleshooting">
+            <h3>Troubleshooting</h3>
+            <div class="manual-two-col">
+                <div>
+                    <h4>Plants will not start</h4>
+                    <p>Start the OPC UA server first and wait for OPC UA connected status. Then use the emergency plant
+                        switch.</p>
+                </div>
+                <div>
+                    <h4>No broker messages</h4>
+                    <p>Check Broker Config, start the bridge, and confirm the broker status says Connected.</p>
+                </div>
+                <div>
+                    <h4>Metrics show dashes</h4>
+                    <p>Confirm the plant is running, OPC is connected, and tags have simulation profiles for dashboard
+                        discovery.</p>
+                </div>
+                <div>
+                    <h4>Designer changes not visible</h4>
+                    <p>Save the UNS Designer. The dashboard reloads when the enterprise structure changes.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        function toggleTheme() {
+            const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('uns-theme', next);
+        }
+    </script>
+</body>
+
+</html>

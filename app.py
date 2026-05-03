@@ -102,16 +102,25 @@ def _get_division_meta() -> dict:
     Falls back to generic defaults for any group not found."""
     _DEFAULT = {'color': '#58a6ff', 'icon': '🏭', 'label': ''}
     result = {}
+
+    def _business_units(node: dict):
+        if not isinstance(node, dict):
+            return
+        if node.get('type') == 'businessUnit':
+            yield node
+            return
+        for child in node.get('children', []):
+            yield from _business_units(child)
+
     try:
         cfg = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
-        for bu in cfg.get('tree', {}).get('children', []):
-            if bu.get('type') == 'businessUnit':
-                name = bu.get('name', '')
-                result[name] = {
-                    'color': bu.get('color', _DEFAULT['color']),
-                    'icon':  bu.get('icon',  _DEFAULT['icon']),
-                    'label': bu.get('description', bu.get('label', '')),
-                }
+        for bu in _business_units(cfg.get('tree', {})):
+            name = bu.get('name', '')
+            result[name] = {
+                'color': bu.get('color', _DEFAULT['color']),
+                'icon':  bu.get('icon',  _DEFAULT['icon']),
+                'label': bu.get('description', bu.get('label', '')),
+            }
     except Exception:
         pass
     return result
@@ -699,14 +708,18 @@ def api_server_config_save():
 @app.route('/api/plants/start-all', methods=['POST'])
 def api_start_all():
     # sim_state.json is the authoritative control source — no OPC writes needed
-    _write_sim_state(_sim_state_plants(True))
-    _write_sim_state({'simulator_running': True})
+    state = _read_sim_state_raw()
+    state = merge_sim_state_update(state, {'plants': _sim_state_plants(True), 'simulator_running': True})
+    if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
+        raise OSError(f"Could not write {SIM_STATE_FILE}")
     return jsonify({'ok': True, 'msg': 'All plants started'})
 
 @app.route('/api/plants/stop-all', methods=['POST'])
 def api_stop_all():
-    _write_sim_state(_sim_state_plants(False))
-    _write_sim_state({'simulator_running': False})
+    state = _read_sim_state_raw()
+    state = merge_sim_state_update(state, {'plants': _sim_state_plants(False), 'simulator_running': False})
+    if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
+        raise OSError(f"Could not write {SIM_STATE_FILE}")
     return jsonify({'ok': True, 'msg': 'All plants stopped'})
 
 @app.route('/api/plant/control', methods=['POST'])
@@ -1010,6 +1023,10 @@ def api_simulation_profiles():
 @app.route('/live')
 def uns_live():
     return render_template('uns_live.html')
+
+@app.route('/manual')
+def user_manual():
+    return render_template('manual.html')
 
 # ── UNS Topic Designer ─────────────────────────────────────────────────────────
 @app.route('/uns')
