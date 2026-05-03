@@ -16,13 +16,17 @@
 
 ---
 
+## What is this?
+
+UNS Design Studio lets you model an industrial enterprise, generate realistic plant data, and publish it through common OT/IIoT protocols without connecting to real machines. Use it to prototype Unified Namespace designs, teach ISA-95 concepts, test MQTT/NATS pipelines, validate OPC-UA clients, and demo industrial dashboards with configurable sites, assets, recipes, tags, payloads, and faults.
+
 ## Demo
 
-[![UNS Design Studio dashboard](docs/UNS_Design_StudioV3_2.JPG)](docs/UNS%20Design%20Studio%20v2.mp4)
+[![UNS Design Studio dashboard](docs/v2/Main.JPG)](docs/v2/UNS%20Design%20Studio%20v2.mp4)
 
-| UNS Designer | Broker Bridge | Payload Designer |
+| UNS Designer | MQTT Dashboard | Payload Designer |
 |---|---|---|
-| ![UNS Designer](docs/TopicTreeDesigner2.png) | ![Broker Bridge](docs/BrokerBridge.JPG) | ![Payload Designer](docs/Payload_Designer.JPG) |
+| ![UNS Designer](docs/v2/UNS%20modeller.JPG) | ![MQTT Dashboard](docs/v2/Main_mqtt.JPG) | ![Payload Designer](docs/v2/payload.JPG) |
 
 ## Features
 
