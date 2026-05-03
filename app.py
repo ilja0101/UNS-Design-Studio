@@ -150,7 +150,10 @@ _locks = {
     'data':   threading.Lock(),
     'proc':   threading.Lock(),
     'bridge': threading.Lock(),
+    'sim_control': threading.Lock(),
 }
+
+SIM_STATE_START_RESET_SECONDS = 2.0
 
 def _start_periodic_sync(interval: int = 10):
     """Start a background thread that periodically calls _ensure_sim_state_synced()."""
@@ -439,6 +442,58 @@ def _mark_all_plants_stopped(reason: str = '') -> bool:
     if reason:
         _log(f"[sim-state] Marked all plants stopped: {reason}")
     return True
+
+def _write_all_plants_running(reason: str = ''):
+    """Persist all plant running flags as running, preserving recipes and plant metadata."""
+    state = _read_sim_state_raw()
+    state['plants'] = _sim_state_plants(True)
+    state['simulator_running'] = True
+    if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
+        raise OSError(f"Could not write {SIM_STATE_FILE}")
+    if reason:
+        _log(f"[sim-state] Marked all plants running: {reason}")
+
+def _write_single_plant_running(plant_key: str, running: bool, reason: str = ''):
+    """Persist one plant running flag and keep the global simulator flag consistent."""
+    _write_sim_state({plant_key: {'running': bool(running)}})
+    sim_state = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
+    current_plants = sim_state.get('plants', {}) if isinstance(sim_state, dict) else {}
+    if bool(running):
+        _write_sim_state({'simulator_running': True})
+    else:
+        any_running = any(
+            (v.get('running', False) if isinstance(v, dict) else bool(v))
+            for k, v in current_plants.items() if k != plant_key
+        )
+        _write_sim_state({'simulator_running': any_running})
+    if reason:
+        _log(f"[sim-state] Marked plant {plant_key} {'running' if running else 'stopped'}: {reason}")
+
+def _reset_then_start_all_plants(delay_seconds: float = SIM_STATE_START_RESET_SECONDS):
+    """Force a durable stopped snapshot before starting all plants."""
+    with _locks['sim_control']:
+        _ensure_sim_state_synced()
+        _mark_all_plants_stopped('start-all reset before start')
+        _log(f"[sim-state] Waiting {delay_seconds:.1f}s before start-all so factory.py can observe stopped state")
+        time.sleep(delay_seconds)
+        if not _server_alive():
+            _mark_all_plants_stopped('factory process stopped during start-all reset')
+            return False, 'OPC UA server stopped before plants could be started'
+        _write_all_plants_running('start-all after reset')
+        return True, f'All plants started after {delay_seconds:.1f}s reset'
+
+def _reset_then_start_plant(plant_key: str, delay_seconds: float = SIM_STATE_START_RESET_SECONDS):
+    """Force a durable stopped snapshot before starting one plant."""
+    with _locks['sim_control']:
+        _ensure_sim_state_synced()
+        _write_single_plant_running(plant_key, False, 'single-plant reset before start')
+        _log(f"[sim-state] Waiting {delay_seconds:.1f}s before starting {plant_key} so factory.py can observe stopped state")
+        time.sleep(delay_seconds)
+        if not _server_alive():
+            _write_single_plant_running(plant_key, False, 'factory process stopped during single-plant reset')
+            return False, 'OPC UA server stopped before plant could be started'
+        _write_single_plant_running(plant_key, True, 'single-plant after reset')
+        return True, f'Plant started after {delay_seconds:.1f}s reset'
 
 def _reconcile_sim_state_with_process(reason: str = ''):
     """Clear stale persisted running flags whenever the managed factory process is not alive."""
@@ -786,17 +841,8 @@ def api_start_all():
     if not _server_alive():
         _mark_all_plants_stopped('start-all requested without factory process')
         return jsonify({'ok': False, 'msg': 'Start the OPC UA server before starting plants'}), 409
-    _ensure_sim_state_synced()
-    # Force a clean stopped baseline before starting. This clears any stale
-    # persisted running flags from a previous dashboard/server lifetime and
-    # gives factory.py a deterministic stop→start transition to observe.
-    _mark_all_plants_stopped('start-all reset before start')
-    state = _read_sim_state_raw()
-    state['plants'] = _sim_state_plants(True)
-    state['simulator_running'] = True
-    if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
-        raise OSError(f"Could not write {SIM_STATE_FILE}")
-    return jsonify({'ok': True, 'msg': 'All plants started'})
+    ok, msg = _reset_then_start_all_plants()
+    return jsonify({'ok': ok, 'msg': msg}), 200 if ok else 409
 
 @app.route('/api/plants/stop-all', methods=['POST'])
 def api_stop_all():
@@ -816,17 +862,13 @@ def api_plant_control():
         if bool(value) and not _server_alive():
             _mark_all_plants_stopped('plant start requested without factory process')
             return jsonify({'ok': False, 'msg': 'Start the OPC UA server before starting plants'}), 409
-        _write_sim_state({plant_key: {'running': bool(value)}})
-        sim_state = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
-        current_plants = sim_state.get('plants', {}) if isinstance(sim_state, dict) else {}
         if bool(value):
-            _write_sim_state({'simulator_running': True})
+            ok, msg = _reset_then_start_plant(plant_key)
+            if not ok:
+                return jsonify({'ok': False, 'msg': msg}), 409
         else:
-            any_running = any(
-                (v.get('running', False) if isinstance(v, dict) else bool(v))
-                for k, v in current_plants.items() if k != plant_key
-            )
-            _write_sim_state({'simulator_running': any_running})
+            with _locks['sim_control']:
+                _write_single_plant_running(plant_key, False, 'single-plant stop requested')
     elif action == 'set_recipe':
         plant_key = f"{group}|{plant}"
         _write_sim_state({plant_key: {'recipe': str(value)}})

@@ -626,17 +626,14 @@ async def run_simulation(variables, anomaly_key_map):
 
     while not stop_flag:
         sim_state = _read_sim_state()
-
-        if not sim_state.get('simulator_running', True):
-            await asyncio.sleep(1)
-            continue
+        simulator_running = bool(sim_state.get('simulator_running', True))
 
         # Tick every plant state machine
         for pk in plant_keys:
             plant_data = sim_state.get(pk, {})
             if isinstance(plant_data, bool):
                 plant_data = {'running': plant_data}
-            running = plant_data.get('running', False)
+            running = simulator_running and plant_data.get('running', False)
             ps = _get_plant_state(pk, _group_from_key(pk))
             ps.tick(running, plant_data)
 
