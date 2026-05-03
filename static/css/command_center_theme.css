@@ -329,10 +329,10 @@ header span {
 .plant-breaker {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
-  min-height: 116px;
-  padding: 12px 18px 12px 12px;
-  border-radius: 22px !important;
+  gap: 8px;
+  min-height: 70px;
+  padding: 7px 11px 7px 7px;
+  border-radius: 14px !important;
   border: 2px solid #7f1d1d !important;
   background:
     radial-gradient(circle at 22% 22%, rgba(254, 202, 202, .28), transparent 18rem),
@@ -406,29 +406,29 @@ header span {
 
 .breaker-stage {
   position: relative;
-  width: 134px;
-  height: 102px;
-  flex: 0 0 134px;
+  width: 80px;
+  height: 61px;
+  flex: 0 0 80px;
 }
 
 .breaker-backbox {
   position: absolute;
-  left: 32px;
-  top: 8px;
-  width: 90px;
-  height: 79px;
-  border-radius: 8px;
+  left: 19px;
+  top: 5px;
+  width: 54px;
+  height: 47px;
+  border-radius: 5px;
   background: linear-gradient(145deg, #111827 0%, #030712 100%);
   box-shadow: 10px 7px 0 rgba(17, 24, 39, .42), inset 0 2px 0 rgba(255, 255, 255, .08);
 }
 
 .emergency-plate {
   position: absolute;
-  left: 10px;
-  top: 10px;
-  width: 90px;
-  height: 90px;
-  border-radius: 15px;
+  left: 6px;
+  top: 6px;
+  width: 54px;
+  height: 54px;
+  border-radius: 9px;
   background: linear-gradient(145deg, #fde047 0%, #facc15 58%, #ca8a04 100%);
   border: 2px solid #a16207;
   box-shadow: inset 0 3px 0 rgba(255, 255, 255, .30), 0 8px 16px rgba(69, 10, 10, .30);
@@ -436,7 +436,7 @@ header span {
 
 .emergency-ring {
   position: absolute;
-  inset: 9px;
+  inset: 5px;
   border-radius: 50%;
   background: radial-gradient(circle at 50% 50%, transparent 0 42%, #dc2626 43% 100%);
   box-shadow: inset 0 9px 0 rgba(255, 255, 255, .18), inset 0 -12px 18px rgba(69, 10, 10, .22);
@@ -444,10 +444,10 @@ header span {
 
 .emergency-dial {
   position: absolute;
-  left: 20px;
-  top: 20px;
-  width: 50px;
-  height: 50px;
+  left: 12px;
+  top: 12px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: radial-gradient(circle at 37% 30%, #ef4444 0%, #dc2626 48%, #7f1d1d 100%);
   box-shadow: inset 0 5px 0 rgba(255, 255, 255, .16), 0 8px 18px rgba(69, 10, 10, .34);
@@ -457,10 +457,10 @@ header span {
 
 .dial-pointer {
   position: absolute;
-  left: 6px;
-  top: 20px;
-  width: 56px;
-  height: 14px;
+  left: 4px;
+  top: 12px;
+  width: 34px;
+  height: 8px;
   border-radius: 999px 8px 8px 999px;
   background: linear-gradient(180deg, #ff6b4a 0%, #dc2626 58%, #991b1b 100%);
   box-shadow: inset 0 3px 0 rgba(255, 255, 255, .20), 0 5px 12px rgba(69, 10, 10, .30);
@@ -468,10 +468,10 @@ header span {
 
 .dial-screw {
   position: absolute;
-  left: 21px;
-  top: 21px;
-  width: 8px;
-  height: 8px;
+  left: 13px;
+  top: 13px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: radial-gradient(circle, #fef3c7 0%, #d1d5db 48%, #6b7280 100%);
   box-shadow: 0 1px 2px rgba(0, 0, 0, .4);
@@ -480,20 +480,20 @@ header span {
 .switch-state {
   position: absolute;
   z-index: 4;
-  font-size: 8px;
+  font-size: 5px;
   font-weight: 950;
   color: #7f1d1d;
   letter-spacing: .08em;
 }
 
 .switch-state-on {
-  top: 11px;
-  left: 38px;
+  top: 7px;
+  left: 23px;
 }
 
 .switch-state-off {
-  bottom: 10px;
-  left: 35px;
+  bottom: 6px;
+  left: 21px;
 }
 
 .plant-breaker.is-on .emergency-dial {
@@ -506,7 +506,7 @@ header span {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
-  min-width: 190px;
+  min-width: 114px;
 }
 
 .breaker-title {
@@ -516,7 +516,7 @@ header span {
 }
 
 .breaker-caption {
-  font-size: 20px;
+  font-size: 13px;
   font-weight: 950;
   color: #ffffff;
   text-align: left;
