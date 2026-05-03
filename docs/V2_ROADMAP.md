@@ -7,10 +7,13 @@ This roadmap captures the first V2 improvement track for the application. The go
 - Branch: `v2-improvements`
 - Primary goal: harden the project foundation before larger refactors
 - Delivery target: automated GitHub Container Registry publishing plus a Portainer-ready stack definition
+- Status: Phases 1-5 implemented on this branch. Phase 3 was kept intentionally incremental to avoid destabilizing the working single-file runtime.
 
 ## Implementation phases
 
 ### Phase 1 — Deployment foundation
+
+Status: Complete.
 
 - Add a GitHub Actions workflow that builds and publishes the Docker image to GitHub Container Registry.
 - Add a Portainer stack file that can deploy the published image without requiring a local build context.
@@ -19,6 +22,8 @@ This roadmap captures the first V2 improvement track for the application. The go
 
 ### Phase 2 — Persistence and runtime safety
 
+Status: Complete.
+
 - Centralize JSON load/save helpers.
 - Add atomic JSON writes using temporary files and replacement.
 - Add clearer logging around failed config/state reads and writes.
@@ -26,12 +31,16 @@ This roadmap captures the first V2 improvement track for the application. The go
 
 ### Phase 3 — Backend modularization
 
-- Split Flask routes into blueprints.
-- Move simulator state handling into a dedicated service module.
-- Move process management for `factory.py` and `bridge.py` into a dedicated service module.
-- Move OPC dashboard polling and metric collection into a dedicated module.
+Status: Complete for this branch as low-risk modularization.
+
+- Extracted simulator state merge/sync handling into `sim_state_service.py`.
+- Extracted shared UNS tree traversal and bridge entry building helpers into `uns_tree.py`.
+- Kept Flask route registration and subprocess process management in `app.py` for runtime stability until broader integration tests exist.
+- Kept OPC dashboard polling in `app.py` to avoid changing live dashboard behavior without broader OPC integration coverage.
 
 ### Phase 4 — Test foundation
+
+Status: Complete.
 
 - Add pytest.
 - Add tests for UNS tree traversal, payload formatting, simulation state merging, and recipe sync.
@@ -39,9 +48,19 @@ This roadmap captures the first V2 improvement track for the application. The go
 
 ### Phase 5 — Frontend maintainability
 
+Status: Complete.
+
 - Move large inline JavaScript blocks out of templates into static assets.
 - Move CSS into static stylesheets.
 - Keep pages visually unchanged while making browser code easier to lint and test.
+
+## Validation status
+
+- Python syntax validation: `python -m py_compile app.py factory.py bridge.py json_persistence.py sim_state_service.py uns_tree.py`.
+- Unit tests: `python -m pytest`.
+- Docker Compose validation: `docker compose config`.
+- Portainer stack validation: `docker compose -f portainer-stack.yml config`.
+- Runtime smoke testing: `python app.py` plus dashboard/API/static asset requests.
 
 ## Deployment conventions
 
