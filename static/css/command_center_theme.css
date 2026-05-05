@@ -62,6 +62,9 @@ body::before {
   flex-direction: column;
   padding: 18px 12px;
   color: #ffffff;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .cc-sidebar-brand {
@@ -250,6 +253,9 @@ textarea {
   color: var(--text) !important;
   border: 1px solid #d1d5db !important;
   box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.04);
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 input:focus,

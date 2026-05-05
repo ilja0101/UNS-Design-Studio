@@ -840,6 +840,35 @@ function doImport() {
     if (merge && uns.tree && uns.tree.children) {
       const incoming = d.tree.children || [];
       if (!incoming.length) throw new Error('Nothing to merge — imported tree has no children');
+
+      const incomingEnt = d.tree;
+      const droppedMeta = [];
+      if (incomingEnt.type === 'enterprise' && incomingEnt.name && incomingEnt.name !== uns.tree.name) {
+        droppedMeta.push(`enterprise name "${incomingEnt.name}"`);
+      }
+      if (d.namespaceUri && d.namespaceUri !== (uns.namespaceUri || '')) {
+        droppedMeta.push(`namespaceUri "${d.namespaceUri}"`);
+      }
+      if (d.description && d.description !== (uns.description || '')) {
+        droppedMeta.push('top-level description');
+      }
+
+      const existingNames = new Set((uns.tree.children || []).map(c => c.name));
+      const collisions = incoming.map(c => c.name).filter(n => existingNames.has(n));
+
+      const warnings = [];
+      if (droppedMeta.length) {
+        warnings.push(`Imported wrapper will be DISCARDED — only its child nodes are merged.\nDropped: ${droppedMeta.join(', ')}.`);
+      }
+      if (collisions.length) {
+        warnings.push(`Name collision — duplicate top-level nodes will be created: ${collisions.join(', ')}.`);
+      }
+
+      if (warnings.length) {
+        const msg = warnings.join('\n\n') + '\n\nProceed with merge?';
+        if (!confirm(msg)) return;
+      }
+
       uns.tree.children = uns.tree.children.concat(incoming);
       toast(`Merged ${incoming.length} node(s) into existing tree`, 'ok');
     } else {
