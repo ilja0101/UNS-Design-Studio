@@ -10,7 +10,7 @@ import os, sys, time, json, socket, threading, subprocess, hashlib, atexit, sign
 from flask import Flask, render_template, jsonify, request
 from json_persistence import load_json, save_json_atomic
 from sim_state_service import get_site_recipes, merge_sim_state_update, sync_sim_state_with_uns
-from uns_tree import enterprise_structure
+from uns_tree import enterprise_structure, resolve_enterprise_root
 
 # ── Adjust path so recipe.py is importable ────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +23,7 @@ UNS_CONFIG_FILE      = os.path.join(BASE_DIR, 'uns_config.json')
 SCHEMAS_CONFIG_FILE  = os.path.join(BASE_DIR, 'payload_schemas.json')
 SERVER_CONFIG_FILE   = os.path.join(BASE_DIR, 'server_config.json')
 SIM_STATE_FILE       = os.path.join(BASE_DIR, 'sim_state.json')
+VIZ_CONFIG_FILE      = os.path.join(BASE_DIR, 'visualization.json')
 
 def _json_log(msg: str):
     print(msg, flush=True)
@@ -66,11 +67,11 @@ def _get_namespace_uri() -> str:
 # ── DYNAMIC ENTERPRISE NAME (FIXED) ───────────────────────────────────────────
 def _get_enterprise_name() -> str:
     """Return the root enterprise name from uns_config.json.
-    This is the critical fix that makes any custom namespace root (AcmeEnterprise, MyCompany, etc.)
-    work with the dashboard, polling loop, and OPC-UA client."""
+    Supports both legacy (tree IS enterprise) and wrapper (tree.children[0] is enterprise) layouts."""
     try:
         cfg = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
-        return cfg.get('tree', {}).get('name', 'GlobalFoodCo')
+        name, _ = resolve_enterprise_root(cfg.get('tree', {}) if isinstance(cfg, dict) else {})
+        return name
     except Exception:
         return 'GlobalFoodCo'
 
@@ -137,6 +138,7 @@ _state = {
     'server_logs': [],
     'opc_connected': False,
     'plant_data':  {},
+    'viz_values':  {},
     # Bridge
     'bridge_proc':  None,
     'bridge_stats': {
@@ -713,9 +715,10 @@ def _poll_loop():
 
             ns_idx = None
             ent = None
+            current_namespace = _get_namespace_uri()
             for attempt in range(12):
                 try:
-                    ns_idx = client.get_namespace_index(NAMESPACE_URI)
+                    ns_idx = client.get_namespace_index(current_namespace)
                 except Exception as e:
                     if "BadNoMatch" in str(e):
                         time.sleep(0.5)
@@ -732,6 +735,8 @@ def _poll_loop():
 
             if ent is None:
                 _state['opc_connected'] = False
+                with _locks['data']:
+                    _state['viz_values'] = {}
                 _log(f"[poll] OPC UA available but root node '{current_enterprise}' not ready yet")
                 try:
                     client.disconnect()
@@ -750,9 +755,12 @@ def _poll_loop():
                 try:
                     with _locks['data']:
                         _state['plant_data'] = _collect_plant_data(ent, ns_idx)
+                        _state['viz_values'] = _collect_viz_values(ent, ns_idx)
                 except Exception as e:
                     _log(f"[poll] Data collection error (triggering reconnect): {e}")
                     _state['opc_connected'] = False
+                    with _locks['data']:
+                        _state['viz_values'] = {}
                     break
                 time.sleep(3)
 
@@ -763,6 +771,8 @@ def _poll_loop():
 
         except Exception as e:
             _state['opc_connected'] = False
+            with _locks['data']:
+                _state['viz_values'] = {}
             err_str = str(e)
             if "10061" in err_str or "ConnectionRefused" in err_str or "Connection refused" in err_str:
                 _log("[poll] OPC UA unavailable: Connection refused - Is the factory server running?")
@@ -783,7 +793,7 @@ def _opc_write(fn):
         enterprise_name = _get_enterprise_name()
         client = Client(_endpoint())
         client.connect()
-        idx  = client.get_namespace_index(NAMESPACE_URI)
+        idx  = client.get_namespace_index(_get_namespace_uri())
         root = client.get_root_node()
         ent  = root.get_child(["0:Objects", f"{idx}:{enterprise_name}"])
         result = fn(client, idx, ent)
@@ -1321,6 +1331,76 @@ def api_schemas_save():
     if not save_json_atomic(SCHEMAS_CONFIG_FILE, data, ensure_ascii=False, logger=_json_log, label='payload_schemas.json'):
         return jsonify({'ok': False, 'error': 'Could not write payload schemas'}), 500
     return jsonify({'ok': True})
+
+# ── Visualization (SCADA mimic) ───────────────────────────────────────────────
+# Pure logic lives in viz_service.py; this module only holds the Flask routes
+# and the OPC traversal callable used by the poll loop.
+
+import viz_service
+
+def _suggest_kind(name): return viz_service.suggest_kind(name)
+def _load_viz_cfg(): return viz_service.load_viz_cfg(VIZ_CONFIG_FILE)
+def _save_viz_cfg(data): viz_service.save_viz_cfg(VIZ_CONFIG_FILE, data)
+def _walk_viz_entities(): return viz_service.walk_entities(UNS_CONFIG_FILE)
+def _viz_resolve_tag_path(entity_id, tag_name):
+    return viz_service.resolve_tag_path(UNS_CONFIG_FILE, entity_id, tag_name)
+
+def _collect_viz_values(ent, idx):
+    """Bridge viz_service.collect_values to a live OPC client (poll loop only)."""
+    def read(path):
+        try:
+            n = ent
+            for part in path:
+                n = n.get_child([f"{idx}:{part}"])
+            return n.get_value()
+        except Exception:
+            return None
+    return viz_service.collect_values(
+        _load_viz_cfg().get('gauges', []),
+        _viz_resolve_tag_path,
+        read,
+    )
+
+@app.route('/viz')
+def viz_page():
+    return render_template('visualization.html')
+
+@app.route('/api/viz/config', methods=['GET'])
+def api_viz_get():
+    return jsonify(_load_viz_cfg())
+
+@app.route('/api/viz/config', methods=['POST'])
+def api_viz_save():
+    data = request.json or {}
+    data.setdefault('version', 1)
+    data['lastModified'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
+    _save_viz_cfg(data)
+    return jsonify({'ok': True})
+
+@app.route('/api/viz/entities', methods=['GET'])
+def api_viz_entities():
+    mapped   = _load_viz_cfg().get('entities', {})
+    entities = _walk_viz_entities()
+    for e in entities:
+        cur = mapped.get(e['id'], {})
+        e['suggestion'] = _suggest_kind(e['name'])
+        e['kind']       = cur.get('kind') or e['suggestion']
+        e['mapped']     = bool(cur.get('kind'))
+    return jsonify({'kinds': viz_service.EQUIPMENT_KINDS, 'entities': entities})
+
+@app.route('/api/viz/values', methods=['GET'])
+def api_viz_values():
+    with _locks['data']:
+        values = dict(_state.get('viz_values') or {})
+    return jsonify({
+        'values':    values,
+        'opc_ready': bool(_state.get('opc_connected')),
+        'ts':        time.time(),
+    })
+
+@app.route('/api/viz/tags/<path:entity_id>', methods=['GET'])
+def api_viz_tags(entity_id):
+    return jsonify({'tags': viz_service.entity_tags(UNS_CONFIG_FILE, entity_id)})
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == '__main__':

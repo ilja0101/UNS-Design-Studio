@@ -36,9 +36,34 @@ def sanitize_topic_part(value: str) -> str:
     return re.sub(r'[\s#+]', '_', value)
 
 
+def resolve_enterprise_root(tree: dict, default_name: str = 'GlobalFoodCo') -> tuple:
+    """Resolve the enterprise root node from a UNS tree.
+
+    Two layouts supported:
+      • Tree IS the enterprise (has 'name')   → (tree['name'], tree)
+      • Tree is a wrapper with one child     → (child['name'], child)
+    Falls back to (default_name, tree) when neither is present.
+    """
+    if not isinstance(tree, dict):
+        return (default_name, {})
+    name = tree.get('name', '')
+    if name:
+        return (name, tree)
+    for child in tree.get('children', []):
+        if isinstance(child, dict) and child.get('name'):
+            return (child['name'], child)
+    return (default_name, tree)
+
+
 def build_bridge_entries(tree: dict, sep: str, prefix: str) -> list:
-    """Walk the UNS config tree and return bridge entries for explicitly configured tags."""
+    """Walk the UNS config tree and return bridge entries for explicitly configured tags.
+
+    Walking starts at the enterprise node — wrapper trees are unwrapped so
+    opc_parts and topic always start with the enterprise name (matching the
+    OPC root created by factory.py).
+    """
     entries = []
+    _, enterprise_node = resolve_enterprise_root(tree)
 
     def _walk(node, uns_parts, opc_parts, area_opc_parts):
         ntype = node.get('type', '')
@@ -71,5 +96,5 @@ def build_bridge_entries(tree: dict, sep: str, prefix: str) -> list:
         for child in node.get('children', []):
             _walk(child, new_uns, new_opc, new_area_opc)
 
-    _walk(tree, [], [], [])
+    _walk(enterprise_node, [], [], [])
     return entries

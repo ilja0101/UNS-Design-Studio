@@ -1,0 +1,9 @@
+{
+  "name": "uns-design-studio-frontend-tests",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Node test runner for browser-side pure helpers (no deps).",
+  "scripts": {
+    "test": "node --test \"tests-js/**/*.test.js\""
+  }
+}

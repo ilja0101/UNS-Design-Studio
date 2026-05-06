@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNS Design Studio – Visualization</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117; --surface:#161b22; --surface2:#1c2128; --surface3:#21262d;
+  --border:#30363d; --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff;
+  --green:#3fb950; --red:#f85149; --yellow:#e3b341; --orange:#d29922; --purple:#a371f7;
+  --radius:8px; --shadow:0 4px 16px rgba(0,0,0,.5); --on-accent:#0d1117;
+}
+[data-theme="light"]{
+  --bg:#f6f8fa; --surface:#ffffff; --surface2:#f0f2f5; --surface3:#e8ebef;
+  --border:#d0d7de; --text:#1f2328; --muted:#656d76; --accent:#0969da;
+  --green:#1a7f37; --red:#cf222e; --yellow:#9a6700; --orange:#953800; --purple:#8250df;
+  --shadow:0 4px 16px rgba(0,0,0,.1); --on-accent:#ffffff;
+}
+html,body{height:100%;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+  background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+button{cursor:pointer;border:none;border-radius:6px;font:inherit;transition:opacity .15s,transform .1s}
+button:hover{opacity:.85}
+button:active{transform:scale(.97)}
+select,input{font:inherit;background:var(--surface3);color:var(--text);
+  border:1px solid var(--border);border-radius:6px;padding:6px 10px;outline:none}
+select:focus,input:focus{border-color:var(--accent)}
+body{display:flex;flex-direction:column;min-height:100vh}
+/* edit mode locks viewport so the canvas takes the full screen */
+body.canvas-edit{height:100vh;overflow:hidden;min-height:0}
+
+.app-header{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 20px;height:56px;display:flex;align-items:center;gap:16px;flex-shrink:0;
+  position:sticky;top:0;z-index:100}
+.header-brand{display:flex;align-items:center;gap:10px}
+.header-brand .logo{font-size:24px}
+.header-brand h1{font-size:15px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+.header-brand .sub{font-size:11px;color:var(--muted);display:block;letter-spacing:.5px;text-transform:uppercase}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.header-right a, .header-right button{
+  background:var(--surface3);color:var(--text);border:1px solid var(--border);
+  padding:6px 12px;border-radius:6px;font-size:13px;text-decoration:none;white-space:nowrap}
+.header-right a.active{border-color:var(--accent);color:var(--accent)}
+
+.tabs{background:var(--surface2);border-bottom:1px solid var(--border);
+  padding:0 20px;display:flex;align-items:center;gap:4px;flex-shrink:0}
+.tab{padding:12px 16px;border-bottom:2px solid transparent;color:var(--muted);
+  font-size:13px;font-weight:600;cursor:pointer;background:none;border-radius:0}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+.view{flex:1;display:none;overflow:hidden}
+.view.active{display:flex}
+
+/* ── Wizard ─────────────────────────────────────────────────────────────── */
+#viewWizard{flex-direction:column;padding:20px;overflow:auto}
+.wizard-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px}
+.wizard-head h2{font-size:18px;font-weight:600}
+.wizard-head .sub{color:var(--muted);font-size:13px;margin-top:2px}
+.wizard-actions{display:flex;gap:8px}
+.btn-primary{background:var(--accent);color:var(--on-accent);padding:8px 16px;font-weight:600;font-size:13px}
+.btn-secondary{background:var(--surface3);color:var(--text);border:1px solid var(--border);padding:8px 16px;font-size:13px}
+
+.entity-table{width:100%;border-collapse:collapse;background:var(--surface);
+  border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.entity-table th{background:var(--surface2);padding:10px 14px;text-align:left;
+  font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;
+  border-bottom:1px solid var(--border)}
+.entity-table td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.entity-table tr:last-child td{border-bottom:none}
+.entity-table tr:hover{background:var(--surface2)}
+.entity-name{font-weight:600}
+.entity-path{color:var(--muted);font-size:11px;font-family:ui-monospace,monospace;margin-top:2px}
+.entity-type-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;
+  font-weight:600;text-transform:uppercase;letter-spacing:.5px;
+  background:var(--surface3);color:var(--muted)}
+.entity-type-badge.site{background:color-mix(in srgb,var(--purple) 20%,transparent);color:var(--purple)}
+.entity-type-badge.area{background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accent)}
+.entity-type-badge.workCenter{background:color-mix(in srgb,var(--yellow) 20%,transparent);color:var(--yellow)}
+.entity-type-badge.workUnit{background:color-mix(in srgb,var(--green) 20%,transparent);color:var(--green)}
+.kind-cell{display:flex;align-items:center;gap:8px}
+.kind-preview{width:32px;height:32px;flex-shrink:0;background:var(--surface3);
+  border:1px solid var(--border);border-radius:4px;padding:3px;display:flex;align-items:center;justify-content:center}
+.kind-preview svg{width:100%;height:100%}
+.suggestion-tag{font-size:10px;color:var(--muted);font-style:italic}
+
+.factory-group{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  margin-bottom:12px;overflow:hidden}
+.factory-group[open]{box-shadow:var(--shadow)}
+.factory-head{background:var(--surface2);padding:12px 16px;cursor:pointer;display:flex;
+  align-items:center;gap:12px;font-size:13px;list-style:none;user-select:none}
+.factory-head::-webkit-details-marker{display:none}
+.factory-head::before{content:'▶';font-size:10px;color:var(--muted);transition:transform .15s}
+.factory-group[open] .factory-head::before{transform:rotate(90deg)}
+.factory-head:hover{background:var(--surface3)}
+.factory-name{font-weight:700;font-size:14px}
+.factory-path{color:var(--muted);font-size:11px;font-family:ui-monospace,monospace}
+.factory-stats{margin-left:auto;color:var(--muted);font-size:12px}
+.factory-group .entity-table{border:none;border-radius:0}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-state h3{margin-bottom:8px}
+
+/* ── Canvas ─────────────────────────────────────────────────────────────── */
+#viewCanvas{flex-direction:column}
+/* in view mode, the canvas tab grows with its content so the page can scroll
+   naturally; in edit mode (body.canvas-edit) it fills the locked viewport */
+body:not(.canvas-edit) #viewCanvas{flex:0 0 auto;overflow:visible}
+.canvas-toolbar{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:8px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;font-size:12px}
+.canvas-toolbar label{color:var(--muted);font-size:12px;display:flex;align-items:center;gap:6px}
+.canvas-toolbar select{padding:4px 8px;font-size:12px}
+/* host shrinks to content in view mode; expands to fill in edit mode */
+.canvas-host{overflow:auto;background:var(--bg);position:relative}
+body.canvas-edit .canvas-host{flex:1;min-height:0}
+.canvas-host svg.scada{display:block;background:
+  radial-gradient(var(--surface2) 1px, transparent 1px) 0 0/16px 16px,
+  var(--bg)}
+
+.legend{position:absolute;top:12px;right:12px;background:var(--surface);
+  border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:11px;
+  display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow)}
+.legend-row{display:flex;align-items:center;gap:6px}
+.legend-dot{width:10px;height:10px;border-radius:2px}
+.legend-section{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.5px;margin-top:2px}
+.legend-section:first-child{margin-top:0}
+.legend-dot.running{background:var(--green)}
+.legend-dot.fault{background:var(--red)}
+.legend-dot.stopped{background:var(--muted)}
+.legend-dot.neutral{background:var(--surface3);border:1px solid var(--border)}
+.legend-dot.led-on{background:var(--green);border-radius:50%}
+.legend-dot.led-off{background:var(--red);border-radius:50%}
+
+/* ── Edit mode ──────────────────────────────────────────────────────────── */
+.tool-btn{padding:5px 10px;font-size:12px;background:var(--surface2);
+  color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer}
+.tool-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tool-btn.active{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.tool-btn[disabled]{opacity:.4;pointer-events:none}
+.tool-divider{width:1px;height:22px;background:var(--border);margin:0 4px}
+.mode-badge{padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.5px}
+.mode-badge.view{background:var(--surface3);color:var(--muted)}
+.mode-badge.edit{background:color-mix(in srgb,var(--yellow) 25%,transparent);color:var(--yellow)}
+
+svg.scada .viz-node{cursor:default}
+svg.scada.edit .viz-node{cursor:grab}
+svg.scada.edit .viz-node.dragging{cursor:grabbing}
+svg.scada.edit .viz-node:hover rect{stroke-width:3}
+svg.scada .viz-node.selected rect{stroke:var(--yellow);stroke-width:3;
+  filter:drop-shadow(0 0 6px color-mix(in srgb,var(--yellow) 50%,transparent))}
+svg.scada .viz-node.link-source rect{stroke:var(--accent);stroke-width:3;
+  stroke-dasharray:4 3}
+
+svg.scada .viz-link{cursor:default;fill:none}
+svg.scada.edit .viz-link{cursor:pointer}
+svg.scada.edit .viz-link:hover{stroke:var(--accent);stroke-width:3}
+svg.scada .viz-link.selected{stroke:var(--yellow);stroke-width:3}
+svg.scada .viz-link.parent{stroke:var(--border);stroke-width:1.5;stroke-dasharray:4 3}
+svg.scada .viz-link.user{stroke:var(--accent);stroke-width:2}
+svg.scada .viz-link.user.pipe{stroke:var(--purple);stroke-width:3}
+
+svg.scada .ghost-link{stroke:var(--accent);stroke-width:2;
+  stroke-dasharray:4 3;fill:none;pointer-events:none;opacity:.7}
+
+/* ── Gauges (widgets on canvas) ─────────────────────────────────────────── */
+svg.scada .viz-gauge{cursor:default}
+svg.scada.edit .viz-gauge{cursor:grab}
+svg.scada.edit .viz-gauge.dragging{cursor:grabbing}
+svg.scada .viz-gauge.selected .gauge-bg{stroke:var(--yellow);stroke-width:2}
+svg.scada.edit .viz-gauge:hover .gauge-bg{stroke:var(--accent);stroke-width:2}
+svg.scada .gauge-bg{fill:var(--surface);stroke:var(--border);stroke-width:1}
+svg.scada .gauge-label{font-size:9px;fill:var(--muted);font-family:system-ui,sans-serif}
+svg.scada .gauge-value{font-size:14px;fill:var(--text);font-weight:700;font-family:ui-monospace,monospace}
+svg.scada .gauge-unit{font-size:8px;fill:var(--muted)}
+svg.scada .gauge-arc-bg{stroke:var(--border);fill:none;opacity:.9}
+svg.scada .gauge-arc-fg{stroke:var(--accent);fill:none;transition:stroke-dasharray .3s}
+[data-theme="light"] svg.scada .gauge-arc-bg{stroke:var(--muted);opacity:.5}
+svg.scada .gauge-bar-bg{fill:var(--surface3)}
+svg.scada .gauge-bar-fg{fill:var(--accent);transition:width .3s}
+svg.scada .gauge-led{stroke-width:2}
+svg.scada .gauge-fill-bg{fill:var(--surface3);stroke:var(--border);stroke-width:1}
+svg.scada .gauge-fill-fg{fill:var(--accent);transition:height .3s,y .3s}
+
+/* anim: pipe flow */
+@keyframes pipeFlow { from { stroke-dashoffset: 0 } to { stroke-dashoffset: -16 } }
+svg.scada .viz-link.user.pipe.flowing{stroke-dasharray:8 8;animation:pipeFlow 1s linear infinite}
+
+/* anim: motor/pump rotation */
+@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+svg.scada .viz-node.spinning use{transform-box:fill-box;transform-origin:center;animation:spin 2s linear infinite}
+
+/* anim: fault flash */
+@keyframes faultFlash { 0%,100% { opacity:1 } 50% { opacity:.3 } }
+svg.scada .viz-node.fault rect{animation:faultFlash 1s ease-in-out infinite}
+
+/* ── Modal ──────────────────────────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:998;
+  display:flex;align-items:center;justify-content:center}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  width:440px;max-width:95vw;box-shadow:var(--shadow);overflow:hidden}
+.modal-head{padding:14px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:14px}
+.modal-body{padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.modal-foot{padding:12px 18px;border-top:1px solid var(--border);
+  display:flex;justify-content:flex-end;gap:8px}
+.modal label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.modal label input,.modal label select{font-size:13px;width:100%}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+.modal-close{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1}
+
+/* ── Toasts ─────────────────────────────────────────────────────────────── */
+#toasts{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:999}
+.toast{padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;
+  animation:slideIn .3s ease;max-width:300px;box-shadow:var(--shadow)}
+.toast.success{background:color-mix(in srgb,var(--green) 15%,transparent);border:1px solid var(--green);color:var(--green)}
+.toast.error{background:color-mix(in srgb,var(--red) 15%,transparent);border:1px solid var(--red);color:var(--red)}
+.toast.info{background:color-mix(in srgb,var(--accent) 15%,transparent);border:1px solid var(--accent);color:var(--accent)}
+@keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
+
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+.btn-theme{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:6px 10px;border-radius:6px;font-size:13px}
+.btn-theme:hover{border-color:var(--accent);color:var(--accent)}
+.btn-theme::before{content:'Light'}
+[data-theme="light"] .btn-theme::before{content:'Dark'}
+</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/command_center_theme.css') }}">
+<script>(function(){var t=localStorage.getItem('uns-theme')||'light';document.documentElement.setAttribute('data-theme',t);})();</script>
+
+<!-- ── ISA-5.1ish Symbol Library (inline SVG sprite) ─────────────────────── -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+  <symbol id="sym-tank" viewBox="0 0 60 60">
+    <rect x="10" y="10" width="40" height="40" rx="3" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="10" y1="20" x2="50" y2="20" stroke="currentColor" stroke-width="1" opacity=".5"/>
+    <line x1="30" y1="2" x2="30" y2="10" stroke="currentColor" stroke-width="2"/>
+    <line x1="30" y1="50" x2="30" y2="58" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-vessel" viewBox="0 0 60 60">
+    <path d="M14 12 H46 V42 Q46 50 30 50 Q14 50 14 42 Z" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="14" y1="12" x2="46" y2="12" stroke="currentColor" stroke-width="2"/>
+    <line x1="30" y1="2" x2="30" y2="12" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-silo" viewBox="0 0 60 60">
+    <path d="M10 15 H50 V45 L30 56 L10 45 Z" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="10" y1="15" x2="50" y2="15" stroke="currentColor" stroke-width="2"/>
+    <line x1="30" y1="2" x2="30" y2="15" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-pump" viewBox="0 0 60 60">
+    <circle cx="30" cy="30" r="18" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <polygon points="30,18 42,30 30,42 18,30" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <line x1="48" y1="30" x2="58" y2="30" stroke="currentColor" stroke-width="2"/>
+    <line x1="2" y1="30" x2="12" y2="30" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-motor" viewBox="0 0 60 60">
+    <rect x="8" y="20" width="36" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <text x="26" y="34" font-size="14" fill="currentColor" text-anchor="middle" font-family="sans-serif" font-weight="700">M</text>
+    <line x1="44" y1="30" x2="58" y2="30" stroke="currentColor" stroke-width="2"/>
+    <circle cx="54" cy="30" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  </symbol>
+  <symbol id="sym-valve" viewBox="0 0 60 60">
+    <line x1="2" y1="30" x2="58" y2="30" stroke="currentColor" stroke-width="2"/>
+    <polygon points="14,18 14,42 30,30" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <polygon points="46,18 46,42 30,30" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="30" y1="14" x2="30" y2="6" stroke="currentColor" stroke-width="2"/>
+    <rect x="22" y="2" width="16" height="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  </symbol>
+  <symbol id="sym-mixer" viewBox="0 0 60 60">
+    <rect x="10" y="14" width="40" height="36" rx="2" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="30" y1="2" x2="30" y2="14" stroke="currentColor" stroke-width="2"/>
+    <line x1="30" y1="14" x2="30" y2="42" stroke="currentColor" stroke-width="2"/>
+    <line x1="20" y1="42" x2="40" y2="42" stroke="currentColor" stroke-width="2"/>
+    <line x1="22" y1="38" x2="22" y2="46" stroke="currentColor" stroke-width="1.5"/>
+    <line x1="38" y1="38" x2="38" y2="46" stroke="currentColor" stroke-width="1.5"/>
+  </symbol>
+  <symbol id="sym-reactor" viewBox="0 0 60 60">
+    <ellipse cx="30" cy="14" rx="20" ry="6" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <ellipse cx="30" cy="46" rx="20" ry="6" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="10" y1="14" x2="10" y2="46" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="50" y1="14" x2="50" y2="46" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="30" y1="2" x2="30" y2="14" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-conveyor" viewBox="0 0 60 60">
+    <rect x="4" y="22" width="52" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+    <circle cx="10" cy="29" r="6" fill="none" stroke="currentColor" stroke-width="2"/>
+    <circle cx="50" cy="29" r="6" fill="none" stroke="currentColor" stroke-width="2"/>
+    <line x1="20" y1="29" x2="40" y2="29" stroke="currentColor" stroke-width="1" stroke-dasharray="3 2"/>
+  </symbol>
+  <symbol id="sym-heat_exchanger" viewBox="0 0 60 60">
+    <rect x="6" y="20" width="48" height="20" rx="10" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="14" y1="20" x2="14" y2="40" stroke="currentColor" stroke-width="1.5" opacity=".6"/>
+    <line x1="22" y1="20" x2="22" y2="40" stroke="currentColor" stroke-width="1.5" opacity=".6"/>
+    <line x1="30" y1="20" x2="30" y2="40" stroke="currentColor" stroke-width="1.5" opacity=".6"/>
+    <line x1="38" y1="20" x2="38" y2="40" stroke="currentColor" stroke-width="1.5" opacity=".6"/>
+    <line x1="46" y1="20" x2="46" y2="40" stroke="currentColor" stroke-width="1.5" opacity=".6"/>
+    <line x1="2" y1="30" x2="6" y2="30" stroke="currentColor" stroke-width="2"/>
+    <line x1="54" y1="30" x2="58" y2="30" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-compressor" viewBox="0 0 60 60">
+    <circle cx="30" cy="30" r="20" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <text x="30" y="36" font-size="14" fill="currentColor" text-anchor="middle" font-family="sans-serif" font-weight="700">C</text>
+    <line x1="50" y1="30" x2="58" y2="30" stroke="currentColor" stroke-width="2"/>
+    <line x1="2" y1="30" x2="10" y2="30" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-boiler" viewBox="0 0 60 60">
+    <rect x="10" y="10" width="40" height="32" rx="4" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="30" y1="2" x2="30" y2="10" stroke="currentColor" stroke-width="2"/>
+    <path d="M22 50 Q26 42 30 50 Q34 42 38 50" fill="none" stroke="currentColor" stroke-width="2"/>
+    <line x1="14" y1="50" x2="46" y2="50" stroke="currentColor" stroke-width="2"/>
+    <text x="30" y="30" font-size="11" fill="currentColor" text-anchor="middle" font-family="sans-serif" font-weight="700">B</text>
+  </symbol>
+  <symbol id="sym-chiller" viewBox="0 0 60 60">
+    <rect x="10" y="14" width="40" height="32" rx="3" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="30" y1="22" x2="30" y2="38" stroke="currentColor" stroke-width="2"/>
+    <line x1="22" y1="30" x2="38" y2="30" stroke="currentColor" stroke-width="2"/>
+    <line x1="24" y1="24" x2="36" y2="36" stroke="currentColor" stroke-width="2"/>
+    <line x1="36" y1="24" x2="24" y2="36" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-dryer" viewBox="0 0 60 60">
+    <ellipse cx="30" cy="30" rx="22" ry="14" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <path d="M14 26 Q22 22 30 26 Q38 30 46 26" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".7"/>
+    <path d="M14 34 Q22 30 30 34 Q38 38 46 34" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".7"/>
+    <line x1="2" y1="30" x2="8" y2="30" stroke="currentColor" stroke-width="2"/>
+    <line x1="52" y1="30" x2="58" y2="30" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-filter" viewBox="0 0 60 60">
+    <rect x="14" y="10" width="32" height="40" rx="2" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="14" y1="20" x2="46" y2="20" stroke="currentColor" stroke-width="1.5"/>
+    <line x1="14" y1="40" x2="46" y2="40" stroke="currentColor" stroke-width="1.5"/>
+    <line x1="14" y1="22" x2="46" y2="38" stroke="currentColor" stroke-width="1" opacity=".5"/>
+    <line x1="46" y1="22" x2="14" y2="38" stroke="currentColor" stroke-width="1" opacity=".5"/>
+    <line x1="30" y1="2" x2="30" y2="10" stroke="currentColor" stroke-width="2"/>
+    <line x1="30" y1="50" x2="30" y2="58" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-centrifuge" viewBox="0 0 60 60">
+    <circle cx="30" cy="30" r="20" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <circle cx="30" cy="30" r="3" fill="currentColor"/>
+    <path d="M30 12 A18 18 0 0 1 48 30" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <polygon points="48,30 44,28 44,32" fill="currentColor"/>
+    <path d="M30 48 A18 18 0 0 1 12 30" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <polygon points="12,30 16,32 16,28" fill="currentColor"/>
+  </symbol>
+  <symbol id="sym-column" viewBox="0 0 60 60">
+    <rect x="22" y="4" width="16" height="52" rx="3" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="22" y1="14" x2="38" y2="14" stroke="currentColor" stroke-width="1.5" opacity=".7"/>
+    <line x1="22" y1="22" x2="38" y2="22" stroke="currentColor" stroke-width="1.5" opacity=".7"/>
+    <line x1="22" y1="30" x2="38" y2="30" stroke="currentColor" stroke-width="1.5" opacity=".7"/>
+    <line x1="22" y1="38" x2="38" y2="38" stroke="currentColor" stroke-width="1.5" opacity=".7"/>
+    <line x1="22" y1="46" x2="38" y2="46" stroke="currentColor" stroke-width="1.5" opacity=".7"/>
+  </symbol>
+  <symbol id="sym-clarifier" viewBox="0 0 60 60">
+    <path d="M6 20 H54 V36 L30 56 L6 36 Z" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <ellipse cx="30" cy="20" rx="24" ry="4" fill="none" stroke="currentColor" stroke-width="2"/>
+    <line x1="30" y1="2" x2="30" y2="20" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-screen" viewBox="0 0 60 60">
+    <line x1="6" y1="50" x2="54" y2="14" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="10" y1="46" x2="50" y2="18" stroke="currentColor" stroke-width="1" opacity=".6" stroke-dasharray="3 2"/>
+    <line x1="14" y1="42" x2="46" y2="22" stroke="currentColor" stroke-width="1" opacity=".4" stroke-dasharray="3 2"/>
+    <line x1="6" y1="50" x2="14" y2="50" stroke="currentColor" stroke-width="2"/>
+    <line x1="50" y1="14" x2="58" y2="14" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-mill" viewBox="0 0 60 60">
+    <path d="M16 6 L44 6 L40 22 L20 22 Z" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <circle cx="30" cy="38" r="14" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="30" y1="30" x2="30" y2="46" stroke="currentColor" stroke-width="1.5"/>
+    <line x1="22" y1="38" x2="38" y2="38" stroke="currentColor" stroke-width="1.5"/>
+    <line x1="24" y1="32" x2="36" y2="44" stroke="currentColor" stroke-width="1.5"/>
+    <line x1="36" y1="32" x2="24" y2="44" stroke="currentColor" stroke-width="1.5"/>
+  </symbol>
+  <symbol id="sym-fan" viewBox="0 0 60 60">
+    <circle cx="30" cy="30" r="20" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <circle cx="30" cy="30" r="3" fill="currentColor"/>
+    <path d="M30 30 Q24 14 36 14 Q42 22 30 30" fill="none" stroke="currentColor" stroke-width="2"/>
+    <path d="M30 30 Q44 30 44 42 Q34 46 30 30" fill="none" stroke="currentColor" stroke-width="2"/>
+    <path d="M30 30 Q22 46 14 38 Q14 28 30 30" fill="none" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="sym-flowmeter" viewBox="0 0 60 60">
+    <line x1="2" y1="30" x2="58" y2="30" stroke="currentColor" stroke-width="2"/>
+    <circle cx="30" cy="30" r="14" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <text x="30" y="35" font-size="13" fill="currentColor" text-anchor="middle" font-family="sans-serif" font-weight="700">F</text>
+  </symbol>
+  <symbol id="sym-evaporator" viewBox="0 0 60 60">
+    <path d="M14 18 H46 V44 Q46 50 30 50 Q14 50 14 44 Z" fill="none" stroke="currentColor" stroke-width="2.5"/>
+    <line x1="14" y1="18" x2="46" y2="18" stroke="currentColor" stroke-width="2"/>
+    <path d="M22 14 Q24 10 22 6" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".7"/>
+    <path d="M30 14 Q32 10 30 6" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".7"/>
+    <path d="M38 14 Q40 10 38 6" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".7"/>
+  </symbol>
+  <symbol id="sym-generic" viewBox="0 0 60 60">
+    <rect x="10" y="14" width="40" height="32" rx="3" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"/>
+    <text x="30" y="36" font-size="14" fill="currentColor" text-anchor="middle" font-family="sans-serif" font-weight="700">?</text>
+  </symbol>
+</defs>
+</svg>
+</head>
+<body>
+
+{% include 'partials/sidebar.html' %}
+
+<header class="app-header">
+  <div class="header-brand">
+    <span class="logo">🏭</span>
+    <div>
+      <h1>Visualization</h1>
+      <span class="sub">UNS Design Studio</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn-theme" onclick="toggleTheme()" title="Toggle theme"></button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" id="tab-wizard" onclick="switchTab('wizard')">1. Map equipment</button>
+  <button class="tab" id="tab-canvas" onclick="switchTab('canvas')">2. Layout &amp; links</button>
+  <span style="margin-left:auto;color:var(--muted);font-size:12px" id="status-line"></span>
+</div>
+
+<!-- ── View 1: Wizard ─────────────────────────────────────────────────────── -->
+<div class="view active" id="viewWizard">
+  <div class="wizard-head">
+    <div>
+      <h2>Step 1 — Map UNS entities to equipment kinds</h2>
+      <div class="sub">Pick what each site / area / work center / work unit represents. Saved to <code>visualization.json</code>.</div>
+    </div>
+    <div class="wizard-actions">
+      <button class="btn-secondary" onclick="acceptAllSuggestions()">Accept all suggestions</button>
+      <button class="btn-primary" onclick="saveMapping()">💾 Save mapping</button>
+    </div>
+  </div>
+  <div id="wizardBody">
+    <div class="empty-state"><h3>Loading…</h3></div>
+  </div>
+</div>
+
+<!-- ── View 2: Canvas ────────────────────────────────────────────────────── -->
+<div class="view" id="viewCanvas">
+  <div class="canvas-toolbar">
+    <span class="mode-badge view" id="mode-badge">VIEW</span>
+    <button class="tool-btn" id="btn-toggle-edit" onclick="toggleEdit()">✏️ Edit</button>
+    <span class="tool-divider"></span>
+    <label>Layout
+      <select id="layout-dir" onchange="onLayoutChange()">
+        <option value="TB">Top → Bottom</option>
+        <option value="LR" selected>Left → Right</option>
+      </select>
+    </label>
+    <label>Group
+      <select id="layout-group" onchange="onLayoutChange()">
+        <option value="none">none</option>
+        <option value="site" selected>site</option>
+      </select>
+    </label>
+    <button class="tool-btn" onclick="autoLayout()" title="Recompute auto layout (overwrites manual positions)">⊞ Auto-layout</button>
+    <span class="tool-divider"></span>
+    <span id="edit-tools" style="display:none;gap:6px;align-items:center;">
+      <button class="tool-btn active" data-tool="select" onclick="setTool('select')" title="Select / drag (S)">✥ Select</button>
+      <button class="tool-btn" data-tool="link" onclick="setTool('link')" title="Add link (L)">↔ Link</button>
+      <button class="tool-btn" data-tool="pipe" onclick="setTool('pipe')" title="Add pipe (P)">⛓ Pipe</button>
+      <button class="tool-btn" data-tool="gauge" onclick="setTool('gauge')" title="Add gauge (G)">📊 Gauge</button>
+      <button class="tool-btn" onclick="editSelectedGauge()" title="Edit selected gauge (E or dbl-click)">✎ Edit gauge</button>
+      <button class="tool-btn" onclick="deleteSelected()" title="Delete selected (Del)">🗑 Delete</button>
+      <span class="tool-divider"></span>
+      <button class="tool-btn" onclick="saveCanvas()" style="background:var(--accent);color:var(--on-accent);border-color:var(--accent)">💾 Save</button>
+    </span>
+    <span style="margin-left:auto;color:var(--muted);font-size:12px" id="canvas-info"></span>
+  </div>
+  <div class="canvas-host" id="canvas-host">
+    <div class="legend">
+      <div class="legend-section">Node border</div>
+      <div class="legend-row"><span class="legend-dot running"></span> Running</div>
+      <div class="legend-row"><span class="legend-dot fault"></span> Fault</div>
+      <div class="legend-row"><span class="legend-dot stopped"></span> Stopped</div>
+      <div class="legend-row"><span class="legend-dot neutral"></span> Container</div>
+      <div class="legend-section">LED widget</div>
+      <div class="legend-row"><span class="legend-dot led-on"></span> True / on</div>
+      <div class="legend-row"><span class="legend-dot led-off"></span> False / off</div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<!-- ── Gauge config modal ────────────────────────────────────────────────── -->
+<div id="gauge-modal" style="display:none" class="modal-overlay" onclick="if(event.target===this)closeGaugeModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <span id="gm-modal-title">📊 Configure gauge</span>
+      <button class="modal-close" onclick="closeGaugeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;color:var(--muted)">Entity: <code id="gm-entity">—</code></div>
+      <label>Tag
+        <select id="gm-tag"></select>
+      </label>
+      <div class="modal-grid">
+        <label>Widget
+          <select id="gm-widget">
+            <option value="numeric">Numeric label</option>
+            <option value="gauge">Radial gauge</option>
+            <option value="bar">Horizontal bar</option>
+            <option value="led">LED (boolean)</option>
+            <option value="fill">Fill level</option>
+          </select>
+        </label>
+        <label>Label
+          <input id="gm-label" type="text" placeholder="(auto from tag)">
+        </label>
+        <label>Min
+          <input id="gm-min" type="number" value="0">
+        </label>
+        <label>Max
+          <input id="gm-max" type="number" value="100">
+        </label>
+        <label>Unit
+          <input id="gm-unit" type="text" placeholder="">
+        </label>
+        <label>Decimals
+          <input id="gm-decimals" type="number" value="1" min="0" max="3">
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-secondary" onclick="closeGaugeModal()">Cancel</button>
+      <button class="btn-primary" id="gm-confirm-btn" onclick="confirmGauge()">Add gauge</button>
+    </div>
+  </div>
+</div>
+
+<!-- dagre for hierarchical layout -->
+<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+<!-- shared pure helpers (also unit-tested under tests-js/) -->
+<script src="{{ url_for('static', filename='js/viz_math.js') }}"></script>
+
+<script>
+const { widgetSize, clamp01, fmtNum, gaugePosition: _gaugePos,
+        arcEndpoints, ledColors, gaugeFraction } = window.VizMath;
+// ── Theme ───────────────────────────────────────────────────────────────────
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('uns-theme', next);
+}
+
+// ── Toasts ──────────────────────────────────────────────────────────────────
+function toast(msg, kind){
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind || 'info');
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(), 3000);
+}
+
+// ── Tabs ────────────────────────────────────────────────────────────────────
+function switchTab(name){
+  document.getElementById('tab-wizard').classList.toggle('active', name==='wizard');
+  document.getElementById('tab-canvas').classList.toggle('active', name==='canvas');
+  document.getElementById('viewWizard').classList.toggle('active', name==='wizard');
+  document.getElementById('viewCanvas').classList.toggle('active', name==='canvas');
+  if (name==='canvas') renderCanvas();
+}
+
+// ── State ───────────────────────────────────────────────────────────────────
+const STATE = {
+  entities: [], kinds: [], cfg: null, status: null,
+  editMode: false, tool: 'select',
+  selected: null,    // {kind:'node'|'link'|'gauge', id|idx}
+  linkSource: null,
+  drag: null,
+  _prevGroup: null,
+  values: {},         // live tag values keyed by gauge id
+  liveTimer: null,
+  pendingGauge: null, // {entityId} while modal is open
+  openGroups: null,   // Set<siteKey> for wizard collapsibles; null = all open
+};
+
+// ── Load entities + saved viz config ────────────────────────────────────────
+async function loadAll(){
+  const [ent, cfg] = await Promise.all([
+    fetch('/api/viz/entities').then(r=>r.json()),
+    fetch('/api/viz/config').then(r=>r.json()),
+  ]);
+  STATE.entities = ent.entities || [];
+  STATE.kinds    = ent.kinds || [];
+  STATE.cfg      = cfg;
+  // initialize wizard groups expanded on first load
+  if (!(STATE.openGroups instanceof Set)){
+    STATE.openGroups = new Set(STATE.entities.map(siteKeyFor));
+  }
+  renderWizard();
+  updateStatusLine();
+}
+
+function updateStatusLine(){
+  const total   = STATE.entities.length;
+  const mapped  = STATE.entities.filter(e=>e.mapped).length;
+  document.getElementById('status-line').textContent =
+    `${mapped}/${total} entities mapped` + (STATE.cfg.lastModified ? ` · saved ${STATE.cfg.lastModified}` : ' · unsaved');
+}
+
+// ── Wizard render ───────────────────────────────────────────────────────────
+const TYPE_ORDER = { site: 0, area: 1, workCenter: 2, workUnit: 3 };
+
+function siteKeyFor(e){
+  // ISA-95 path: Enterprise|BU|Site|... — group by Site segment.
+  // Sites themselves use their own id as the group key.
+  const parts = e.id.split('|');
+  if (e.type === 'site') return e.id;
+  return parts.slice(0, 3).join('|');
+}
+
+function renderEntityRow(e){
+  const kindOpts = STATE.kinds.map(k =>
+    `<option value="${k}" ${k===e.kind?'selected':''}>${prettyKind(k)}</option>`).join('');
+  const sugLabel = e.mapped ? '' :
+    `<span class="suggestion-tag">→ suggested: ${prettyKind(e.suggestion)}</span>`;
+  return `<tr data-id="${escapeAttr(e.id)}">
+    <td><div class="kind-preview"><svg><use href="#sym-${e.kind}"/></svg></div></td>
+    <td><div class="entity-name">${escapeHtml(e.name)}</div>
+        <div class="entity-path">${escapeHtml(e.id)}</div></td>
+    <td><span class="entity-type-badge ${e.type}">${e.type}</span></td>
+    <td style="color:var(--muted);font-size:12px">${e.tags.length}</td>
+    <td><div class="kind-cell">
+      <select onchange="onKindChange(this)">${kindOpts}</select>
+      ${sugLabel}
+    </div></td>
+  </tr>`;
+}
+
+function renderWizard(){
+  const body = document.getElementById('wizardBody');
+  if (!STATE.entities.length){
+    body.innerHTML = '<div class="empty-state"><h3>No mappable entities</h3>'+
+      '<p>Add sites, areas, work centers, or work units in the <a href="/uns">UNS Designer</a> first.</p></div>';
+    return;
+  }
+
+  // Group entities by site key
+  const groups = new Map();
+  for (const e of STATE.entities){
+    const key = siteKeyFor(e);
+    if (!groups.has(key)) groups.set(key, { key, site: null, items: [] });
+    const g = groups.get(key);
+    g.items.push(e);
+    if (e.type === 'site') g.site = e;
+  }
+
+  // Sort each group's items: site, then area, wc, wu
+  for (const g of groups.values()){
+    g.items.sort((a, b) => {
+      const ta = TYPE_ORDER[a.type] ?? 99;
+      const tb = TYPE_ORDER[b.type] ?? 99;
+      if (ta !== tb) return ta - tb;
+      return a.id.localeCompare(b.id);
+    });
+  }
+
+  // Sort groups by site key
+  const ordered = [...groups.values()].sort((a, b) => a.key.localeCompare(b.key));
+
+  let html = '';
+  for (const g of ordered){
+    const total  = g.items.length;
+    const mapped = g.items.filter(e => e.mapped).length;
+    const siteName = g.site ? g.site.name : (g.key.split('|').pop() || g.key);
+    const stats = `${mapped}/${total} mapped`;
+    const isOpen = STATE.openGroups instanceof Set ? STATE.openGroups.has(g.key) : true;
+    html += `<details class="factory-group" data-key="${escapeAttr(g.key)}" ${isOpen?'open':''} ontoggle="onGroupToggle(this)">
+      <summary class="factory-head">
+        <span class="factory-name">${escapeHtml(siteName)}</span>
+        <span class="factory-path">${escapeHtml(g.key)}</span>
+        <span class="factory-stats">${stats}</span>
+      </summary>
+      <table class="entity-table"><thead><tr>
+        <th style="width:30px"></th>
+        <th>Entity</th>
+        <th style="width:90px">Type</th>
+        <th style="width:80px">Tags</th>
+        <th style="width:240px">Equipment kind</th>
+      </tr></thead><tbody>${g.items.map(renderEntityRow).join('')}</tbody></table>
+    </details>`;
+  }
+  body.innerHTML = html;
+}
+
+function onGroupToggle(el){
+  if (!(STATE.openGroups instanceof Set)) STATE.openGroups = new Set();
+  const key = el.getAttribute('data-key');
+  if (el.open) STATE.openGroups.add(key);
+  else STATE.openGroups.delete(key);
+}
+
+function prettyKind(k){
+  return k.replace(/_/g,' ').replace(/\b\w/g, c=>c.toUpperCase());
+}
+
+function onKindChange(sel){
+  const tr   = sel.closest('tr');
+  const id   = tr.getAttribute('data-id');
+  const kind = sel.value;
+  const e = STATE.entities.find(x => x.id === id);
+  if (!e) return;
+  e.kind   = kind;
+  e.mapped = true;
+  // refresh icon preview
+  const use = tr.querySelector('.kind-preview svg use');
+  if (use) use.setAttribute('href', '#sym-' + kind);
+  // remove suggestion tag
+  const tag = tr.querySelector('.suggestion-tag');
+  if (tag) tag.remove();
+  updateStatusLine();
+}
+
+function acceptAllSuggestions(){
+  for (const e of STATE.entities){
+    if (!e.mapped){
+      e.kind   = e.suggestion;
+      e.mapped = true;
+    }
+  }
+  renderWizard();
+  updateStatusLine();
+  toast('Suggestions applied — click Save to persist', 'info');
+}
+
+async function saveMapping(){
+  const cfg = STATE.cfg || { version:1, entities:{}, links:[], gauges:[], animations:[] };
+  cfg.entities = cfg.entities || {};
+  for (const e of STATE.entities){
+    if (e.mapped){
+      cfg.entities[e.id] = Object.assign({}, cfg.entities[e.id] || {}, { kind: e.kind });
+    }
+  }
+  const r = await fetch('/api/viz/config', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(cfg),
+  });
+  const d = await r.json();
+  if (d.ok){
+    toast('Mapping saved', 'success');
+    STATE.cfg = cfg;
+    cfg.lastModified = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+    updateStatusLine();
+  } else {
+    toast('Save failed', 'error');
+  }
+}
+
+// ── Canvas render ───────────────────────────────────────────────────────────
+async function fetchStatus(){
+  try {
+    const r = await fetch('/api/status');
+    STATE.status = await r.json();
+  } catch (e) {
+    STATE.status = null;
+  }
+}
+
+function plantStateColor(entity){
+  if (!STATE.status) return null;
+  const data = STATE.status.plant_data || {};
+  // Path layout: enterprise | businessUnit | site | area | workCenter | workUnit
+  const parts = (entity.id || '').split('|');
+  if (parts.length < 3) return null;
+  const group = parts[1], plant = parts[2];
+  const plantBlock = (data[group] || {})[plant];
+  if (!plantBlock) return null;
+  if (plantBlock.alarm)   return 'fault';
+  if (plantBlock.running) return 'running';
+  return 'stopped';
+}
+
+function buildGraph(entities, dir){
+  const g = new dagre.graphlib.Graph({ multigraph:false, compound:false });
+  g.setGraph({ rankdir: dir, nodesep: 30, ranksep: 60, marginx: 20, marginy: 20 });
+  g.setDefaultEdgeLabel(()=>({}));
+  const ids = new Set(entities.map(e=>e.id));
+  for (const e of entities){
+    g.setNode(e.id, { width: 110, height: 80, ...e });
+  }
+  for (const e of entities){
+    if (e.parentPath && ids.has(e.parentPath)){
+      g.setEdge(e.parentPath, e.id);
+    }
+  }
+  dagre.layout(g);
+  return g;
+}
+
+function svgEscape(s){ return String(s).replace(/[<>&"']/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeHtml(s){ return svgEscape(s); }
+function escapeAttr(s){ return svgEscape(s); }
+
+function nodeColors(entity){
+  const state = plantStateColor(entity);
+  const colorVar = state === 'running' ? 'var(--green)'
+                : state === 'fault'   ? 'var(--red)'
+                : state === 'stopped' ? 'var(--muted)'
+                : entity.type === 'workUnit' ? 'var(--accent)'
+                : 'var(--border)';
+  return { stroke: colorVar };
+}
+
+// ── Edit-mode UI controls ───────────────────────────────────────────────────
+function toggleEdit(){
+  STATE.editMode = !STATE.editMode;
+  STATE.selected = null; STATE.linkSource = null; STATE.drag = null;
+  document.body.classList.toggle('canvas-edit', STATE.editMode);
+  const btn = document.getElementById('btn-toggle-edit');
+  btn.classList.toggle('active', STATE.editMode);
+  btn.textContent = STATE.editMode ? '✓ Done editing' : '✏️ Edit';
+  const badge = document.getElementById('mode-badge');
+  badge.className = 'mode-badge ' + (STATE.editMode?'edit':'view');
+  badge.textContent = STATE.editMode ? 'EDIT' : 'VIEW';
+  document.getElementById('edit-tools').style.display = STATE.editMode ? 'inline-flex' : 'none';
+  const grp = document.getElementById('layout-group');
+  if (STATE.editMode){
+    STATE._prevGroup = grp.value;
+    grp.value = 'none';
+    grp.disabled = true;
+  } else {
+    if (STATE._prevGroup) grp.value = STATE._prevGroup;
+    grp.disabled = false;
+  }
+  setTool('select');
+  renderCanvas();
+}
+
+function setTool(t){
+  STATE.tool = t;
+  STATE.linkSource = null;
+  document.querySelectorAll('#edit-tools .tool-btn[data-tool]').forEach(b=>{
+    b.classList.toggle('active', b.getAttribute('data-tool')===t);
+  });
+  const svg = document.querySelector('#canvas-host svg.scada');
+  if (svg){
+    svg.querySelectorAll('.viz-node.link-source').forEach(n=>n.classList.remove('link-source'));
+    const ghost = svg.querySelector('.ghost-link');
+    if (ghost) ghost.remove();
+  }
+}
+
+function onLayoutChange(){ renderCanvas(); }
+
+function autoLayout(){
+  if (!confirm('Recompute auto layout? This overwrites manual positions.')) return;
+  const ents = (STATE.cfg.entities = STATE.cfg.entities || {});
+  for (const id of Object.keys(ents)){
+    if (ents[id].layout) delete ents[id].layout;
+  }
+  for (const gg of (STATE.cfg.gauges || [])){
+    if (gg.layout) delete gg.layout;
+  }
+  renderCanvas();
+  toast('Auto layout recomputed (nodes + gauges) — Save to persist', 'info');
+}
+
+function editSelectedGauge(){
+  if (!STATE.editMode) return;
+  const sel = STATE.selected;
+  if (!sel || sel.kind !== 'gauge'){
+    toast('Select a gauge first (click it), then Edit', 'info');
+    return;
+  }
+  const gobj = (STATE.cfg.gauges||[]).find(g => g.id === sel.id);
+  if (!gobj){ toast('Gauge not found', 'error'); return; }
+  openGaugeModal(gobj.entity, gobj.id);
+}
+
+function deleteSelected(){
+  if (!STATE.editMode || !STATE.selected) return;
+  const sel = STATE.selected;
+  STATE.cfg.links = STATE.cfg.links || [];
+  STATE.cfg.entities = STATE.cfg.entities || {};
+  if (sel.kind === 'link'){
+    STATE.cfg.links.splice(sel.idx, 1);
+    toast('Link deleted', 'info');
+  } else if (sel.kind === 'gauge'){
+    STATE.cfg.gauges = (STATE.cfg.gauges||[]).filter(g => g.id !== sel.id);
+    toast('Gauge deleted', 'info');
+  } else if (sel.kind === 'node'){
+    if (STATE.cfg.entities[sel.id]) delete STATE.cfg.entities[sel.id];
+    STATE.cfg.links  = STATE.cfg.links.filter(l => l.from !== sel.id && l.to !== sel.id);
+    STATE.cfg.gauges = (STATE.cfg.gauges||[]).filter(g => g.entity !== sel.id);
+    toast('Mapping, gauges & links removed; entity remains in UNS config', 'info');
+  }
+  STATE.selected = null;
+  renderCanvas();
+}
+
+async function saveCanvas(){
+  const r = await fetch('/api/viz/config', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(STATE.cfg),
+  });
+  const d = await r.json();
+  if (d.ok){
+    toast('Layout & links saved', 'success');
+    STATE.cfg.lastModified = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+    updateStatusLine();
+  } else {
+    toast('Save failed', 'error');
+  }
+}
+
+// ── Gauge config modal ──────────────────────────────────────────────────────
+async function openGaugeModal(entityId, editId){
+  // editId !== undefined → editing an existing gauge; else adding new
+  const existing = editId
+    ? (STATE.cfg.gauges||[]).find(g => g.id === editId)
+    : null;
+  STATE.pendingGauge = { entityId, editId: editId || null };
+
+  const ent = STATE.entities.find(e => e.id === entityId);
+  if (!ent){ toast('Entity not found', 'error'); return; }
+  document.getElementById('gm-entity').textContent = entityId;
+  document.getElementById('gm-modal-title').textContent =
+    existing ? '📊 Edit gauge' : '📊 Configure gauge';
+  document.getElementById('gm-confirm-btn').textContent =
+    existing ? 'Save changes' : 'Add gauge';
+
+  // fetch tag list for this entity
+  const sel = document.getElementById('gm-tag');
+  sel.innerHTML = '<option>loading…</option>';
+  let tags = [];
+  try {
+    const r = await fetch('/api/viz/tags/' + encodeURIComponent(entityId));
+    const d = await r.json();
+    tags = d.tags || [];
+  } catch(e){}
+  if (!tags.length){
+    sel.innerHTML = '<option value="">(no tags on this entity)</option>';
+  } else {
+    sel.innerHTML = tags.map(t =>
+      `<option value="${escapeAttr(t.name)}" data-type="${escapeAttr(t.dataType)}" data-unit="${escapeAttr(t.unit)}">${escapeHtml(t.name)} · ${escapeHtml(t.dataType)}${t.unit?' ('+escapeHtml(t.unit)+')':''}</option>`
+    ).join('');
+  }
+  // Auto-pick widget by data type — only on initial load, never after the user
+  // has touched the widget dropdown (otherwise re-selecting the tag silently
+  // resets their explicit choice).
+  const widgetSel = document.getElementById('gm-widget');
+  let widgetUserPicked = false;
+  widgetSel.onchange = () => { widgetUserPicked = true; };
+
+  const onTagPick = (autoPickWidget) => {
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt) return;
+    const dt   = opt.getAttribute('data-type') || 'Float';
+    const unit = opt.getAttribute('data-unit') || '';
+    document.getElementById('gm-unit').value  = unit;
+    document.getElementById('gm-label').value = opt.value;
+    if (autoPickWidget && !widgetUserPicked){
+      widgetSel.value = dt === 'Bool' ? 'led' : 'numeric';
+    }
+  };
+  sel.onchange = () => onTagPick(false);  // tag changes don't re-pick widget
+
+  if (existing){
+    // pre-populate from existing gauge — overrides the auto-pick defaults
+    if (tags.some(t => t.name === existing.tag)) sel.value = existing.tag;
+    document.getElementById('gm-widget').value   = existing.widget || 'numeric';
+    document.getElementById('gm-label').value    = existing.label  || '';
+    document.getElementById('gm-min').value      = existing.min ?? 0;
+    document.getElementById('gm-max').value      = existing.max ?? 100;
+    document.getElementById('gm-unit').value     = existing.unit  || '';
+    document.getElementById('gm-decimals').value = existing.decimals ?? 1;
+  } else if (tags.length) {
+    onTagPick(true);   // initial load only — auto-pick widget by data type
+  }
+  document.getElementById('gauge-modal').style.display = 'flex';
+  setTimeout(()=>sel.focus(), 50);
+}
+
+function closeGaugeModal(){
+  document.getElementById('gauge-modal').style.display = 'none';
+  STATE.pendingGauge = null;
+}
+
+function confirmGauge(){
+  const pg = STATE.pendingGauge;
+  if (!pg) return closeGaugeModal();
+  const tag = document.getElementById('gm-tag').value;
+  if (!tag){ toast('Pick a tag first', 'error'); return; }
+  const widget   = document.getElementById('gm-widget').value;
+  const label    = document.getElementById('gm-label').value || tag;
+  const minRaw   = document.getElementById('gm-min').value;
+  const maxRaw   = document.getElementById('gm-max').value;
+  const min      = minRaw === '' ? 0   : parseFloat(minRaw);
+  const max      = maxRaw === '' ? 100 : parseFloat(maxRaw);
+  const unit     = document.getElementById('gm-unit').value || '';
+  const decimals = parseInt(document.getElementById('gm-decimals').value, 10) || 0;
+
+  STATE.cfg.gauges = STATE.cfg.gauges || [];
+  if (pg.editId){
+    const g = STATE.cfg.gauges.find(x => x.id === pg.editId);
+    if (g){
+      Object.assign(g, { tag, widget, label, min, max, unit, decimals });
+      toast('Gauge updated — Save to persist', 'success');
+    } else {
+      toast('Gauge not found', 'error');
+    }
+  } else {
+    const id = `${pg.entityId}#${tag}#${Date.now().toString(36)}`;
+    STATE.cfg.gauges.push({
+      id, entity: pg.entityId, tag, widget, label,
+      min, max, unit, decimals,
+    });
+    toast('Gauge added — drag to position, then Save', 'success');
+  }
+  closeGaugeModal();
+  renderCanvas();
+}
+
+// ── Widget renderers ────────────────────────────────────────────────────────
+// widgetSize / clamp01 / fmtNum are imported from VizMath at top of script.
+
+function createGaugeGroup(g, position){
+  const sz = widgetSize(g.widget);
+  const grp = document.createElementNS(SVG_NS, 'g');
+  grp.setAttribute('class', 'viz-gauge');
+  grp.setAttribute('data-gauge-id', g.id);
+  grp.setAttribute('transform', `translate(${position.x} ${position.y})`);
+
+  const bg = document.createElementNS(SVG_NS, 'rect');
+  bg.setAttribute('class', 'gauge-bg');
+  bg.setAttribute('width',  sz.w);
+  bg.setAttribute('height', sz.h);
+  bg.setAttribute('rx', 4);
+  grp.appendChild(bg);
+
+  // label (top)
+  const lbl = document.createElementNS(SVG_NS, 'text');
+  lbl.setAttribute('class', 'gauge-label');
+  lbl.setAttribute('x', sz.w/2);
+  lbl.setAttribute('y', 11);
+  lbl.setAttribute('text-anchor', 'middle');
+  lbl.style.pointerEvents = 'none';
+  lbl.textContent = g.label.length > 14 ? g.label.slice(0,13)+'…' : g.label;
+  grp.appendChild(lbl);
+
+  // widget body — placeholder, populated by updateGaugeValue()
+  const body = document.createElementNS(SVG_NS, 'g');
+  body.setAttribute('class', 'gauge-body');
+  body.setAttribute('data-widget', g.widget);
+  buildWidgetBody(body, g, sz);
+  grp.appendChild(body);
+
+  const title = document.createElementNS(SVG_NS, 'title');
+  title.textContent = `${g.entity}\nTag: ${g.tag}\nWidget: ${g.widget}`;
+  grp.appendChild(title);
+
+  return grp;
+}
+
+function buildWidgetBody(body, g, sz){
+  body.innerHTML = '';  // works on SVG group too
+  while (body.firstChild) body.removeChild(body.firstChild);
+  const cx = sz.w/2;
+  if (g.widget === 'numeric'){
+    const t = document.createElementNS(SVG_NS, 'text');
+    t.setAttribute('class','gauge-value');
+    t.setAttribute('x', cx);
+    t.setAttribute('y', sz.h - 8);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-size','18');   // larger than radial gauge for clear visual contrast
+    t.textContent = '—';
+    t.style.pointerEvents = 'none';
+    body.appendChild(t);
+    if (g.unit){
+      const u = document.createElementNS(SVG_NS, 'text');
+      u.setAttribute('class','gauge-unit');
+      u.setAttribute('x', sz.w - 4);
+      u.setAttribute('y', sz.h - 4);
+      u.setAttribute('text-anchor','end');
+      u.textContent = g.unit;
+      u.style.pointerEvents = 'none';
+      body.appendChild(u);
+    }
+  } else if (g.widget === 'gauge'){
+    // semicircle radial gauge — arc dome with value inside
+    const r  = Math.min(22, sz.w/2 - 8);
+    const cy = sz.h - 10;
+    const arc = (frac, cls) => {
+      const a0 = Math.PI, a1 = a0 - Math.PI*Math.max(0.0001, frac);
+      const x0 = cx + r*Math.cos(a0), y0 = cy - r*Math.sin(a0);
+      const x1 = cx + r*Math.cos(a1), y1 = cy - r*Math.sin(a1);
+      const p = document.createElementNS(SVG_NS, 'path');
+      p.setAttribute('class', cls);
+      p.setAttribute('d', `M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`);
+      p.setAttribute('stroke-width', '5');
+      p.setAttribute('stroke-linecap','round');
+      return p;
+    };
+    body.appendChild(arc(1, 'gauge-arc-bg'));
+    const fg = arc(0.0001, 'gauge-arc-fg');
+    fg.setAttribute('d', `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx - r} ${cy}`);
+    body.appendChild(fg);
+    const t = document.createElementNS(SVG_NS, 'text');
+    t.setAttribute('class','gauge-value');
+    t.setAttribute('x', cx);
+    t.setAttribute('y', cy - 4);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('dominant-baseline','alphabetic');
+    t.setAttribute('font-size','12');
+    t.textContent = '—';
+    t.style.pointerEvents = 'none';
+    body.appendChild(t);
+  } else if (g.widget === 'bar'){
+    // Layout (sz.h=48): label@y=11, value@y=28, bar@y=34..44
+    const barH = 10;
+    const barY = sz.h - barH - 4;
+    const padX = 6;
+    const barW = sz.w - 2*padX;
+    const bg = document.createElementNS(SVG_NS, 'rect');
+    bg.setAttribute('class','gauge-bar-bg');
+    bg.setAttribute('x', padX); bg.setAttribute('y', barY);
+    bg.setAttribute('width', barW); bg.setAttribute('height', barH);
+    bg.setAttribute('rx', 2);
+    body.appendChild(bg);
+    const fg = document.createElementNS(SVG_NS, 'rect');
+    fg.setAttribute('class','gauge-bar-fg');
+    fg.setAttribute('x', padX); fg.setAttribute('y', barY);
+    fg.setAttribute('width', 0); fg.setAttribute('height', barH);
+    fg.setAttribute('rx', 2);
+    body.appendChild(fg);
+    const t = document.createElementNS(SVG_NS, 'text');
+    t.setAttribute('class','gauge-value');
+    t.setAttribute('x', cx);
+    t.setAttribute('y', barY - 6);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-size','11');
+    t.textContent = '—';
+    t.style.pointerEvents = 'none';
+    body.appendChild(t);
+  } else if (g.widget === 'led'){
+    const c = document.createElementNS(SVG_NS, 'circle');
+    c.setAttribute('class','gauge-led');
+    c.setAttribute('cx', cx);
+    c.setAttribute('cy', sz.h - 12);
+    c.setAttribute('r', 6);
+    c.setAttribute('fill', 'var(--surface3)');
+    c.setAttribute('stroke', 'var(--border)');
+    body.appendChild(c);
+  } else if (g.widget === 'fill'){
+    const padX = 6, padY = 14;
+    const w = sz.w - 2*padX, h = sz.h - padY - 6;
+    const bg = document.createElementNS(SVG_NS, 'rect');
+    bg.setAttribute('class','gauge-fill-bg');
+    bg.setAttribute('x', padX); bg.setAttribute('y', padY);
+    bg.setAttribute('width', w); bg.setAttribute('height', h);
+    bg.setAttribute('rx', 2);
+    body.appendChild(bg);
+    const fg = document.createElementNS(SVG_NS, 'rect');
+    fg.setAttribute('class','gauge-fill-fg');
+    fg.setAttribute('x', padX); fg.setAttribute('y', padY + h);
+    fg.setAttribute('width', w); fg.setAttribute('height', 0);
+    fg.setAttribute('rx', 2);
+    body.appendChild(fg);
+    const t = document.createElementNS(SVG_NS, 'text');
+    t.setAttribute('class','gauge-value');
+    t.setAttribute('x', cx);
+    t.setAttribute('y', padY + h/2 + 4);
+    t.setAttribute('text-anchor','middle');
+    t.setAttribute('font-size','10');
+    t.textContent = '—';
+    t.style.pointerEvents = 'none';
+    body.appendChild(t);
+  }
+}
+
+function updateGaugeWidget(grp, g, value){
+  const sz = widgetSize(g.widget);
+  const body = grp.querySelector('.gauge-body');
+  if (!body) return;
+  const txt  = body.querySelector('.gauge-value');
+  if (g.widget === 'numeric'){
+    if (txt) txt.textContent = (value === null || value === undefined) ? '—' : fmtNum(Number(value), g.decimals);
+  } else if (g.widget === 'gauge'){
+    if (txt) txt.textContent = (value === null || value === undefined) ? '—' : fmtNum(Number(value), g.decimals);
+    const fg = body.querySelector('.gauge-arc-fg');
+    if (fg && value !== null && value !== undefined){
+      const frac = clamp01((Number(value) - g.min) / Math.max(0.0001, g.max - g.min));
+      const r  = Math.min(22, sz.w/2 - 8);
+      const cx = sz.w/2, cy = sz.h - 10;
+      if (frac <= 0){
+        fg.setAttribute('d', `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx - r} ${cy}`);
+      } else {
+        const a0 = Math.PI, a1 = a0 - Math.PI*frac;
+        const x0 = cx + r*Math.cos(a0), y0 = cy - r*Math.sin(a0);
+        const x1 = cx + r*Math.cos(a1), y1 = cy - r*Math.sin(a1);
+        fg.setAttribute('d', `M ${x0} ${y0} A ${r} ${r} 0 0 1 ${x1} ${y1}`);
+      }
+    }
+  } else if (g.widget === 'bar'){
+    if (txt) txt.textContent = (value === null || value === undefined) ? '—' : fmtNum(Number(value), g.decimals) + (g.unit?' '+g.unit:'');
+    const fg = body.querySelector('.gauge-bar-fg');
+    if (fg && value !== null && value !== undefined){
+      const frac = clamp01((Number(value) - g.min) / Math.max(0.0001, g.max - g.min));
+      const padX = 6, barW = sz.w - 2*padX;
+      fg.setAttribute('width', frac * barW);
+    }
+  } else if (g.widget === 'led'){
+    const led = body.querySelector('.gauge-led');
+    if (led){
+      const cols = ledColors(value);
+      led.setAttribute('fill', cols.fill);
+      led.setAttribute('stroke', cols.stroke);
+    }
+  } else if (g.widget === 'fill'){
+    if (txt) txt.textContent = (value === null || value === undefined) ? '—' : fmtNum(Number(value), g.decimals);
+    const fg = body.querySelector('.gauge-fill-fg');
+    if (fg && value !== null && value !== undefined){
+      const frac = clamp01((Number(value) - g.min) / Math.max(0.0001, g.max - g.min));
+      const padX = 6, padY = 14, h = sz.h - padY - 6;
+      const fillH = frac * h;
+      fg.setAttribute('y', padY + (h - fillH));
+      fg.setAttribute('height', fillH);
+    }
+  }
+}
+
+// gaugePosition imported from VizMath (re-exported under same name for clarity)
+const gaugePosition = _gaugePos;
+
+// ── Live data ───────────────────────────────────────────────────────────────
+async function fetchLiveValues(){
+  try {
+    const r = await fetch('/api/viz/values');
+    const d = await r.json();
+    STATE.opcReady = d.opc_ready !== false;
+    STATE.values = STATE.opcReady ? (d.values || {}) : {};
+  } catch(e){
+    // transient fetch error — keep last-good values, just mark not-ready
+    STATE.opcReady = false;
+    STATE.values = {};
+  }
+  applyLiveValuesToDOM();
+  applyAutoAnimations();
+}
+
+function applyLiveValuesToDOM(){
+  const gauges = (STATE.cfg && STATE.cfg.gauges) || [];
+  for (const g of gauges){
+    const grp = document.querySelector(`.viz-gauge[data-gauge-id="${cssEscape(g.id)}"]`);
+    if (!grp) continue;
+    const v = STATE.values[g.id];
+    updateGaugeWidget(grp, g, v);
+  }
+}
+
+function applyAutoAnimations(){
+  // node spin: motor or pump kind, when site is running
+  document.querySelectorAll('svg.scada .viz-node').forEach(grp => {
+    const id = grp.getAttribute('data-id');
+    const e  = STATE.entities.find(x=>x.id===id);
+    if (!e) return;
+    const mapped = (STATE.cfg.entities||{})[id] || {};
+    const kind = mapped.kind || e.kind;
+    const isSpinKind = (kind === 'motor' || kind === 'pump' || kind === 'mixer' || kind === 'compressor' || kind === 'fan');
+    let running = false;
+    if (e.type === 'site'){
+      const st = plantStateColor(e);
+      running = (st === 'running');
+    } else {
+      // inherit from parent site
+      const parts = id.split('|');
+      if (parts.length >= 3){
+        const parentSiteId = parts.slice(0,3).join('|');
+        const parentSite = STATE.entities.find(x=>x.id===parentSiteId);
+        if (parentSite){
+          const st = plantStateColor(parentSite);
+          running = (st === 'running');
+        }
+      }
+    }
+    grp.classList.toggle('spinning', isSpinKind && running && !STATE.editMode);
+    // fault flash
+    if (e.type === 'site'){
+      const st = plantStateColor(e);
+      grp.classList.toggle('fault', st === 'fault' && !STATE.editMode);
+    }
+  });
+  // pipe flow: animate user pipes when their source's site is running
+  document.querySelectorAll('svg.scada .viz-link.user.pipe').forEach(path => {
+    const idx = parseInt(path.getAttribute('data-link-idx'),10);
+    const l = (STATE.cfg.links||[])[idx]; if (!l) return;
+    const srcEnt = STATE.entities.find(x=>x.id===l.from);
+    if (!srcEnt){ path.classList.remove('flowing'); return; }
+    let running = false;
+    const parts = l.from.split('|');
+    if (parts.length >= 3){
+      const parentSiteId = parts.slice(0,3).join('|');
+      const parentSite = STATE.entities.find(x=>x.id===parentSiteId);
+      if (parentSite) running = plantStateColor(parentSite) === 'running';
+    }
+    path.classList.toggle('flowing', running && !STATE.editMode);
+  });
+}
+
+function startLivePoll(){
+  stopLivePoll();
+  STATE.liveTimer = setInterval(()=>{
+    if (!document.getElementById('viewCanvas').classList.contains('active')) return;
+    if (STATE.editMode) return;
+    fetchLiveValues();
+  }, 1000);
+}
+function stopLivePoll(){
+  if (STATE.liveTimer){ clearInterval(STATE.liveTimer); STATE.liveTimer = null; }
+}
+
+// ── Node visual ─────────────────────────────────────────────────────────────
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function createNodeGroup(entity, n){
+  const w = n.width, h = n.height;
+  const x = n.x - w/2, y = n.y - h/2;
+  const c = nodeColors(entity);
+  const grp = document.createElementNS(SVG_NS, 'g');
+  grp.setAttribute('class', 'viz-node');
+  grp.setAttribute('data-id', entity.id);
+  grp.setAttribute('transform', `translate(${x} ${y})`);
+
+  const rect = document.createElementNS(SVG_NS, 'rect');
+  rect.setAttribute('width', w);
+  rect.setAttribute('height', h);
+  rect.setAttribute('rx', 6);
+  rect.setAttribute('fill', 'var(--surface)');
+  rect.setAttribute('stroke', c.stroke);
+  rect.setAttribute('stroke-width', '2');
+  grp.appendChild(rect);
+
+  const sym = document.createElementNS(SVG_NS, 'use');
+  sym.setAttribute('href', '#sym-' + (entity.kind || 'generic'));
+  sym.setAttribute('x', (w-44)/2);
+  sym.setAttribute('y', 6);
+  sym.setAttribute('width', 44);
+  sym.setAttribute('height', 44);
+  sym.setAttribute('color', c.stroke);
+  sym.style.pointerEvents = 'none';
+  grp.appendChild(sym);
+
+  const label = document.createElementNS(SVG_NS, 'text');
+  label.setAttribute('x', w/2);
+  label.setAttribute('y', h - 18);
+  label.setAttribute('text-anchor', 'middle');
+  label.setAttribute('font-size', '11');
+  label.setAttribute('font-family', 'system-ui, sans-serif');
+  label.setAttribute('font-weight', '600');
+  label.setAttribute('fill', 'var(--text)');
+  label.style.pointerEvents = 'none';
+  label.textContent = entity.name.length > 14 ? entity.name.slice(0,13)+'…' : entity.name;
+  grp.appendChild(label);
+
+  const sub = document.createElementNS(SVG_NS, 'text');
+  sub.setAttribute('x', w/2);
+  sub.setAttribute('y', h - 6);
+  sub.setAttribute('text-anchor', 'middle');
+  sub.setAttribute('font-size', '9');
+  sub.setAttribute('font-family', 'system-ui, sans-serif');
+  sub.setAttribute('fill', 'var(--muted)');
+  sub.style.pointerEvents = 'none';
+  sub.textContent = entity.type;
+  grp.appendChild(sub);
+
+  const title = document.createElementNS(SVG_NS, 'title');
+  title.textContent = entity.id + ' · ' + (entity.kind || 'generic');
+  grp.appendChild(title);
+
+  return grp;
+}
+
+function renderGraphSvg(entities, dir, container, opts){
+  opts = opts || {};
+  if (!entities.length){
+    container.innerHTML = '<div class="empty-state"><h3>No entities to render</h3>'+
+      '<p>Map entities in step 1 first.</p></div>';
+    return;
+  }
+  const g = buildGraph(entities, dir);
+  // override with saved coords (skipped when grouping → fresh per-card layout)
+  if (!opts.stripLayout){
+    for (const e of entities){
+      if (e.layout && Number.isFinite(e.layout.x) && Number.isFinite(e.layout.y)){
+        const n = g.node(e.id);
+        if (n){ n.x = e.layout.x; n.y = e.layout.y; }
+      }
+    }
+  }
+  // bbox — include nodes AND gauges so right/bottom widgets aren't clipped
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  for (const id of g.nodes()){
+    const n = g.node(id);
+    minX = Math.min(minX, n.x - n.width/2 - 30);
+    minY = Math.min(minY, n.y - n.height/2 - 30);
+    maxX = Math.max(maxX, n.x + n.width/2 + 30);
+    maxY = Math.max(maxY, n.y + n.height/2 + 30);
+  }
+  const gaugesAll = (STATE.cfg && STATE.cfg.gauges) || [];
+  const nodeMapForBbox = new Map();
+  for (const id of g.nodes()) nodeMapForBbox.set(id, g.node(id));
+  for (const gg of gaugesAll){
+    if (!nodeMapForBbox.has(gg.entity)) continue;
+    const sz = widgetSize(gg.widget);
+    const pos = gaugePosition(gg, nodeMapForBbox, gaugesAll);
+    minX = Math.min(minX, pos.x - 12);
+    minY = Math.min(minY, pos.y - 12);
+    maxX = Math.max(maxX, pos.x + sz.w + 12);
+    maxY = Math.max(maxY, pos.y + sz.h + 12);
+  }
+  // in edit mode give a generous workspace and ensure svg fills the viewport
+  // so users can drag nodes/gauges past the current content bbox without clipping
+  if (STATE.editMode){
+    const hostEl = document.getElementById('canvas-host');
+    const hostW = hostEl ? hostEl.clientWidth  : 0;
+    const hostH = hostEl ? hostEl.clientHeight : 0;
+    const contentW = maxX - minX;
+    const contentH = maxY - minY;
+    const wantW = Math.max(contentW + 800, hostW);
+    const wantH = Math.max(contentH + 500, hostH);
+    maxX = minX + wantW;
+    maxY = minY + wantH;
+  }
+  const w = Math.max(400, maxX - minX);
+  const h = Math.max(300, maxY - minY);
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'scada' + (STATE.editMode ? ' edit' : ''));
+  svg.setAttribute('width',  w);
+  svg.setAttribute('height', h);
+  svg.setAttribute('viewBox', `${minX} ${minY} ${w} ${h}`);
+  svg.setAttribute('data-graph-key', opts.key || 'all');
+
+  // parent edges (dotted, ISA-95 hierarchy)
+  const parentLayer = document.createElementNS(SVG_NS, 'g');
+  parentLayer.setAttribute('class', 'layer-parent-edges');
+  for (const ed of g.edges()){
+    const a = g.node(ed.v), b = g.node(ed.w);
+    if (!a || !b) continue;
+    const p = document.createElementNS(SVG_NS, 'path');
+    p.setAttribute('d', `M ${a.x} ${a.y} L ${b.x} ${b.y}`);
+    p.setAttribute('class', 'viz-link parent');
+    p.setAttribute('data-from', ed.v);
+    p.setAttribute('data-to', ed.w);
+    parentLayer.appendChild(p);
+  }
+  svg.appendChild(parentLayer);
+
+  // user links
+  const userLayer = document.createElementNS(SVG_NS, 'g');
+  userLayer.setAttribute('class', 'layer-user-links');
+  const links = (STATE.cfg && STATE.cfg.links) || [];
+  const idsInGraph = new Set(g.nodes());
+  links.forEach((l, idx) => {
+    if (!idsInGraph.has(l.from) || !idsInGraph.has(l.to)) return;
+    const a = g.node(l.from), b = g.node(l.to);
+    const p = document.createElementNS(SVG_NS, 'path');
+    p.setAttribute('d', `M ${a.x} ${a.y} L ${b.x} ${b.y}`);
+    p.setAttribute('class', `viz-link user ${l.kind || 'link'}`);
+    p.setAttribute('data-link-idx', idx);
+    if (STATE.selected && STATE.selected.kind === 'link' && STATE.selected.idx === idx)
+      p.classList.add('selected');
+    userLayer.appendChild(p);
+  });
+  svg.appendChild(userLayer);
+
+  // nodes
+  const nodeLayer = document.createElementNS(SVG_NS, 'g');
+  nodeLayer.setAttribute('class', 'layer-nodes');
+  for (const id of g.nodes()){
+    const n = g.node(id);
+    const e = entities.find(x => x.id === id) || n;
+    const grp = createNodeGroup(e, n);
+    if (STATE.selected && STATE.selected.kind === 'node' && STATE.selected.id === id)
+      grp.classList.add('selected');
+    if (STATE.linkSource === id)
+      grp.classList.add('link-source');
+    nodeLayer.appendChild(grp);
+  }
+  svg.appendChild(nodeLayer);
+
+  // gauges (filtered to entities present in this graph)
+  const gaugeLayer = document.createElementNS(SVG_NS, 'g');
+  gaugeLayer.setAttribute('class', 'layer-gauges');
+  const gauges = (STATE.cfg && STATE.cfg.gauges) || [];
+  const nodeMap = new Map();
+  for (const id of g.nodes()) nodeMap.set(id, g.node(id));
+  for (const gg of gauges){
+    if (!nodeMap.has(gg.entity)) continue;
+    const pos = gaugePosition(gg, nodeMap, gauges);
+    const ggrp = createGaugeGroup(gg, pos);
+    if (STATE.selected && STATE.selected.kind === 'gauge' && STATE.selected.id === gg.id)
+      ggrp.classList.add('selected');
+    gaugeLayer.appendChild(ggrp);
+  }
+  svg.appendChild(gaugeLayer);
+
+  // attach handlers
+  if (STATE.editMode){
+    attachEditHandlers(svg, g);
+  } else {
+    attachViewHandlers(svg);
+  }
+
+  // Note: caller is responsible for ensuring `container` is mounted in the
+  // document before applyLiveValuesToDOM is run; renderCanvas does that once
+  // at the end so both ungrouped and grouped (detached `inner` divs) work.
+  container.appendChild(svg);
+}
+
+function attachViewHandlers(svg){
+  // no-op for now (Phase C: hover gauges, click → details)
+}
+
+// ── Edit handlers ───────────────────────────────────────────────────────────
+function svgPoint(svg, ev){
+  const pt = svg.createSVGPoint();
+  pt.x = ev.clientX; pt.y = ev.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function attachEditHandlers(svg, g){
+  svg.addEventListener('pointerdown', ev => onPointerDown(ev, svg, g));
+  svg.addEventListener('pointermove', ev => onPointerMove(ev, svg, g));
+  svg.addEventListener('pointerup',   ev => onPointerUp(ev, svg, g));
+  svg.addEventListener('pointercancel', ev => onPointerUp(ev, svg, g));
+  // dbl-click a gauge → open the config modal pre-populated for editing
+  svg.addEventListener('dblclick', ev => {
+    const gel = findGaugeGroup(ev.target);
+    if (!gel) return;
+    const id = gel.getAttribute('data-gauge-id');
+    const gobj = (STATE.cfg.gauges||[]).find(x => x.id === id);
+    if (!gobj) return;
+    ev.preventDefault();
+    openGaugeModal(gobj.entity, id);
+  });
+}
+
+function findNodeGroup(target){
+  while (target && target !== document){
+    if (target.classList && target.classList.contains('viz-node')) return target;
+    target = target.parentNode;
+  }
+  return null;
+}
+function findLinkPath(target){
+  if (target && target.classList && target.classList.contains('viz-link') && target.classList.contains('user'))
+    return target;
+  return null;
+}
+function findGaugeGroup(target){
+  while (target && target !== document){
+    if (target.classList && target.classList.contains('viz-gauge')) return target;
+    target = target.parentNode;
+  }
+  return null;
+}
+
+function onPointerDown(ev, svg, g){
+  const nodeEl  = findNodeGroup(ev.target);
+  const linkEl  = findLinkPath(ev.target);
+  const gaugeEl = findGaugeGroup(ev.target);
+
+  if (STATE.tool === 'select'){
+    if (gaugeEl){
+      const id = gaugeEl.getAttribute('data-gauge-id');
+      const gobj = (STATE.cfg.gauges||[]).find(x => x.id === id);
+      if (!gobj) return;
+      const p = svgPoint(svg, ev);
+      const xfm = gaugeEl.getAttribute('transform') || '';
+      const m = xfm.match(/translate\(\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\)/);
+      const origX = m ? parseFloat(m[1]) : 0;
+      const origY = m ? parseFloat(m[2]) : 0;
+      STATE.selected = { kind:'gauge', id };
+      STATE.drag     = { kind:'gauge', id, startX: p.x, startY: p.y, origX, origY, svg, moved:false };
+      svg.setPointerCapture(ev.pointerId);
+      gaugeEl.classList.add('dragging','selected');
+      ev.preventDefault();
+    } else if (nodeEl){
+      const id = nodeEl.getAttribute('data-id');
+      const n  = g.node(id);
+      const p  = svgPoint(svg, ev);
+      STATE.selected = { kind:'node', id };
+      STATE.drag     = { kind:'node', id, startX: p.x, startY: p.y, origX: n.x, origY: n.y, svg, g, moved: false };
+      svg.setPointerCapture(ev.pointerId);
+      nodeEl.classList.add('dragging','selected');
+      ev.preventDefault();
+    } else if (linkEl){
+      const idx = parseInt(linkEl.getAttribute('data-link-idx'),10);
+      STATE.selected = { kind:'link', idx };
+      renderCanvas();
+    } else {
+      STATE.selected = null;
+      renderCanvas();
+    }
+  } else if (STATE.tool === 'link' || STATE.tool === 'pipe'){
+    if (nodeEl){
+      const id = nodeEl.getAttribute('data-id');
+      if (!STATE.linkSource){
+        STATE.linkSource = id;
+        nodeEl.classList.add('link-source');
+        const ghost = document.createElementNS(SVG_NS, 'path');
+        ghost.setAttribute('class', 'ghost-link');
+        ghost.setAttribute('d', '');
+        svg.appendChild(ghost);
+      } else if (STATE.linkSource !== id){
+        STATE.cfg.links = STATE.cfg.links || [];
+        STATE.cfg.links.push({ from: STATE.linkSource, to: id, kind: STATE.tool });
+        STATE.linkSource = null;
+        const ghost = svg.querySelector('.ghost-link'); if (ghost) ghost.remove();
+        renderCanvas();
+      } else {
+        STATE.linkSource = null;
+        nodeEl.classList.remove('link-source');
+        const ghost = svg.querySelector('.ghost-link'); if (ghost) ghost.remove();
+      }
+    }
+  } else if (STATE.tool === 'gauge'){
+    if (nodeEl){
+      const id = nodeEl.getAttribute('data-id');
+      openGaugeModal(id);
+    }
+  }
+}
+
+function onPointerMove(ev, svg, g){
+  if (STATE.drag && STATE.drag.kind === 'gauge'){
+    const d = STATE.drag;
+    const p = svgPoint(svg, ev);
+    const newX = d.origX + (p.x - d.startX);
+    const newY = d.origY + (p.y - d.startY);
+    d.moved = true;
+    const gel = svg.querySelector(`.viz-gauge[data-gauge-id="${cssEscape(d.id)}"]`);
+    if (gel) gel.setAttribute('transform', `translate(${newX} ${newY})`);
+    return;
+  }
+  if (STATE.drag){
+    const d = STATE.drag;
+    const p = svgPoint(svg, ev);
+    const newX = d.origX + (p.x - d.startX);
+    const newY = d.origY + (p.y - d.startY);
+    const n = g.node(d.id); n.x = newX; n.y = newY;
+    d.moved = true;
+    const nodeEl = svg.querySelector(`.viz-node[data-id="${cssEscape(d.id)}"]`);
+    if (nodeEl) nodeEl.setAttribute('transform', `translate(${newX - n.width/2} ${newY - n.height/2})`);
+    svg.querySelectorAll('.viz-link.parent').forEach(path => {
+      const a = path.getAttribute('data-from'), b = path.getAttribute('data-to');
+      if (a === d.id || b === d.id){
+        const A = g.node(a), B = g.node(b);
+        path.setAttribute('d', `M ${A.x} ${A.y} L ${B.x} ${B.y}`);
+      }
+    });
+    svg.querySelectorAll('.viz-link.user').forEach(path => {
+      const idx = parseInt(path.getAttribute('data-link-idx'),10);
+      const l = STATE.cfg.links[idx]; if (!l) return;
+      if (l.from === d.id || l.to === d.id){
+        const A = g.node(l.from), B = g.node(l.to);
+        if (A && B) path.setAttribute('d', `M ${A.x} ${A.y} L ${B.x} ${B.y}`);
+      }
+    });
+    // also drag any gauges attached to this node, if they don't have explicit layout
+    svg.querySelectorAll('.viz-gauge').forEach(gel => {
+      const gid = gel.getAttribute('data-gauge-id');
+      const gg = (STATE.cfg.gauges||[]).find(x=>x.id===gid);
+      if (!gg || gg.entity !== d.id || (gg.layout && Number.isFinite(gg.layout.x))) return;
+      const sz = widgetSize(gg.widget);
+      gel.setAttribute('transform', `translate(${newX + n.width/2 + 12} ${newY - sz.h/2})`);
+    });
+  } else if (STATE.linkSource){
+    const A = g.node(STATE.linkSource);
+    if (!A) return;
+    const p = svgPoint(svg, ev);
+    let ghost = svg.querySelector('.ghost-link');
+    if (!ghost){
+      ghost = document.createElementNS(SVG_NS, 'path');
+      ghost.setAttribute('class', 'ghost-link');
+      svg.appendChild(ghost);
+    }
+    ghost.setAttribute('d', `M ${A.x} ${A.y} L ${p.x} ${p.y}`);
+  }
+}
+
+function onPointerUp(ev, svg, g){
+  if (STATE.drag && STATE.drag.kind === 'gauge'){
+    const d = STATE.drag;
+    const gel = svg.querySelector(`.viz-gauge[data-gauge-id="${cssEscape(d.id)}"]`);
+    let moved = false;
+    if (gel){
+      gel.classList.remove('dragging');
+      if (d.moved){
+        moved = true;
+        const xfm = gel.getAttribute('transform') || '';
+        const m = xfm.match(/translate\(\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\)/);
+        if (m){
+          const gobj = (STATE.cfg.gauges||[]).find(x => x.id === d.id);
+          if (gobj) gobj.layout = { x: parseFloat(m[1]), y: parseFloat(m[2]) };
+        }
+      }
+    }
+    try { svg.releasePointerCapture(ev.pointerId); } catch (e) {}
+    STATE.drag = null;
+    // Re-render so the SVG viewBox/size grows to fit the new gauge position
+    // (otherwise dragging past the original bbox clips the widget).
+    if (moved) renderCanvas();
+    return;
+  }
+  if (STATE.drag){
+    const d = STATE.drag;
+    const n = g.node(d.id);
+    let moved = false;
+    if (d.moved){
+      moved = true;
+      STATE.cfg.entities = STATE.cfg.entities || {};
+      STATE.cfg.entities[d.id] = Object.assign({}, STATE.cfg.entities[d.id] || {}, {
+        layout: { x: n.x, y: n.y },
+      });
+    }
+    const nodeEl = svg.querySelector(`.viz-node[data-id="${cssEscape(d.id)}"]`);
+    if (nodeEl) nodeEl.classList.remove('dragging');
+    try { svg.releasePointerCapture(ev.pointerId); } catch (e) {}
+    STATE.drag = null;
+    if (moved) renderCanvas();
+  }
+}
+
+function cssEscape(s){
+  return String(s).replace(/[\\"]/g, '\\$&');
+}
+
+// ── Main canvas dispatch ────────────────────────────────────────────────────
+async function renderCanvas(){
+  await fetchStatus();
+  const host = document.getElementById('canvas-host');
+  const legend = host.querySelector('.legend');
+  host.innerHTML = '';
+  if (legend) host.appendChild(legend);
+
+  const dir   = document.getElementById('layout-dir').value;
+  const group = document.getElementById('layout-group').value;
+  const mapped = (STATE.cfg && STATE.cfg.entities) || {};
+  const ents = STATE.entities.map(e => ({
+    ...e,
+    kind:   (mapped[e.id]||{}).kind || e.kind,
+    layout: (mapped[e.id]||{}).layout || null,
+  }));
+
+  if (!ents.length){
+    host.innerHTML = '<div class="empty-state"><h3>No entities</h3></div>';
+    return;
+  }
+
+  if (group === 'none' || STATE.editMode){
+    renderGraphSvg(ents, dir, host, { key:'all' });
+  } else {
+    const sites = ents.filter(e=>e.type==='site');
+    if (!sites.length){
+      renderGraphSvg(ents, dir, host, { key:'all' });
+    } else {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;gap:14px;padding:14px';
+      for (const s of sites){
+        const card = document.createElement('div');
+        card.style.cssText = 'background:var(--surface);border:1px solid var(--border);' +
+          'border-radius:8px;padding:10px;overflow-x:auto';
+        const hdr = document.createElement('div');
+        hdr.style.cssText = 'font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text)';
+        hdr.textContent = s.name + ' — ' + s.id;
+        card.appendChild(hdr);
+        const inner = document.createElement('div');
+        const subEnts = ents.filter(e => e.id === s.id || e.id.startsWith(s.id + '|'));
+        const ids = new Set(subEnts.map(e=>e.id));
+        const reroot = subEnts.map(e => ({...e, parentPath: ids.has(e.parentPath) ? e.parentPath : ''}));
+        renderGraphSvg(reroot, dir, inner, { key:'site:'+s.id, stripLayout:true });
+        card.appendChild(inner);
+        wrap.appendChild(card);
+      }
+      host.appendChild(wrap);
+    }
+  }
+
+  // Apply cached live values + animations after EVERY SVG is mounted in the
+  // document. This avoids the 1s blank flash on the 8s background re-render,
+  // including in group mode where SVGs are first attached to detached divs.
+  applyLiveValuesToDOM();
+  applyAutoAnimations();
+
+  document.getElementById('canvas-info').textContent =
+    `${ents.length} entities` +
+    (STATE.status ? ' · live state' : '') +
+    (STATE.editMode ? ' · EDITING (unsaved changes apply on Save)' : '');
+}
+
+// ── Keyboard shortcuts ──────────────────────────────────────────────────────
+document.addEventListener('keydown', ev => {
+  const onCanvas = document.getElementById('viewCanvas').classList.contains('active');
+  if (!onCanvas) return;
+  // ignore typing in inputs
+  if (['INPUT','SELECT','TEXTAREA'].includes((ev.target.tagName||'').toUpperCase())) return;
+  if (!STATE.editMode) return;
+  if (ev.key === 'Delete' || ev.key === 'Backspace'){
+    if (STATE.selected){ ev.preventDefault(); deleteSelected(); }
+  } else if (ev.key === 's' || ev.key === 'S') setTool('select');
+  else if (ev.key === 'l' || ev.key === 'L') setTool('link');
+  else if (ev.key === 'p' || ev.key === 'P') setTool('pipe');
+  else if (ev.key === 'g' || ev.key === 'G') setTool('gauge');
+  else if (ev.key === 'e' || ev.key === 'E'){ ev.preventDefault(); editSelectedGauge(); }
+  else if (ev.key === 'Escape'){
+    STATE.linkSource = null;
+    STATE.selected   = null;
+    renderCanvas();
+  }
+});
+
+// ── Boot ────────────────────────────────────────────────────────────────────
+loadAll();
+startLivePoll();   // 1 Hz live values + animations (skips when editing or off-canvas)
+// Slow background re-render to refresh state-color borders + plant_data.
+setInterval(()=>{
+  if (!document.getElementById('viewCanvas').classList.contains('active')) return;
+  if (STATE.editMode) return;
+  renderCanvas();
+}, 8000);
+</script>
+
+</body>
+</html>

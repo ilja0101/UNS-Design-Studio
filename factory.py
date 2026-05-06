@@ -22,6 +22,7 @@ import time
 import datetime
 from opcua import Server, ua
 from json_persistence import load_json, load_json_or_raise
+from uns_tree import resolve_enterprise_root
 
 logging.getLogger('opcua').setLevel(logging.ERROR)
 logging.basicConfig(level=logging.WARN)
@@ -52,12 +53,24 @@ def _resolve_endpoint_host() -> str:
     return '127.0.0.1'
 
 SERVER_ENDPOINT = f"opc.tcp://{_resolve_endpoint_host()}:{_OPC_PORT}/freeopcua/server/"
-NAMESPACE_URI   = "http://VirtualUNS.com/uns"
+NAMESPACE_URI_DEFAULT = "http://VirtualUNS.com/uns"
 TCP_SERVER_IP   = "0.0.0.0"
 TCP_SERVER_PORT = _TCP_PORT
 
 stop_flag         = False
 anomaly_overrides = {}
+
+def _get_namespace_uri() -> str:
+    try:
+        path = _os.path.join(BASE_DIR, 'uns_config.json')
+        cfg = load_json(path, {}, logger=_json_log, label='uns_config.json')
+        if isinstance(cfg, dict):
+            return cfg.get('namespaceUri') or NAMESPACE_URI_DEFAULT
+    except Exception:
+        pass
+    return NAMESPACE_URI_DEFAULT
+
+NAMESPACE_URI = _get_namespace_uri()
 
 # ================================================================
 # DYNAMIC ENTERPRISE NAME (FIXED — supports any root name from UNS Designer)
@@ -67,7 +80,8 @@ def _get_enterprise_name() -> str:
     try:
         path = _os.path.join(BASE_DIR, 'uns_config.json')
         cfg = load_json(path, {}, logger=_json_log, label='uns_config.json')
-        return cfg.get('tree', {}).get('name', 'GlobalFoodCo')
+        name, _ = resolve_enterprise_root(cfg.get('tree', {}) if isinstance(cfg, dict) else {})
+        return name
     except Exception:
         return 'GlobalFoodCo'
 
@@ -533,6 +547,8 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
     variables       = {}
     anomaly_key_map = {}
 
+    _, enterprise_node = resolve_enterprise_root(tree)
+
     canonical = {}
     def _collect_canonical(node):
         name = node.get('name', '')
@@ -541,7 +557,7 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
             canonical[name] = tags
         for child in node.get('children', []):
             _collect_canonical(child)
-    _collect_canonical(tree)
+    _collect_canonical(enterprise_node)
 
     def _walk(node, uns_parts, opc_parts, area_opc_parts, plant_key):
         ntype    = node.get('type', '')
@@ -579,15 +595,16 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
                 except Exception:
                     current = current.add_object(idx, part)
 
-            if data_type == 'Float':
+            dt = (data_type or 'Float').strip()
+            if dt in ('Float', 'Double', 'Real'):
                 default, vt = 0.0,   ua.VariantType.Double
-            elif data_type == 'Int':
+            elif dt in ('Int', 'Int16', 'Int32', 'Int64', 'Integer', 'UInt16', 'UInt32', 'UInt64'):
                 default, vt = 0,     ua.VariantType.Int64
-            elif data_type == 'Bool':
+            elif dt in ('Bool', 'Boolean'):
                 default, vt = False, ua.VariantType.Boolean
-            elif data_type == 'String':
+            elif dt in ('String', 'Str'):
                 default, vt = "",    ua.VariantType.String
-            elif data_type == 'DateTime':
+            elif dt in ('DateTime', 'Timestamp'):
                 default = datetime.datetime.now(datetime.timezone.utc)
                 vt      = ua.VariantType.DateTime
             else:
@@ -608,7 +625,7 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
         for child in node.get('children', []):
             _walk(child, uns_parts + [name], new_opc, new_area, new_plant_key)
 
-    for child in tree.get('children', []):
+    for child in enterprise_node.get('children', []):
         _walk(child, [], [], [], None)
 
     print(f"[factory] Dynamic address space ready — {len(variables)} tags")
