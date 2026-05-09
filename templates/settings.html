@@ -63,7 +63,8 @@
                         </select></label>
                     <label>Broker host<input id="bridge-host" placeholder="localhost"></label>
                     <label id="bridge-port-label">Broker port<input id="bridge-port" type="number"
-                            placeholder="1883"></label>
+                            placeholder="1883"><span id="bridge-port-quick"
+                            style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></span></label>
                     <label>Username<input id="bridge-user" placeholder="optional"></label>
                     <label>Password<input id="bridge-pass" type="password"
                             placeholder="leave blank to keep unchanged"></label>
@@ -79,6 +80,10 @@
 
     <script>
         const DEFAULT_PORTS = { mqtt: 1883, nats: 4222 };
+        const QUICK_PORTS = {
+            mqtt: [1883, 1884, 1885, 8883, 8083, 9001],
+            nats: [4222, 4223, 4224, 6222, 8222],
+        };
         function toast(msg, type = 'info', ms = 3500) {
             const el = document.createElement('div');
             el.className = `toast ${type}`;
@@ -106,6 +111,10 @@
         function syncBrokerPortLabel() {
             const proto = document.getElementById('bridge-protocol').value;
             document.getElementById('bridge-port-label').firstChild.textContent = proto === 'nats' ? 'Broker port (NATS = 4222)' : 'Broker port (MQTT = 1883)';
+            const wrap = document.getElementById('bridge-port-quick');
+            wrap.innerHTML = (QUICK_PORTS[proto] || [DEFAULT_PORTS[proto]]).map(port =>
+                `<button type="button" class="chip" onclick="document.getElementById('bridge-port').value=${port}">${port}</button>`
+            ).join('');
         }
         async function saveNetworkSettings() {
             const payload = {

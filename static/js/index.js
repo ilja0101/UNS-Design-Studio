@@ -540,6 +540,25 @@ function protoNotes() {
 }
 
 const DEFAULT_PORTS = { mqtt: 1883, nats: 4222 };
+const QUICK_PORTS = {
+  mqtt: [1883, 1884, 1885, 8883, 8083, 9001],
+  nats: [4222, 4223, 4224, 6222, 8222],
+};
+
+function renderPortQuickPick(proto) {
+  const wrap = document.getElementById('cfgPortQuick');
+  if (!wrap) return;
+  const ports = QUICK_PORTS[proto] || [DEFAULT_PORTS[proto]];
+  wrap.innerHTML = ports.map(port =>
+    `<button type="button" class="chip" onclick="setBridgePort(${port})">${port}</button>`
+  ).join('');
+}
+
+function setBridgePort(port) {
+  const portEl = document.getElementById('cfgPort');
+  portEl.value = port;
+  portEl.dataset.userEdited = '1';
+}
 
 function updateBridgeUI(d) {
   const running = d.bridge_running;
@@ -592,6 +611,7 @@ function selectProto(p) {
   document.getElementById('cfgPortLabel').textContent =
     p === 'nats' ? 'Port (NATS = 4222)' : 'Port (MQTT = 1883)';
   document.getElementById('bridgeCfgNote').innerHTML = protoNotes()[p] || '';
+  renderPortQuickPick(p);
   // Only auto-fill port if user hasn't typed something custom
   const portEl = document.getElementById('cfgPort');
   if (!portEl.dataset.userEdited) {
