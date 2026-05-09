@@ -21,6 +21,7 @@ import socket
 import time
 import datetime
 from opcua import Server, ua
+from opcua.server.binary_server_asyncio import BinaryServer
 from json_persistence import load_json, load_json_or_raise
 from uns_tree import resolve_enterprise_root
 
@@ -46,13 +47,17 @@ _TCP_PORT        = int(_scfg.get('tcp_port',   9999))
 _HOST_IP         = (_scfg.get('host_ip') or '').strip()
 _OPC_CLIENT_HOST = (_scfg.get('opc_client_host') or '').strip()
 
-def _resolve_endpoint_host() -> str:
+def _resolve_advertise_host() -> str:
     if _HOST_IP:              return _HOST_IP
     if _OPC_CLIENT_HOST:      return _OPC_CLIENT_HOST
     if _OPC_BIND_IP and _OPC_BIND_IP != '0.0.0.0': return _OPC_BIND_IP
     return '127.0.0.1'
 
-SERVER_ENDPOINT = f"opc.tcp://{_resolve_endpoint_host()}:{_OPC_PORT}/freeopcua/server/"
+def _endpoint(host: str) -> str:
+    return f"opc.tcp://{host}:{_OPC_PORT}/freeopcua/server/"
+
+BIND_ENDPOINT = _endpoint(_OPC_BIND_IP or '0.0.0.0')
+ADVERTISED_ENDPOINT = _endpoint(_resolve_advertise_host())
 NAMESPACE_URI_DEFAULT = "http://VirtualUNS.com/uns"
 TCP_SERVER_IP   = "0.0.0.0"
 TCP_SERVER_PORT = _TCP_PORT
@@ -737,7 +742,11 @@ signal.signal(signal.SIGTERM, signal_handler)
 async def main():
     global stop_flag
     server = Server()
-    server.set_endpoint(SERVER_ENDPOINT)
+    # Bind/listen on opc_bind_ip, but advertise host_ip/opc_client_host in the
+    # endpoint returned to OPC-UA clients during GetEndpoints. This keeps Docker
+    # and remote clients reachable while preserving a useful discovery URL.
+    server.set_endpoint(ADVERTISED_ENDPOINT)
+    server.bserver = BinaryServer(server.iserver, _OPC_BIND_IP or '0.0.0.0', _OPC_PORT)
     server.set_server_name("UNS Design Studio | github.com/Ilja0101")
 
     idx            = server.register_namespace(NAMESPACE_URI)
@@ -750,14 +759,15 @@ async def main():
     variables, anomaly_key_map = _create_dynamic_address_space(server, idx, enterprise_obj)
 
     server.start()
-    print(f"[factory] OPC UA Server started on {SERVER_ENDPOINT} (root: {enterprise_name})")
+    print(f"[factory] OPC UA Server listening on {BIND_ENDPOINT} (advertising {ADVERTISED_ENDPOINT}, root: {enterprise_name})")
     await asyncio.sleep(1.5)
 
     asyncio.create_task(run_simulation(variables, anomaly_key_map))
 
     print("=" * 70)
     print("    UNS Design Studio  |  github.com/Ilja0101")
-    print(f"    Endpoint  : {SERVER_ENDPOINT}")
+    print(f"    Listen    : {BIND_ENDPOINT}")
+    print(f"    Endpoint  : {ADVERTISED_ENDPOINT}")
     print(f"    Root      : {enterprise_name}")
     print("=" * 70)
 
