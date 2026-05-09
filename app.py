@@ -178,6 +178,25 @@ def _start_periodic_sync(interval: int = 10):
 def _endpoint():
     return f"opc.tcp://{_state['opc_host']}:{_state['opc_port']}/freeopcua/server/"
 
+def _container_local_host(host: str) -> str:
+    """Return a loopback-safe host for child processes inside this container.
+
+    The dashboard may advertise the Docker host/LAN IP so external OPC-UA
+    clients can discover a usable endpoint, but subprocesses running in the same
+    container should connect to the local listener directly. This avoids bridge
+    failures when `host_ip` is set to an address that is reachable externally but
+    not hairpin-routable from inside the container.
+    """
+    host = (host or '').strip()
+    if host in ('', '0.0.0.0', '::'):
+        return '127.0.0.1'
+    cfg = _load_server_cfg()
+    advertised = (cfg.get('host_ip') or '').strip()
+    bind_ip = (cfg.get('opc_bind_ip') or '').strip()
+    if advertised and host == advertised and bind_ip in ('', '0.0.0.0', '::'):
+        return '127.0.0.1'
+    return host
+
 def _opc_tcp_port_open(timeout: float = 0.25) -> bool:
     """Return True when the configured OPC-UA TCP endpoint accepts connections."""
     try:
@@ -1105,7 +1124,7 @@ def start_bridge():
             return False, f"bridge.py not found at {BRIDGE_PY}"
         try:
             cfg = _load_bridge_cfg()
-            cfg['opc_host'] = _state['opc_host']
+            cfg['opc_host'] = _container_local_host(_state['opc_host'])
             cfg['opc_port'] = _state['opc_port']
             _save_bridge_cfg(cfg)
         except Exception as e:
