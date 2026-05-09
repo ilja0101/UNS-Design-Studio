@@ -258,7 +258,9 @@ def run_mqtt(cfg):
         sys.exit(1)
 
     _stats["protocol"] = "mqtt"
-    host     = cfg.get("broker_host", "localhost")
+    host     = (cfg.get("broker_host", "localhost") or "localhost").strip()
+    if host in ("", "0.0.0.0", "::"):
+        host = "127.0.0.1"
     port     = int(cfg.get("broker_port", 1883))
     interval = float(cfg.get("interval", 2.0))
     print(f"[bridge] MQTT mode -> {host}:{port}", flush=True)
@@ -344,7 +346,9 @@ def run_nats(cfg):
     import asyncio
 
     _stats["protocol"] = "nats"
-    host     = cfg.get("broker_host", "localhost")
+    host     = (cfg.get("broker_host", "localhost") or "localhost").strip()
+    if host in ("", "0.0.0.0", "::"):
+        host = "127.0.0.1"
     port     = int(cfg.get("broker_port", 4222))
     interval = float(cfg.get("interval", 2.0))
 

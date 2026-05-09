@@ -197,6 +197,16 @@ def _container_local_host(host: str) -> str:
         return '127.0.0.1'
     return host
 
+def _normalize_connect_host(host: str) -> str:
+    """Normalize wildcard bind addresses when a config value is used by a client.
+
+    Users often type 0.0.0.0 because it is the address a broker/server listens
+    on. Client libraries cannot connect to that wildcard address reliably,
+    especially from inside Docker, so use loopback for same-container clients.
+    """
+    host = (host or '').strip()
+    return '127.0.0.1' if host in ('', '0.0.0.0', '::') else host
+
 def _opc_tcp_port_open(timeout: float = 0.25) -> bool:
     """Return True when the configured OPC-UA TCP endpoint accepts connections."""
     try:
@@ -1126,6 +1136,7 @@ def start_bridge():
             cfg = _load_bridge_cfg()
             cfg['opc_host'] = _container_local_host(_state['opc_host'])
             cfg['opc_port'] = _state['opc_port']
+            cfg['broker_host'] = _normalize_connect_host(cfg.get('broker_host', 'localhost'))
             _save_bridge_cfg(cfg)
         except Exception as e:
             return False, f"Could not update bridge config: {e}"
@@ -1185,6 +1196,8 @@ def api_bridge_cfg_save():
                 'interval', 'username', 'password'):
         if key in data:
             cfg[key] = data[key]
+    if 'broker_host' in cfg:
+        cfg['broker_host'] = _normalize_connect_host(cfg.get('broker_host', 'localhost'))
     _save_bridge_cfg(cfg)
     if _bridge_alive():
         stop_bridge()
