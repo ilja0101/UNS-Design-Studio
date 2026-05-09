@@ -1,12 +1,4 @@
 services:
-  mqtt-broker:
-    image: eclipse-mosquitto:2
-    container_name: uns-mqtt-broker
-    restart: unless-stopped
-    command: mosquitto -c /mosquitto-no-auth.conf
-    ports:
-      - "1884:1883"   # MQTT broker for MQTT Explorer / bridge
-
   uns-design-studio:
     # V2.0 release image from GitHub Container Registry.
     # In Portainer, set an environment variable such as:
@@ -23,8 +15,12 @@ services:
       - uns-design-studio-data:/data
     environment:
       PYTHONUNBUFFERED: "1"
-    depends_on:
-      - mqtt-broker
+    # Allows the bridge to reach a broker running on the Docker host as:
+    #   host.docker.internal:<broker-port>
+    # For a broker in another container/stack, connect both containers to the
+    # same Docker network and use that broker's service/container DNS name.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/status', timeout=5).read()"]
       interval: 30s
