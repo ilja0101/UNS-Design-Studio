@@ -4,29 +4,29 @@
       "description": "Value, timestamp, unit and quality — the bridge default",
       "fields": [
         {
+          "key": "name",
+          "source": "topicPath",
+          "staticVal": ""
+        },
+        {
+          "key": "dataType",
+          "source": "dataType",
+          "staticVal": ""
+        },
+        {
           "key": "value",
           "source": "value",
           "staticVal": ""
         },
         {
-          "key": "ts",
+          "key": "timestamp",
           "source": "ts_ms",
           "staticVal": ""
         },
         {
-          "key": "unit",
-          "source": "unit",
+          "key": "qualityCode",
+          "source": "quality_code",
           "staticVal": ""
-        },
-        {
-          "key": "quality",
-          "source": "quality",
-          "staticVal": ""
-        },
-        {
-          "key": "datacontract_id",
-          "source": "static",
-          "staticVal": "1001"
         }
       ],
       "id": "standard",
@@ -137,6 +137,43 @@
       ],
       "id": "isa95",
       "name": "ISA-95 Extended"
+    },
+    {
+      "id": "schema-1778622000151",
+      "name": "Standard_inc_datacontract",
+      "description": "",
+      "fields": [
+        {
+          "key": "name",
+          "source": "topicPath",
+          "staticVal": ""
+        },
+        {
+          "key": "dataType",
+          "source": "dataType",
+          "staticVal": ""
+        },
+        {
+          "key": "value",
+          "source": "value",
+          "staticVal": ""
+        },
+        {
+          "key": "timestamp",
+          "source": "ts_ms",
+          "staticVal": ""
+        },
+        {
+          "key": "qualityCode",
+          "source": "quality_code",
+          "staticVal": ""
+        },
+        {
+          "key": "datacontract_id",
+          "source": "static",
+          "staticVal": "1001"
+        }
+      ]
     }
   ]
 }

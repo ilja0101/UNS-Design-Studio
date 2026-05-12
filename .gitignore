@@ -247,3 +247,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Local/private Royal Farmers Collective UNS generation artifacts
+scripts/generate_royal_farmers_uns.py
+example_UNS_jsons_to_import/RoyalFarmersCollective_UNS_Import.json

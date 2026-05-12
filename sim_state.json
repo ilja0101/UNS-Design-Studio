@@ -1,67 +1,658 @@
 {
   "plants": {
-    "Vault-Tec|nuka-boston-facility-01": {
+    "KnappertjesBV|Terneuzen": {
       "running": false,
-      "recipe": "NUKA_CLASSIC",
+      "recipe": "Knappertjes Naturel Kettle",
       "recipes": [
         {
-          "name": "NUKA_CLASSIC",
-          "params": {}
+          "name": "Knappertjes Naturel Kettle",
+          "params": {
+            "infeed_rate": 25,
+            "good_ratio": 0.9,
+            "cutter_speed_sp": 0.9,
+            "blancher_temp_sp": 78,
+            "fryer_temp_sp": 172,
+            "freezer_temp_sp": -30,
+            "outbound_rate": 8.5,
+            "base_power_kw": 720,
+            "quality_targets": {
+              "metric1": 21,
+              "metric2": 0.55,
+              "metric3": 64
+            }
+          }
         },
         {
-          "name": "NUKA_QUANTUM",
-          "params": {}
+          "name": "Knappertjes Paprika Crunch",
+          "params": {
+            "infeed_rate": 23,
+            "good_ratio": 0.91,
+            "cutter_speed_sp": 0.85,
+            "blancher_temp_sp": 80,
+            "fryer_temp_sp": 175,
+            "freezer_temp_sp": -30,
+            "outbound_rate": 8,
+            "base_power_kw": 730,
+            "quality_targets": {
+              "metric1": 22,
+              "metric2": 0.5,
+              "metric3": 62
+            }
+          }
+        },
+        {
+          "name": "Knappertjes Zeezout & Azijn",
+          "params": {
+            "infeed_rate": 24,
+            "good_ratio": 0.89,
+            "cutter_speed_sp": 0.88,
+            "blancher_temp_sp": 79,
+            "fryer_temp_sp": 173,
+            "freezer_temp_sp": -30,
+            "outbound_rate": 8.2,
+            "base_power_kw": 710,
+            "quality_targets": {
+              "metric1": 21.5,
+              "metric2": 0.58,
+              "metric3": 63
+            }
+          }
         }
       ]
     },
-    "Vault-Tec|stimpak-facility-01": {
+    "KnappertjesBV|BergenOpZoom": {
       "running": false,
-      "recipe": "STIMPAK_STANDARD",
+      "recipe": "Knappertjes Naturel Kettle",
       "recipes": [
         {
-          "name": "STIMPAK_STANDARD",
-          "params": {}
+          "name": "Knappertjes Naturel Kettle",
+          "params": {
+            "infeed_rate": 25,
+            "good_ratio": 0.9,
+            "cutter_speed_sp": 0.9,
+            "blancher_temp_sp": 78,
+            "fryer_temp_sp": 172,
+            "freezer_temp_sp": -30,
+            "outbound_rate": 8.5,
+            "base_power_kw": 720,
+            "quality_targets": {
+              "metric1": 21,
+              "metric2": 0.55,
+              "metric3": 64
+            }
+          }
         },
         {
-          "name": "STIMPAK_ULTRA",
-          "params": {}
+          "name": "Knappertjes Paprika Crunch",
+          "params": {
+            "infeed_rate": 23,
+            "good_ratio": 0.91,
+            "cutter_speed_sp": 0.85,
+            "blancher_temp_sp": 80,
+            "fryer_temp_sp": 175,
+            "freezer_temp_sp": -30,
+            "outbound_rate": 8,
+            "base_power_kw": 730,
+            "quality_targets": {
+              "metric1": 22,
+              "metric2": 0.5,
+              "metric3": 62
+            }
+          }
+        },
+        {
+          "name": "Knappertjes Zeezout & Azijn",
+          "params": {
+            "infeed_rate": 24,
+            "good_ratio": 0.89,
+            "cutter_speed_sp": 0.88,
+            "blancher_temp_sp": 79,
+            "fryer_temp_sp": 173,
+            "freezer_temp_sp": -30,
+            "outbound_rate": 8.2,
+            "base_power_kw": 710,
+            "quality_targets": {
+              "metric1": 21.5,
+              "metric2": 0.58,
+              "metric3": 63
+            }
+          }
         }
       ]
     },
-    "Vault-Tec|radaway-facility-01": {
+    "Vlokkenheim|Emmeloord": {
       "running": false,
-      "recipe": "RADAWAY_STANDARD",
+      "recipe": "Vlokkenheim Klassieke Pureevlok",
       "recipes": [
         {
-          "name": "RADAWAY_STANDARD",
-          "params": {}
+          "name": "Vlokkenheim Klassieke Pureevlok",
+          "params": {
+            "infeed_rate": 35,
+            "good_ratio": 0.96,
+            "drum_dryer_speed_sp": 0.8,
+            "drum_temp_sp": 158,
+            "outbound_rate": 8.2,
+            "base_power_kw": 610,
+            "quality_targets": {
+              "metric1": 91.5
+            }
+          }
+        },
+        {
+          "name": "Vlokkenheim Instantvlok Fijn",
+          "params": {
+            "infeed_rate": 32,
+            "good_ratio": 0.97,
+            "drum_dryer_speed_sp": 0.7,
+            "drum_temp_sp": 153,
+            "outbound_rate": 7.8,
+            "base_power_kw": 585,
+            "quality_targets": {
+              "metric1": 93
+            }
+          }
         }
       ]
     },
-    "Vault-Tec|research-vault-facility-01": {
+    "Vlokkenheim|Veendam": {
       "running": false,
-      "recipe": "--NA--",
-      "recipes": []
-    },
-    "Reynolds_4_0_Corp|site-a": {
-      "running": false,
-      "recipe": "PRODUCT_A",
+      "recipe": "Vlokkenheim Klassieke Pureevlok",
       "recipes": [
         {
-          "name": "PRODUCT_A",
-          "params": {}
+          "name": "Vlokkenheim Klassieke Pureevlok",
+          "params": {
+            "infeed_rate": 35,
+            "good_ratio": 0.96,
+            "drum_dryer_speed_sp": 0.8,
+            "drum_temp_sp": 158,
+            "outbound_rate": 8.2,
+            "base_power_kw": 610,
+            "quality_targets": {
+              "metric1": 91.5
+            }
+          }
         },
         {
-          "name": "PRODUCT_B",
-          "params": {}
+          "name": "Vlokkenheim Instantvlok Fijn",
+          "params": {
+            "infeed_rate": 32,
+            "good_ratio": 0.97,
+            "drum_dryer_speed_sp": 0.7,
+            "drum_temp_sp": 153,
+            "outbound_rate": 7.8,
+            "base_power_kw": 585,
+            "quality_targets": {
+              "metric1": 93
+            }
+          }
+        }
+      ]
+    },
+    "FritoMaxx|Heerenveen": {
+      "running": false,
+      "recipe": "FritoMaxx Huisfrites 10mm",
+      "recipes": [
+        {
+          "name": "FritoMaxx Huisfrites 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "good_ratio": 0.93,
+            "cutter_speed_sp": 1.2,
+            "blancher_temp_sp": 85,
+            "fryer_temp_sp": 180,
+            "freezer_temp_sp": -35,
+            "outbound_rate": 26,
+            "base_power_kw": 820,
+            "quality_targets": {
+              "metric1": 23,
+              "metric2": 0.4,
+              "metric3": 68
+            }
+          }
         },
         {
-          "name": "PRODUCT_C",
-          "params": {}
+          "name": "FritoMaxx Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "good_ratio": 0.95,
+            "cutter_speed_sp": 1.1,
+            "blancher_temp_sp": 88,
+            "fryer_temp_sp": 185,
+            "freezer_temp_sp": -38,
+            "outbound_rate": 24.5,
+            "base_power_kw": 860,
+            "quality_targets": {
+              "metric1": 24,
+              "metric2": 0.32,
+              "metric3": 70
+            }
+          }
         },
         {
-          "name": "MAINTENANCE",
-          "params": {}
+          "name": "FritoMaxx Potato Wedge Gekruid",
+          "params": {
+            "infeed_rate": 26,
+            "good_ratio": 0.91,
+            "cutter_speed_sp": 0.8,
+            "blancher_temp_sp": 82,
+            "fryer_temp_sp": 178,
+            "freezer_temp_sp": -36,
+            "outbound_rate": 22,
+            "base_power_kw": 780,
+            "quality_targets": {
+              "metric1": 22.5,
+              "metric2": 0.48,
+              "metric3": 65
+            }
+          }
+        }
+      ]
+    },
+    "FritoMaxx|Harlingen": {
+      "running": false,
+      "recipe": "FritoMaxx Huisfrites 10mm",
+      "recipes": [
+        {
+          "name": "FritoMaxx Huisfrites 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "good_ratio": 0.93,
+            "cutter_speed_sp": 1.2,
+            "blancher_temp_sp": 85,
+            "fryer_temp_sp": 180,
+            "freezer_temp_sp": -35,
+            "outbound_rate": 26,
+            "base_power_kw": 820,
+            "quality_targets": {
+              "metric1": 23,
+              "metric2": 0.4,
+              "metric3": 68
+            }
+          }
+        },
+        {
+          "name": "FritoMaxx Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "good_ratio": 0.95,
+            "cutter_speed_sp": 1.1,
+            "blancher_temp_sp": 88,
+            "fryer_temp_sp": 185,
+            "freezer_temp_sp": -38,
+            "outbound_rate": 24.5,
+            "base_power_kw": 860,
+            "quality_targets": {
+              "metric1": 24,
+              "metric2": 0.32,
+              "metric3": 70
+            }
+          }
+        },
+        {
+          "name": "FritoMaxx Potato Wedge Gekruid",
+          "params": {
+            "infeed_rate": 26,
+            "good_ratio": 0.91,
+            "cutter_speed_sp": 0.8,
+            "blancher_temp_sp": 82,
+            "fryer_temp_sp": 178,
+            "freezer_temp_sp": -36,
+            "outbound_rate": 22,
+            "base_power_kw": 780,
+            "quality_targets": {
+              "metric1": 22.5,
+              "metric2": 0.48,
+              "metric3": 65
+            }
+          }
+        }
+      ]
+    },
+    "FritoMaxx|Meppel": {
+      "running": false,
+      "recipe": "FritoMaxx Huisfrites 10mm",
+      "recipes": [
+        {
+          "name": "FritoMaxx Huisfrites 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "good_ratio": 0.93,
+            "cutter_speed_sp": 1.2,
+            "blancher_temp_sp": 85,
+            "fryer_temp_sp": 180,
+            "freezer_temp_sp": -35,
+            "outbound_rate": 26,
+            "base_power_kw": 820,
+            "quality_targets": {
+              "metric1": 23,
+              "metric2": 0.4,
+              "metric3": 68
+            }
+          }
+        },
+        {
+          "name": "FritoMaxx Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "good_ratio": 0.95,
+            "cutter_speed_sp": 1.1,
+            "blancher_temp_sp": 88,
+            "fryer_temp_sp": 185,
+            "freezer_temp_sp": -38,
+            "outbound_rate": 24.5,
+            "base_power_kw": 860,
+            "quality_targets": {
+              "metric1": 24,
+              "metric2": 0.32,
+              "metric3": 70
+            }
+          }
+        },
+        {
+          "name": "FritoMaxx Potato Wedge Gekruid",
+          "params": {
+            "infeed_rate": 26,
+            "good_ratio": 0.91,
+            "cutter_speed_sp": 0.8,
+            "blancher_temp_sp": 82,
+            "fryer_temp_sp": 178,
+            "freezer_temp_sp": -36,
+            "outbound_rate": 22,
+            "base_power_kw": 780,
+            "quality_targets": {
+              "metric1": 22.5,
+              "metric2": 0.48,
+              "metric3": 65
+            }
+          }
+        }
+      ]
+    },
+    "FritoMaxx|Hardenberg": {
+      "running": false,
+      "recipe": "FritoMaxx Huisfrites 10mm",
+      "recipes": [
+        {
+          "name": "FritoMaxx Huisfrites 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "good_ratio": 0.93,
+            "cutter_speed_sp": 1.2,
+            "blancher_temp_sp": 85,
+            "fryer_temp_sp": 180,
+            "freezer_temp_sp": -35,
+            "outbound_rate": 26,
+            "base_power_kw": 820,
+            "quality_targets": {
+              "metric1": 23,
+              "metric2": 0.4,
+              "metric3": 68
+            }
+          }
+        },
+        {
+          "name": "FritoMaxx Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "good_ratio": 0.95,
+            "cutter_speed_sp": 1.1,
+            "blancher_temp_sp": 88,
+            "fryer_temp_sp": 185,
+            "freezer_temp_sp": -38,
+            "outbound_rate": 24.5,
+            "base_power_kw": 860,
+            "quality_targets": {
+              "metric1": 24,
+              "metric2": 0.32,
+              "metric3": 70
+            }
+          }
+        },
+        {
+          "name": "FritoMaxx Potato Wedge Gekruid",
+          "params": {
+            "infeed_rate": 26,
+            "good_ratio": 0.91,
+            "cutter_speed_sp": 0.8,
+            "blancher_temp_sp": 82,
+            "fryer_temp_sp": 178,
+            "freezer_temp_sp": -36,
+            "outbound_rate": 22,
+            "base_power_kw": 780,
+            "quality_targets": {
+              "metric1": 22.5,
+              "metric2": 0.48,
+              "metric3": 65
+            }
+          }
+        }
+      ]
+    },
+    "FritoMaxx|Hoogeveen": {
+      "running": false,
+      "recipe": "FritoMaxx Huisfrites 10mm",
+      "recipes": [
+        {
+          "name": "FritoMaxx Huisfrites 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "good_ratio": 0.93,
+            "cutter_speed_sp": 1.2,
+            "blancher_temp_sp": 85,
+            "fryer_temp_sp": 180,
+            "freezer_temp_sp": -35,
+            "outbound_rate": 26,
+            "base_power_kw": 820,
+            "quality_targets": {
+              "metric1": 23,
+              "metric2": 0.4,
+              "metric3": 68
+            }
+          }
+        },
+        {
+          "name": "FritoMaxx Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "good_ratio": 0.95,
+            "cutter_speed_sp": 1.1,
+            "blancher_temp_sp": 88,
+            "fryer_temp_sp": 185,
+            "freezer_temp_sp": -38,
+            "outbound_rate": 24.5,
+            "base_power_kw": 860,
+            "quality_targets": {
+              "metric1": 24,
+              "metric2": 0.32,
+              "metric3": 70
+            }
+          }
+        },
+        {
+          "name": "FritoMaxx Potato Wedge Gekruid",
+          "params": {
+            "infeed_rate": 26,
+            "good_ratio": 0.91,
+            "cutter_speed_sp": 0.8,
+            "blancher_temp_sp": 82,
+            "fryer_temp_sp": 178,
+            "freezer_temp_sp": -36,
+            "outbound_rate": 22,
+            "base_power_kw": 780,
+            "quality_targets": {
+              "metric1": 22.5,
+              "metric2": 0.48,
+              "metric3": 65
+            }
+          }
+        }
+      ]
+    },
+    "FritoMaxx|Coevorden": {
+      "running": false,
+      "recipe": "FritoMaxx Huisfrites 10mm",
+      "recipes": [
+        {
+          "name": "FritoMaxx Huisfrites 10mm",
+          "params": {
+            "infeed_rate": 30,
+            "good_ratio": 0.93,
+            "cutter_speed_sp": 1.2,
+            "blancher_temp_sp": 85,
+            "fryer_temp_sp": 180,
+            "freezer_temp_sp": -35,
+            "outbound_rate": 26,
+            "base_power_kw": 820,
+            "quality_targets": {
+              "metric1": 23,
+              "metric2": 0.4,
+              "metric3": 68
+            }
+          }
+        },
+        {
+          "name": "FritoMaxx Steakhouse 14mm",
+          "params": {
+            "infeed_rate": 28,
+            "good_ratio": 0.95,
+            "cutter_speed_sp": 1.1,
+            "blancher_temp_sp": 88,
+            "fryer_temp_sp": 185,
+            "freezer_temp_sp": -38,
+            "outbound_rate": 24.5,
+            "base_power_kw": 860,
+            "quality_targets": {
+              "metric1": 24,
+              "metric2": 0.32,
+              "metric3": 70
+            }
+          }
+        },
+        {
+          "name": "FritoMaxx Potato Wedge Gekruid",
+          "params": {
+            "infeed_rate": 26,
+            "good_ratio": 0.91,
+            "cutter_speed_sp": 0.8,
+            "blancher_temp_sp": 82,
+            "fryer_temp_sp": 178,
+            "freezer_temp_sp": -36,
+            "outbound_rate": 22,
+            "base_power_kw": 780,
+            "quality_targets": {
+              "metric1": 22.5,
+              "metric2": 0.48,
+              "metric3": 65
+            }
+          }
+        }
+      ]
+    },
+    "Wortelkracht|Roosendaal": {
+      "running": false,
+      "recipe": "Wortelkracht Inuline Standaard",
+      "recipes": [
+        {
+          "name": "Wortelkracht Inuline Standaard",
+          "params": {
+            "infeed_rate": 40,
+            "good_ratio": 0.88,
+            "extraction_temp_sp": 80,
+            "outbound_rate": 6.2,
+            "base_power_kw": 710,
+            "quality_targets": {
+              "metric1": 94.5
+            }
+          }
+        },
+        {
+          "name": "Wortelkracht Inuline HP (Lange Keten)",
+          "params": {
+            "infeed_rate": 35,
+            "good_ratio": 0.9,
+            "extraction_temp_sp": 75,
+            "outbound_rate": 5.2,
+            "base_power_kw": 660,
+            "quality_targets": {
+              "metric1": 96.5
+            }
+          }
+        }
+      ]
+    },
+    "DeBietenBende|Zevenbergen": {
+      "running": false,
+      "recipe": "BietenBende Kristalsuiker Wit",
+      "recipes": [
+        {
+          "name": "BietenBende Kristalsuiker Wit",
+          "params": {
+            "infeed_rate": 100,
+            "good_ratio": 0.85,
+            "diffusion_temp_sp": 70,
+            "evaporator_temp_sp": 120,
+            "crystallizer_temp_sp": 80,
+            "outbound_rate": 15,
+            "base_power_kw": 1250,
+            "quality_targets": {
+              "metric1": 99.7,
+              "metric2": 45
+            }
+          }
+        },
+        {
+          "name": "BietenBende Basterdsuiker Fijn",
+          "params": {
+            "infeed_rate": 90,
+            "good_ratio": 0.82,
+            "diffusion_temp_sp": 68,
+            "evaporator_temp_sp": 118,
+            "crystallizer_temp_sp": 77,
+            "outbound_rate": 13.5,
+            "base_power_kw": 1120,
+            "quality_targets": {
+              "metric1": 98.5,
+              "metric2": 200
+            }
+          }
+        }
+      ]
+    },
+    "DeBietenBende|Stadskanaal": {
+      "running": false,
+      "recipe": "BietenBende Kristalsuiker Wit",
+      "recipes": [
+        {
+          "name": "BietenBende Kristalsuiker Wit",
+          "params": {
+            "infeed_rate": 100,
+            "good_ratio": 0.85,
+            "diffusion_temp_sp": 70,
+            "evaporator_temp_sp": 120,
+            "crystallizer_temp_sp": 80,
+            "outbound_rate": 15,
+            "base_power_kw": 1250,
+            "quality_targets": {
+              "metric1": 99.7,
+              "metric2": 45
+            }
+          }
+        },
+        {
+          "name": "BietenBende Basterdsuiker Fijn",
+          "params": {
+            "infeed_rate": 90,
+            "good_ratio": 0.82,
+            "diffusion_temp_sp": 68,
+            "evaporator_temp_sp": 118,
+            "crystallizer_temp_sp": 77,
+            "outbound_rate": 13.5,
+            "base_power_kw": 1120,
+            "quality_targets": {
+              "metric1": 98.5,
+              "metric2": 200
+            }
+          }
         }
       ]
     }
