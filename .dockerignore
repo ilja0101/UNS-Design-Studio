@@ -4,3 +4,7 @@ __pycache__/
 .git/
 *.bat
 *.md
+
+# Local/private UNS generation artifacts
+scripts/generate_royal_farmers_uns.py
+example_UNS_jsons_to_import/RoyalFarmersCollective_UNS_Import.json

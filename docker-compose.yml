@@ -2,8 +2,8 @@ services:
 
   uns-simulator:
     build: .
-    # Local release build tag. Override with UNS_LOCAL_IMAGE if you want to test a GHCR image locally.
-    image: ${UNS_LOCAL_IMAGE:-uns-design-studio:2.0}
+    # Local build tag. Override with UNS_LOCAL_IMAGE if you want to test a specific GHCR image locally.
+    image: ${UNS_LOCAL_IMAGE:-uns-design-studio:latest}
     container_name: uns-design-studio
     restart: unless-stopped
     ports:
