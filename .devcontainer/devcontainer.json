@@ -1,0 +1,20 @@
+{
+  "name": "UNS Design Studio",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12-bookworm",
+  "forwardPorts": [5000, 4840, 9999, 1883, 8083, 4000],
+  "portsAttributes": {
+    "5000": { "label": "Dashboard" },
+    "4840": { "label": "OPC-UA" },
+    "9999": { "label": "Anomaly TCP" },
+    "1883": { "label": "MQTT Broker" },
+    "8083": { "label": "MQTT WebSocket" },
+    "4000": { "label": "MQTT Explorer" }
+  },
+  "postCreateCommand": "pip install -r requirements.txt",
+  "postStartCommand": "docker rm -f mosquitto mqtt-explorer 2>/dev/null; docker network create uns-net 2>/dev/null || true; docker run -d --name mosquitto --restart unless-stopped --network uns-net -p 1883:1883 -p 8083:8083 -v '$(pwd)/.devcontainer/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro' eclipse-mosquitto:2; docker run -d --name mqtt-explorer --restart unless-stopped --network uns-net -p 4000:4000 -v '$(pwd)/.devcontainer/mqtt-explorer:/mqtt-explorer/config' smeagolworms4/mqtt-explorer",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "ms-python.pylint"]
+    }
+  }
+}
