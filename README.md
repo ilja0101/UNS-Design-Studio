@@ -201,6 +201,6 @@ MIT — see [LICENSE](LICENSE).
 
 <div align="center">
 
-Built by [Ilja Bartels](https://github.com/Ilja0101) and [Alex Hodakovsky](https://github.com/morphal) for practical UNS and industrial IoT learning.
+Built by [Ilja Bartels](https://github.com/Ilja0101), [Alex Hodakovsky](https://github.com/morphal) & [Jorgen van D.](https://github.com/jodur)  for practical UNS and industrial IoT learning.
 
 </div>
