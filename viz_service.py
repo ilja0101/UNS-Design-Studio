@@ -7,6 +7,7 @@ module stays import-clean and testable.
 
 import json
 import re
+from json_persistence import load_json_async, save_json_atomic_async
 
 
 EQUIPMENT_KINDS = [
@@ -156,6 +157,38 @@ def entity_tags(uns_config_path: str, entity_id: str) -> list:
             'unit':     t.get('unit', ''),
             'profile':  sim.get('profile', ''),
         })
+    return out
+
+
+async def load_viz_cfg_async(path: str) -> dict:
+    data = await load_json_async(path, None)
+    if data is None:
+        return dict(DEFAULT_VIZ_CFG, entities={}, links=[], gauges=[], animations=[])
+    return data
+
+
+async def save_viz_cfg_async(path: str, data: dict):
+    await save_json_atomic_async(path, data)
+
+
+async def collect_values_async(gauges: list, resolve_path, read_value) -> dict:
+    """Async version of collect_values — read_value must be an async callable."""
+    out = {}
+    for g in gauges:
+        gid = g.get('id') or f"{g.get('entity', '')}#{g.get('tag', '')}"
+        path = resolve_path(g.get('entity', ''), g.get('tag', ''))
+        if not path:
+            out[gid] = None
+            continue
+        v = await read_value(path)
+        if isinstance(v, bool):
+            out[gid] = v
+        elif isinstance(v, (int, float)):
+            out[gid] = v
+        elif hasattr(v, 'isoformat'):
+            out[gid] = v.isoformat()
+        else:
+            out[gid] = str(v) if v is not None else None
     return out
 
 

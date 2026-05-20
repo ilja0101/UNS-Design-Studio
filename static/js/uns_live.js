@@ -1,3 +1,12 @@
+// ── Auto-detect broker WebSocket URL ──────────────────────────────────────────
+// Always use the dashboard's own host/port via the /mqtt-ws proxy endpoint.
+function autoDetectBrokerSettings() {
+  const loc = window.location;
+  eid('cfg-host').value = loc.hostname;
+  eid('cfg-port').value = loc.port || (loc.protocol === 'https:' ? '443' : '80');
+  eid('cfg-path').value = '/mqtt-ws';
+}
+
 // ── State ──────────────────────────────────────────────────────────────────────
 let client      = null;
 let treeData    = {};     // nested: {children:{}, value:null, ts:0, msgCount:0}
@@ -36,7 +45,8 @@ function connect() {
   };
   if (user) { opts.username = user; opts.password = pass; }
 
-  const url = `ws://${host}:${port}${path}`;
+  const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = `${scheme}://${host}:${port}${path}`;
   client = mqtt.connect(url, opts);
 
   client.on('connect', () => {
@@ -347,8 +357,9 @@ function loadSettings() {
   if (el) el.addEventListener('input', saveSettings);
 });
 
-// Load saved settings on page load
+// Load saved settings on page load, then auto-detect if host wasn't saved
 loadSettings();
+if (!localStorage.getItem(SETTINGS_KEY)) autoDetectBrokerSettings();
 
 // ── Panel resize ───────────────────────────────────────────────────────────────
 (function() {

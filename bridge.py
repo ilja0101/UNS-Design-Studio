@@ -6,15 +6,21 @@ Emits  [BRIDGE_STATS] <json>  lines to stdout for app.py to parse.
 Config: bridge_config.json in the same directory.
 
 Install deps:
-  MQTT mode:  pip install paho-mqtt
+  MQTT mode:  pip install aiomqtt
   NATS mode:  pip install nats-py
 """
 
-import json, os, sys, time, signal, threading, logging
-from json_persistence import load_json, load_json_or_raise
+import asyncio
+import json
+import os
+import sys
+import time
+import signal
+import logging
+from json_persistence import load_json, load_json_or_raise, load_json_async
 from uns_tree import build_bridge_entries
 
-logging.getLogger('opcua').setLevel(logging.ERROR)
+logging.getLogger('asyncua').setLevel(logging.ERROR)
 logging.basicConfig(level=logging.WARNING)
 
 BASE_DIR         = os.path.dirname(os.path.abspath(__file__))
@@ -25,20 +31,11 @@ SCHEMAS_FILE     = os.path.join(BASE_DIR, 'payload_schemas.json')
 def _json_log(msg: str):
     print(msg, flush=True)
 
-stop_flag = False
-_stats    = {
+_stats = {
     "connected": False, "opc_ok": False,
     "published": 0, "errors": 0, "rate": 0.0,
     "protocol": "-", "ts": 0.0,
 }
-
-
-def _sig(_s, _f):
-    global stop_flag
-    stop_flag = True
-
-signal.signal(signal.SIGINT,  _sig)
-signal.signal(signal.SIGTERM, _sig)
 
 
 def _load_cfg():
@@ -154,13 +151,13 @@ def _format_payload(value, ts, unit, schema_id, topic, sep, schemas, data_type, 
     return json.dumps(payload)
 
 
-# ── OPC-UA node cache & poll ───────────────────────────────────────────────────
+# ── Async OPC-UA node cache & poll ────────────────────────────────────────────
 
-class OpcPoller:
+class AsyncOpcPoller:
     """
-    Connects to the OPC-UA server once, builds a node cache from uns_config.json,
-    and returns a list of (topic, json_payload_str) on each poll() call.
-    Works with both MQTT (sync) and NATS (called via run_in_executor) modes.
+    Connects to the OPC-UA server once using asyncua, builds a node cache from
+    uns_config.json, and returns a list of (topic, json_payload_str) on each
+    poll() call.
     """
 
     def __init__(self, endpoint: str, sep: str, prefix: str):
@@ -168,56 +165,77 @@ class OpcPoller:
         self.sep      = sep
         self.prefix   = prefix
         self._opc     = None
-        self._cache   = {}   # topic → (node_ref, unit_str)
-        # Build entries from uns_config.json once at startup
+        self._cache   = {}   # topic → (node_ref, unit_str, ...)
         uns = _load_uns()
         self._namespace_uri = uns.get('namespaceUri', 'http://royalfarmerscollective.com/uns')
         self._entries = _build_entries(uns['tree'], sep, prefix)
 
-    def connect(self):
-        from opcua import Client
+    async def connect(self):
+        from asyncua import Client
         self._opc = Client(self.endpoint)
-        self._opc.connect()
-        idx  = self._opc.get_namespace_index(self._namespace_uri)
-        root = self._opc.get_root_node()
+        await self._opc.connect()
+        idx  = await self._opc.get_namespace_index(self._namespace_uri)
+        root = self._opc.nodes.root
 
         if not self._cache:
+            import time as _time
+            from asyncua import ua as _ua
+            t0 = _time.monotonic()
             print("[bridge] Building node cache from uns_config.json...", flush=True)
+
+            def _make_bp(opc_parts):
+                bp = _ua.BrowsePath()
+                bp.StartingNode = _ua.TwoByteNodeId(_ua.ObjectIds.RootFolder)
+                rp = _ua.RelativePath()
+                elems = []
+                for ns, name in [(0, 'Objects')] + [(idx, p) for p in opc_parts]:
+                    e = _ua.RelativePathElement()
+                    e.ReferenceTypeId = _ua.TwoByteNodeId(_ua.ObjectIds.HierarchicalReferences)
+                    e.IsInverse = False
+                    e.IncludeSubtypes = True
+                    e.TargetName = _ua.QualifiedName(Name=str(name), NamespaceIndex=int(ns))
+                    elems.append(e)
+                rp.Elements = elems
+                bp.RelativePath = rp
+                return bp
+
+            # Batch TranslateBrowsePathsToNodeIds — all 5046 paths in one OPC-UA call
+            BATCH = 2000
+            all_bps   = [_make_bp(e[1]) for e in self._entries]
+            all_res   = []
+            for i in range(0, len(all_bps), BATCH):
+                chunk = await self._opc.uaclient.translate_browsepaths_to_nodeids(all_bps[i:i+BATCH])
+                all_res.extend(chunk)
+
             ok = miss = 0
-            for topic, opc_parts, unit, schema_id, data_type, tag_name in self._entries:
-                try:
-                    node = root
-                    path = ['0:Objects'] + [f'{idx}:{p}' for p in opc_parts]
-                    for step in path:
-                        node = node.get_child([step])
-                    # opc_parts: [EnterpriseName, BusinessUnit, FactorySite, ...]
-                    # plant_key matches sim_state.json: "BusinessUnit|FactorySite"
-                    # Only set plant_key for tags that belong to specific sites
+            for entry, res in zip(self._entries, all_res):
+                topic, opc_parts, unit, schema_id, data_type, tag_name = entry
+                if res.StatusCode.is_good() and res.Targets:
+                    node = self._opc.get_node(res.Targets[0].TargetId)
                     plant_key = None
                     if len(opc_parts) >= 3 and opc_parts[2].startswith('Factory'):
                         plant_key = f"{opc_parts[1]}|{opc_parts[2]}"
                     self._cache[topic] = (node, unit, schema_id, data_type, tag_name, plant_key)
                     ok += 1
-                except Exception:
+                else:
                     miss += 1
-            print(f"[bridge] Cache ready: {ok} nodes ({miss} not found in OPC-UA)", flush=True)
+            elapsed = _time.monotonic() - t0
+            print(f"[bridge] Cache ready: {ok} nodes ({miss} not found) in {elapsed:.1f}s", flush=True)
 
         _stats["opc_ok"] = True
 
-    def poll(self):
-        """Returns list of (topic, payload_str). Raises on OPC-UA error."""
-        ts       = time.time()
-        schemas  = _load_schemas()
-        sim_state = self._read_sim_state()
+    async def poll(self) -> list:
+        ts      = time.time()
+        schemas = _load_schemas()
+        sim_state = await self._read_sim_state()
 
-        # Check global simulator state - no publishing if simulator is off
         if not sim_state.get('simulator_running', False):
             return []
 
         out = []
         for topic, (node, unit, schema_id, data_type, tag_name, plant_key) in self._cache.items():
             try:
-                v       = _ser(node.get_value())
+                v       = _ser(await node.read_value())
                 payload = _format_payload(v, ts, unit, schema_id, topic, self.sep,
                                           schemas, data_type, tag_name)
                 out.append((topic, payload))
@@ -226,35 +244,31 @@ class OpcPoller:
         return out
 
     @staticmethod
-    def _read_sim_state() -> dict:
+    async def _read_sim_state() -> dict:
         sim_file = os.path.join(BASE_DIR, 'sim_state.json')
-        try:
-            data = load_json(sim_file, {}, logger=_json_log, label='sim_state.json')
-            # Return both plants and global state
-            result = data.get('plants', {}).copy() if isinstance(data, dict) else {}
-            if isinstance(data, dict) and 'simulator_running' in data:
-                result['simulator_running'] = data['simulator_running']
-            return result
-        except Exception:
-            return {}
+        data = await load_json_async(sim_file, {}, logger=_json_log, label='sim_state.json')
+        result = data.get('plants', {}).copy() if isinstance(data, dict) else {}
+        if isinstance(data, dict) and 'simulator_running' in data:
+            result['simulator_running'] = data['simulator_running']
+        return result
 
-    def disconnect(self):
+    async def disconnect(self):
         _stats["opc_ok"] = False
         try:
             if self._opc:
-                self._opc.disconnect()
+                await self._opc.disconnect()
         except Exception:
             pass
         self._opc = None
 
 
-# ── MQTT mode (synchronous) ────────────────────────────────────────────────────
+# ── MQTT mode (async via aiomqtt) ─────────────────────────────────────────────
 
-def run_mqtt(cfg):
+async def run_mqtt(cfg, stop_event: asyncio.Event):
     try:
-        import paho.mqtt.client as mqtt
+        import aiomqtt
     except ImportError:
-        print("[bridge] ERROR: paho-mqtt not installed. Run:  pip install paho-mqtt", flush=True)
+        print("[bridge] ERROR: aiomqtt not installed. Run:  pip install aiomqtt", flush=True)
         sys.exit(1)
 
     _stats["protocol"] = "mqtt"
@@ -265,85 +279,69 @@ def run_mqtt(cfg):
     interval = float(cfg.get("interval", 2.0))
     print(f"[bridge] MQTT mode -> {host}:{port}", flush=True)
 
-    # Use MQTTv311 — universally supported; upgrade to v5 only if broker advertises it
-    try:
-        client = mqtt.Client(
-            callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-            client_id="uns-sim-bridge",
-            protocol=mqtt.MQTTv311,
-        )
-    except AttributeError:
-        # paho < 2.0 doesn't have CallbackAPIVersion
-        client = mqtt.Client(client_id="uns-sim-bridge", protocol=mqtt.MQTTv311)
+    opc_ep = f"opc.tcp://{cfg['opc_host']}:{cfg['opc_port']}/freeopcua/server/"
+    poller = AsyncOpcPoller(opc_ep, "/", cfg.get("topic_prefix", "").strip())
 
-    # Back off reconnect attempts so rapid disconnect/reconnect cycles don't
-    # overwhelm the broker (NATS MQTT adapter disconnects on burst publishes).
-    try:
-        client.reconnect_delay_set(min_delay=5, max_delay=60)
-    except Exception:
-        pass
-
+    kwargs = {}
     if cfg.get("username"):
-        client.username_pw_set(cfg["username"], cfg.get("password", ""))
+        kwargs["username"] = cfg["username"]
+        kwargs["password"] = cfg.get("password", "")
 
-    connected_ev = threading.Event()
+    while not stop_event.is_set():
+        try:
+            async with aiomqtt.Client(host, port=port, **kwargs) as client:
+                _stats["connected"] = True
+                print(f"[bridge] MQTT connected to {host}:{port}", flush=True)
+                _emit()
 
-    def on_connect(c, ud, flags, reason_code, props=None):
-        rc = reason_code if isinstance(reason_code, int) else reason_code.value
-        if rc == 0:
-            _stats["connected"] = True
-            connected_ev.set()
-            print(f"[bridge] MQTT connected to {host}:{port}", flush=True)
+                while not stop_event.is_set():
+                    if not _stats["opc_ok"]:
+                        try:
+                            await poller.connect()
+                        except Exception as e:
+                            _stats["errors"] += 1
+                            print(f"[bridge] OPC connect error: {e}", flush=True)
+                            _emit()
+                            await asyncio.sleep(5)
+                            continue
+
+                    try:
+                        t0    = time.time()
+                        items = await poller.poll()
+                        count = len(items)
+                        for topic, payload in items:
+                            await client.publish(topic, payload)
+                        _stats["published"] += count
+                        elapsed = time.time() - t0
+                        _stats["rate"] = round(count / max(elapsed, 0.01), 1)
+                        _emit()
+                        await asyncio.sleep(max(0.0, interval - elapsed))
+
+                    except Exception as e:
+                        _stats["opc_ok"] = False
+                        await poller.disconnect()
+                        print(f"[bridge] Poll error: {e}", flush=True)
+                        _emit()
+                        break
+
+        except Exception as e:
+            _stats["connected"] = False
+            print(f"[bridge] MQTT connection error: {e}, retrying in 5s", flush=True)
             _emit()
-        else:
-            print(f"[bridge] MQTT connect failed rc={rc}", flush=True)
+            await asyncio.sleep(5)
 
-    def on_disconnect(c, ud, disconnect_flags=None, reason_code=None, props=None):
-        _stats["connected"] = False
-        rc = reason_code if reason_code is not None else disconnect_flags
-        print(f"[bridge] MQTT disconnected (rc={rc})", flush=True)
-        _emit()
-
-    client.on_connect    = on_connect
-    client.on_disconnect = on_disconnect
-
-    try:
-        client.connect(host, port, keepalive=60)
-        client.loop_start()
-
-        if not connected_ev.wait(timeout=10):
-            print(f"[bridge] MQTT connection timeout to {host}:{port}", flush=True)
-            return
-
-        opc_ep  = f"opc.tcp://{cfg['opc_host']}:{cfg['opc_port']}/freeopcua/server/"
-        poller  = OpcPoller(opc_ep, "/", cfg.get("topic_prefix", "").strip())
-
-        def pub(topic, payload):
-            # Skip publish while disconnected — avoids buffering a large burst
-            # that would overwhelm the broker immediately on reconnect.
-            if _stats["connected"]:
-                client.publish(topic, payload, qos=0, retain=False)
-
-        _poll_loop(poller, pub, interval)
-
-    except Exception as e:
-        print(f"[bridge] MQTT fatal: {e}", flush=True)
-    finally:
-        client.loop_stop()
-        try:   client.disconnect()
-        except Exception: pass
+    _stats["connected"] = False
+    await poller.disconnect()
 
 
 # ── NATS mode (async) ──────────────────────────────────────────────────────────
 
-def run_nats(cfg):
+async def run_nats(cfg, stop_event: asyncio.Event):
     try:
         import nats as nats_lib
     except ImportError:
         print("[bridge] ERROR: nats-py not installed. Run:  pip install nats-py", flush=True)
         sys.exit(1)
-
-    import asyncio
 
     _stats["protocol"] = "nats"
     host     = (cfg.get("broker_host", "localhost") or "localhost").strip()
@@ -358,113 +356,81 @@ def run_nats(cfg):
 
     print(f"[bridge] NATS mode -> {url}", flush=True)
 
-    async def _run():
-        global stop_flag
-        try:
-            nc = await nats_lib.connect(url)
-        except Exception as e:
-            print(f"[bridge] NATS connect error: {e}", flush=True)
-            return
+    try:
+        nc = await nats_lib.connect(url)
+    except Exception as e:
+        print(f"[bridge] NATS connect error: {e}", flush=True)
+        return
 
-        _stats["connected"] = True
-        print("[bridge] NATS connected", flush=True)
-        _emit()
+    _stats["connected"] = True
+    print("[bridge] NATS connected", flush=True)
+    _emit()
 
-        opc_ep = f"opc.tcp://{cfg['opc_host']}:{cfg['opc_port']}/freeopcua/server/"
-        poller = OpcPoller(opc_ep, ".", cfg.get("topic_prefix", "").strip())
-        loop   = asyncio.get_running_loop()
+    opc_ep = f"opc.tcp://{cfg['opc_host']}:{cfg['opc_port']}/freeopcua/server/"
+    poller = AsyncOpcPoller(opc_ep, ".", cfg.get("topic_prefix", "").strip())
 
-        try:
-            while not stop_flag:
-                # OPC-UA is synchronous — run in thread pool so we don't block the event loop
-                if not _stats["opc_ok"]:
-                    try:
-                        await loop.run_in_executor(None, poller.connect)
-                    except Exception as e:
-                        _stats["errors"] += 1
-                        print(f"[bridge] OPC connect error: {e}", flush=True)
-                        _emit()
-                        await asyncio.sleep(5)
-                        continue
-
+    try:
+        while not stop_event.is_set():
+            if not _stats["opc_ok"]:
                 try:
-                    t0    = time.time()
-                    items = await loop.run_in_executor(None, poller.poll)
-                    count = len(items)
-                    for subject, payload in items:
-                        await nc.publish(subject, payload.encode())
-                    _stats["published"] += count
-                    elapsed = time.time() - t0
-                    _stats["rate"] = round(count / max(elapsed, 0.01), 1)
-                    _emit()
-                    await asyncio.sleep(max(0.0, interval - elapsed))
-
+                    await poller.connect()
                 except Exception as e:
-                    _stats["opc_ok"] = False
-                    await loop.run_in_executor(None, poller.disconnect)
-                    print(f"[bridge] Poll error: {e}", flush=True)
+                    _stats["errors"] += 1
+                    print(f"[bridge] OPC connect error: {e}", flush=True)
                     _emit()
+                    await asyncio.sleep(5)
+                    continue
 
-        finally:
-            await loop.run_in_executor(None, poller.disconnect)
             try:
-                _stats["connected"] = False
-                await nc.drain()
-            except Exception:
-                pass
-
-    asyncio.run(_run())
-
-
-# ── Core polling loop (used only by MQTT sync mode) ───────────────────────────
-
-def _poll_loop(poller: OpcPoller, publish_fn, interval: float):
-    """Synchronous poll loop — shared by MQTT mode."""
-    global stop_flag
-    while not stop_flag:
-        if not _stats["opc_ok"]:
-            try:
-                poller.connect()
-            except Exception as e:
-                _stats["errors"] += 1
-                print(f"[bridge] OPC connect error: {e}", flush=True)
+                t0    = time.time()
+                items = await poller.poll()
+                count = len(items)
+                for subject, payload in items:
+                    await nc.publish(subject, payload.encode())
+                _stats["published"] += count
+                elapsed = time.time() - t0
+                _stats["rate"] = round(count / max(elapsed, 0.01), 1)
                 _emit()
-                time.sleep(5)
-                continue
+                await asyncio.sleep(max(0.0, interval - elapsed))
 
+            except Exception as e:
+                _stats["opc_ok"] = False
+                await poller.disconnect()
+                print(f"[bridge] Poll error: {e}", flush=True)
+                _emit()
+
+    finally:
+        await poller.disconnect()
         try:
-            t0    = time.time()
-            items = poller.poll()
-            count = len(items)
-            for topic, payload in items:
-                publish_fn(topic, payload)
-            _stats["published"] += count
-            elapsed = time.time() - t0
-            _stats["rate"] = round(count / max(elapsed, 0.01), 1)
-            _emit()
-            time.sleep(max(0.0, interval - elapsed))
-
-        except Exception as e:
-            _stats["opc_ok"] = False
-            poller.disconnect()
-            print(f"[bridge] Poll error: {e}", flush=True)
-            _emit()
+            _stats["connected"] = False
+            await nc.drain()
+        except Exception:
+            pass
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
+async def _main():
+    stop_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, stop_event.set)
+
     cfg      = _load_cfg()
     protocol = cfg.get("protocol", "mqtt").lower()
     print(f"[bridge] UNS Bridge starting - protocol={protocol}", flush=True)
     _emit()
 
     if protocol == "nats":
-        run_nats(cfg)
+        await run_nats(cfg, stop_event)
     else:
-        run_mqtt(cfg)
+        await run_mqtt(cfg, stop_event)
 
     print("[bridge] Stopped", flush=True)
     _stats["connected"] = False
     _stats["opc_ok"]    = False
     _emit()
+
+
+if __name__ == "__main__":
+    asyncio.run(_main())
