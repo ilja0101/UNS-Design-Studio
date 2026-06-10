@@ -347,8 +347,11 @@ async def _publish_batched(items: list, publish_one, stop_event: asyncio.Event) 
         if stop_event.is_set():
             break
         chunk = items[i:i + PUBLISH_BATCH_SIZE]
-        await asyncio.gather(*(publish_one(topic, payload) for topic, payload in chunk))
-        published += len(chunk)
+        for topic, payload in chunk:
+            if stop_event.is_set():
+                break
+            await publish_one(topic, payload)
+            published += 1
     return published
 
 

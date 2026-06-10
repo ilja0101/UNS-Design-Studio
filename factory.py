@@ -619,7 +619,7 @@ async def _create_dynamic_address_space(server, idx, enterprise_obj):
             elif "profile" not in sim:
                 sim["profile"] = "default"
 
-            variables[tuple(target_opc)] = (var, sim, new_plant_key)
+            variables[tuple(target_opc)] = (var, sim, new_plant_key, default, vt)
             anomaly_key_map["".join(target_opc)] = var
 
         for child in node.get('children', []):
@@ -639,7 +639,7 @@ async def run_simulation(variables, anomaly_key_map, stop_event: asyncio.Event):
     def _group_from_key(pk: str) -> str:
         return pk.split("|")[0] if pk and "|" in pk else ""
 
-    plant_keys = set(pk for _, (_, _, pk) in variables.items() if pk)
+    plant_keys = set(pk for _, (_, _, pk, _, _) in variables.items() if pk)
 
     while not stop_event.is_set():
         sim_state = await _read_sim_state()
@@ -659,7 +659,7 @@ async def run_simulation(variables, anomaly_key_map, stop_event: asyncio.Event):
             overrides_snapshot = dict(anomaly_overrides)
 
         # Write OPC-UA variables
-        for opc_path, (var, sim, plant_key) in list(variables.items()):
+        for idx, (opc_path, (var, sim, plant_key, default, vt)) in enumerate(list(variables.items())):
             try:
                 anomaly_key = "".join(opc_path)
                 override = overrides_snapshot.get(anomaly_key)
@@ -670,18 +670,18 @@ async def run_simulation(variables, anomaly_key_map, stop_event: asyncio.Event):
                 profile = sim.get("profile", "default")
                 ps      = _get_plant_state(plant_key, _group_from_key(plant_key)) if plant_key \
                           else PlantState("__global__", "")
-                current = await var.read_value()
-                val     = _profile_value(profile, ps, sim, current)
+                val     = _profile_value(profile, ps, sim, default)
 
-                if isinstance(current, bool):
+                if vt == ua.VariantType.Boolean:
                     await var.write_value(bool(val))
-                elif isinstance(current, int):
+                elif vt in (ua.VariantType.Int16, ua.VariantType.Int32, ua.VariantType.Int64,
+                            ua.VariantType.UInt16, ua.VariantType.UInt32, ua.VariantType.UInt64):
                     await var.write_value(int(round(float(val))) if not isinstance(val, (str, bool)) else 0)
-                elif isinstance(current, float):
+                elif vt in (ua.VariantType.Float, ua.VariantType.Double):
                     await var.write_value(float(val) if not isinstance(val, (str, bool)) else 0.0)
-                elif isinstance(current, str):
+                elif vt == ua.VariantType.String:
                     await var.write_value(str(val))
-                elif isinstance(current, datetime.datetime):
+                elif vt == ua.VariantType.DateTime:
                     if isinstance(val, datetime.datetime):
                         await var.write_value(val)
                 else:
@@ -689,6 +689,8 @@ async def run_simulation(variables, anomaly_key_map, stop_event: asyncio.Event):
 
             except Exception:
                 pass
+            if idx and idx % 250 == 0:
+                await asyncio.sleep(0)
 
         await asyncio.sleep(1.2)
 

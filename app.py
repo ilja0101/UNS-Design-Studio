@@ -152,8 +152,8 @@ _locks = {
 # just above that interval so the forced stopped snapshot is observed without
 # adding an unnecessary full 2s wait to every plant start request.
 SIM_STATE_START_RESET_SECONDS = 1.35
-SERVER_START_TIMEOUT_SECONDS = 12.0
-SERVER_STOP_PORT_RELEASE_SECONDS = 8.0
+SERVER_START_TIMEOUT_SECONDS = float(os.getenv('UNS_SERVER_START_TIMEOUT', '90'))
+SERVER_STOP_PORT_RELEASE_SECONDS = float(os.getenv('UNS_SERVER_STOP_TIMEOUT', '8'))
 
 # ── Helper functions ───────────────────────────────────────────────────────────
 def _endpoint():
