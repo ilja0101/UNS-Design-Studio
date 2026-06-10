@@ -22,6 +22,24 @@ def _cache_item(topic, node):
     return (topic, (node, "", "standard", "Float", topic.rsplit("/", 1)[-1], None))
 
 
+class FakeTreeNode:
+    def __init__(self, path=()):
+        self.path = path
+        self.children = {}
+        self.lookups = []
+
+    def add_path(self, parts):
+        node = self
+        for part in parts:
+            node = node.children.setdefault(part, FakeTreeNode(node.path + (part,)))
+        return node
+
+    async def get_child(self, parts):
+        step = parts[0]
+        self.lookups.append(step)
+        return self.children[step]
+
+
 @pytest.mark.asyncio
 async def test_bounded_read_fallback_reads_cached_nodes(monkeypatch):
     monkeypatch.setattr(bridge, "OPC_READ_BATCH_SIZE", 2)
@@ -128,3 +146,36 @@ async def test_browsepath_translation_splits_failed_chunks(monkeypatch):
 
     assert values == ["node:a", "node:b", "node:c", "node:d", "node:e"]
     assert poller._opc.uaclient.batch_sizes == [4, 2, 2, 1]
+
+
+@pytest.mark.asyncio
+async def test_walk_cache_build_reuses_intermediate_nodes():
+    root = FakeTreeNode()
+    root.add_path(["0:Objects", "2:Enterprise", "2:BU", "2:FactorySite", "2:Area", "2:TagA"])
+    root.add_path(["0:Objects", "2:Enterprise", "2:BU", "2:FactorySite", "2:Area", "2:TagB"])
+
+    poller = bridge.AsyncOpcPoller.__new__(bridge.AsyncOpcPoller)
+    poller._entries = [
+        ("Enterprise/BU/Site/Area/TagA", ["Enterprise", "BU", "FactorySite", "Area", "TagA"], "", "standard", "Float", "TagA"),
+        ("Enterprise/BU/Site/Area/TagB", ["Enterprise", "BU", "FactorySite", "Area", "TagB"], "", "standard", "Float", "TagB"),
+    ]
+    poller._cache = {}
+
+    ok, miss = await poller._build_cache_with_walk(root, 2)
+
+    assert (ok, miss) == (2, 0)
+    assert set(poller._cache) == {
+        "Enterprise/BU/Site/Area/TagA",
+        "Enterprise/BU/Site/Area/TagB",
+    }
+    objects = root.children["0:Objects"]
+    enterprise = objects.children["2:Enterprise"]
+    bu = enterprise.children["2:BU"]
+    site = bu.children["2:FactorySite"]
+    area = site.children["2:Area"]
+    assert root.lookups == ["0:Objects"]
+    assert objects.lookups == ["2:Enterprise"]
+    assert enterprise.lookups == ["2:BU"]
+    assert bu.lookups == ["2:FactorySite"]
+    assert site.lookups == ["2:Area"]
+    assert area.lookups == ["2:TagA", "2:TagB"]

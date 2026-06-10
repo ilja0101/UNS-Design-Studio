@@ -28,9 +28,10 @@ DATA_DIR         = os.environ.get("UNS_DATA_DIR") or ("/data" if os.path.isdir("
 CONFIG_FILE      = os.path.join(DATA_DIR, 'bridge_config.json')
 UNS_CONFIG_FILE  = os.path.join(DATA_DIR, 'uns_config.json')
 SCHEMAS_FILE     = os.path.join(DATA_DIR, 'payload_schemas.json')
+OPC_CACHE_MODE = os.getenv("UNS_BRIDGE_CACHE_MODE", "walk").strip().lower()
 OPC_BROWSE_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_OPC_BROWSE_BATCH", "100"))
-OPC_READ_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_OPC_READ_BATCH", "500"))
-OPC_READ_CONCURRENCY = int(os.getenv("UNS_BRIDGE_OPC_READ_CONCURRENCY", "64"))
+OPC_READ_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_OPC_READ_BATCH", "100"))
+OPC_READ_CONCURRENCY = int(os.getenv("UNS_BRIDGE_OPC_READ_CONCURRENCY", "32"))
 PUBLISH_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_PUBLISH_BATCH", "250"))
 
 def _json_log(msg: str):
@@ -192,47 +193,77 @@ class AsyncOpcPoller:
 
         if not self._cache:
             import time as _time
-            from asyncua import ua as _ua
             t0 = _time.monotonic()
             print("[bridge] Building node cache from uns_config.json...", flush=True)
 
-            def _make_bp(opc_parts):
-                bp = _ua.BrowsePath()
-                bp.StartingNode = _ua.TwoByteNodeId(_ua.ObjectIds.RootFolder)
-                rp = _ua.RelativePath()
-                elems = []
-                for ns, name in [(0, 'Objects')] + [(idx, p) for p in opc_parts]:
-                    e = _ua.RelativePathElement()
-                    e.ReferenceTypeId = _ua.TwoByteNodeId(_ua.ObjectIds.HierarchicalReferences)
-                    e.IsInverse = False
-                    e.IncludeSubtypes = True
-                    e.TargetName = _ua.QualifiedName(Name=str(name), NamespaceIndex=int(ns))
-                    elems.append(e)
-                rp.Elements = elems
-                bp.RelativePath = rp
-                return bp
-
-            # Translate BrowsePaths in adaptive chunks; large UNS models can
-            # overwhelm asyncua's server if thousands are requested at once.
-            all_bps   = [_make_bp(e[1]) for e in self._entries]
-            all_res   = await self._translate_browsepaths_adaptive(all_bps)
-
-            ok = miss = 0
-            for entry, res in zip(self._entries, all_res):
-                topic, opc_parts, unit, schema_id, data_type, tag_name = entry
-                if res.StatusCode.is_good() and res.Targets:
-                    node = self._opc.get_node(res.Targets[0].TargetId)
-                    plant_key = None
-                    if len(opc_parts) >= 3 and opc_parts[2].startswith('Factory'):
-                        plant_key = f"{opc_parts[1]}|{opc_parts[2]}"
-                    self._cache[topic] = (node, unit, schema_id, data_type, tag_name, plant_key)
-                    ok += 1
-                else:
-                    miss += 1
+            if OPC_CACHE_MODE == "translate":
+                ok, miss = await self._build_cache_with_translate(idx)
+            else:
+                ok, miss = await self._build_cache_with_walk(root, idx)
             elapsed = _time.monotonic() - t0
             print(f"[bridge] Cache ready: {ok} nodes ({miss} not found) in {elapsed:.1f}s", flush=True)
 
         _stats["opc_ok"] = True
+
+    async def _build_cache_with_walk(self, root, idx: int) -> tuple:
+        node_cache = {(): root}
+        ok = miss = 0
+        for topic, opc_parts, unit, schema_id, data_type, tag_name in self._entries:
+            try:
+                path_parts = ['0:Objects'] + [f'{idx}:{p}' for p in opc_parts]
+                node = root
+                prefix = ()
+                for step in path_parts:
+                    prefix = prefix + (step,)
+                    cached = node_cache.get(prefix)
+                    if cached is None:
+                        cached = await node.get_child([step])
+                        node_cache[prefix] = cached
+                    node = cached
+                plant_key = None
+                if len(opc_parts) >= 3 and opc_parts[2].startswith('Factory'):
+                    plant_key = f"{opc_parts[1]}|{opc_parts[2]}"
+                self._cache[topic] = (node, unit, schema_id, data_type, tag_name, plant_key)
+                ok += 1
+            except Exception:
+                miss += 1
+        return ok, miss
+
+    async def _build_cache_with_translate(self, idx: int) -> tuple:
+        from asyncua import ua as _ua
+
+        def _make_bp(opc_parts):
+            bp = _ua.BrowsePath()
+            bp.StartingNode = _ua.TwoByteNodeId(_ua.ObjectIds.RootFolder)
+            rp = _ua.RelativePath()
+            elems = []
+            for ns, name in [(0, 'Objects')] + [(idx, p) for p in opc_parts]:
+                e = _ua.RelativePathElement()
+                e.ReferenceTypeId = _ua.TwoByteNodeId(_ua.ObjectIds.HierarchicalReferences)
+                e.IsInverse = False
+                e.IncludeSubtypes = True
+                e.TargetName = _ua.QualifiedName(Name=str(name), NamespaceIndex=int(ns))
+                elems.append(e)
+            rp.Elements = elems
+            bp.RelativePath = rp
+            return bp
+
+        all_bps = [_make_bp(e[1]) for e in self._entries]
+        all_res = await self._translate_browsepaths_adaptive(all_bps)
+
+        ok = miss = 0
+        for entry, res in zip(self._entries, all_res):
+            topic, opc_parts, unit, schema_id, data_type, tag_name = entry
+            if res.StatusCode.is_good() and res.Targets:
+                node = self._opc.get_node(res.Targets[0].TargetId)
+                plant_key = None
+                if len(opc_parts) >= 3 and opc_parts[2].startswith('Factory'):
+                    plant_key = f"{opc_parts[1]}|{opc_parts[2]}"
+                self._cache[topic] = (node, unit, schema_id, data_type, tag_name, plant_key)
+                ok += 1
+            else:
+                miss += 1
+        return ok, miss
 
     async def _translate_browsepaths_adaptive(self, browse_paths: list) -> list:
         results = []
