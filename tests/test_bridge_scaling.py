@@ -105,3 +105,26 @@ async def test_publish_batched_stops_between_chunks(monkeypatch):
 
     assert count == 2
     assert published == [("a", "1"), ("b", "2")]
+
+
+@pytest.mark.asyncio
+async def test_browsepath_translation_splits_failed_chunks(monkeypatch):
+    monkeypatch.setattr(bridge, "OPC_BROWSE_BATCH_SIZE", 4)
+
+    class FakeUaClient:
+        def __init__(self):
+            self.batch_sizes = []
+
+        async def translate_browsepaths_to_nodeids(self, browse_paths):
+            self.batch_sizes.append(len(browse_paths))
+            if len(browse_paths) > 2:
+                raise RuntimeError("too many browse paths")
+            return [f"node:{path}" for path in browse_paths]
+
+    poller = bridge.AsyncOpcPoller.__new__(bridge.AsyncOpcPoller)
+    poller._opc = types.SimpleNamespace(uaclient=FakeUaClient())
+
+    values = await poller._translate_browsepaths_adaptive(["a", "b", "c", "d", "e"])
+
+    assert values == ["node:a", "node:b", "node:c", "node:d", "node:e"]
+    assert poller._opc.uaclient.batch_sizes == [4, 2, 2, 1]

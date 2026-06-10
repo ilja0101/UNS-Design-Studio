@@ -28,6 +28,7 @@ DATA_DIR         = os.environ.get("UNS_DATA_DIR") or ("/data" if os.path.isdir("
 CONFIG_FILE      = os.path.join(DATA_DIR, 'bridge_config.json')
 UNS_CONFIG_FILE  = os.path.join(DATA_DIR, 'uns_config.json')
 SCHEMAS_FILE     = os.path.join(DATA_DIR, 'payload_schemas.json')
+OPC_BROWSE_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_OPC_BROWSE_BATCH", "100"))
 OPC_READ_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_OPC_READ_BATCH", "500"))
 OPC_READ_CONCURRENCY = int(os.getenv("UNS_BRIDGE_OPC_READ_CONCURRENCY", "64"))
 PUBLISH_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_PUBLISH_BATCH", "250"))
@@ -211,13 +212,10 @@ class AsyncOpcPoller:
                 bp.RelativePath = rp
                 return bp
 
-            # Batch TranslateBrowsePathsToNodeIds — all 5046 paths in one OPC-UA call
-            BATCH = 2000
+            # Translate BrowsePaths in adaptive chunks; large UNS models can
+            # overwhelm asyncua's server if thousands are requested at once.
             all_bps   = [_make_bp(e[1]) for e in self._entries]
-            all_res   = []
-            for i in range(0, len(all_bps), BATCH):
-                chunk = await self._opc.uaclient.translate_browsepaths_to_nodeids(all_bps[i:i+BATCH])
-                all_res.extend(chunk)
+            all_res   = await self._translate_browsepaths_adaptive(all_bps)
 
             ok = miss = 0
             for entry, res in zip(self._entries, all_res):
@@ -235,6 +233,28 @@ class AsyncOpcPoller:
             print(f"[bridge] Cache ready: {ok} nodes ({miss} not found) in {elapsed:.1f}s", flush=True)
 
         _stats["opc_ok"] = True
+
+    async def _translate_browsepaths_adaptive(self, browse_paths: list) -> list:
+        results = []
+        for i in range(0, len(browse_paths), OPC_BROWSE_BATCH_SIZE):
+            chunk = browse_paths[i:i + OPC_BROWSE_BATCH_SIZE]
+            results.extend(await self._translate_browsepath_chunk(chunk))
+        return results
+
+    async def _translate_browsepath_chunk(self, browse_paths: list) -> list:
+        try:
+            return await self._opc.uaclient.translate_browsepaths_to_nodeids(browse_paths)
+        except Exception as e:
+            if len(browse_paths) <= 1:
+                raise
+            mid = len(browse_paths) // 2
+            print(
+                f"[bridge] BrowsePath batch of {len(browse_paths)} failed; retrying as {mid}+{len(browse_paths) - mid}: {e}",
+                flush=True,
+            )
+            left = await self._translate_browsepath_chunk(browse_paths[:mid])
+            right = await self._translate_browsepath_chunk(browse_paths[mid:])
+            return left + right
 
     async def poll(self, stop_event: asyncio.Event = None) -> list:
         ts      = time.time()
@@ -392,6 +412,7 @@ async def run_mqtt(cfg, stop_event: asyncio.Event):
                         try:
                             await poller.connect()
                         except Exception as e:
+                            await poller.disconnect()
                             _stats["errors"] += 1
                             print(f"[bridge] OPC connect error: {e}", flush=True)
                             _emit()
@@ -470,6 +491,7 @@ async def run_nats(cfg, stop_event: asyncio.Event):
                 try:
                     await poller.connect()
                 except Exception as e:
+                    await poller.disconnect()
                     _stats["errors"] += 1
                     print(f"[bridge] OPC connect error: {e}", flush=True)
                     _emit()
