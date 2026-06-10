@@ -1,7 +1,7 @@
 {
   "plants": {
     "KnappertjesBV|Terneuzen": {
-      "running": false,
+      "running": true,
       "recipe": "Knappertjes Naturel Kettle",
       "recipes": [
         {
@@ -61,7 +61,7 @@
       ]
     },
     "KnappertjesBV|BergenOpZoom": {
-      "running": false,
+      "running": true,
       "recipe": "Knappertjes Naturel Kettle",
       "recipes": [
         {
@@ -121,7 +121,7 @@
       ]
     },
     "Vlokkenheim|Emmeloord": {
-      "running": false,
+      "running": true,
       "recipe": "Vlokkenheim Klassieke Pureevlok",
       "recipes": [
         {
@@ -155,7 +155,7 @@
       ]
     },
     "Vlokkenheim|Veendam": {
-      "running": false,
+      "running": true,
       "recipe": "Vlokkenheim Klassieke Pureevlok",
       "recipes": [
         {
@@ -189,7 +189,7 @@
       ]
     },
     "FritoMaxx|Heerenveen": {
-      "running": false,
+      "running": true,
       "recipe": "FritoMaxx Huisfrites 10mm",
       "recipes": [
         {
@@ -249,7 +249,7 @@
       ]
     },
     "FritoMaxx|Harlingen": {
-      "running": false,
+      "running": true,
       "recipe": "FritoMaxx Huisfrites 10mm",
       "recipes": [
         {
@@ -309,7 +309,7 @@
       ]
     },
     "FritoMaxx|Meppel": {
-      "running": false,
+      "running": true,
       "recipe": "FritoMaxx Huisfrites 10mm",
       "recipes": [
         {
@@ -369,7 +369,7 @@
       ]
     },
     "FritoMaxx|Hardenberg": {
-      "running": false,
+      "running": true,
       "recipe": "FritoMaxx Huisfrites 10mm",
       "recipes": [
         {
@@ -429,7 +429,7 @@
       ]
     },
     "FritoMaxx|Hoogeveen": {
-      "running": false,
+      "running": true,
       "recipe": "FritoMaxx Huisfrites 10mm",
       "recipes": [
         {
@@ -489,8 +489,8 @@
       ]
     },
     "FritoMaxx|Coevorden": {
-      "running": false,
-      "recipe": "FritoMaxx Huisfrites 10mm",
+      "running": true,
+      "recipe": "FritoMaxx Steakhouse 14mm",
       "recipes": [
         {
           "name": "FritoMaxx Huisfrites 10mm",
@@ -549,7 +549,7 @@
       ]
     },
     "Wortelkracht|Roosendaal": {
-      "running": false,
+      "running": true,
       "recipe": "Wortelkracht Inuline Standaard",
       "recipes": [
         {
@@ -581,7 +581,7 @@
       ]
     },
     "DeBietenBende|Zevenbergen": {
-      "running": false,
+      "running": true,
       "recipe": "BietenBende Kristalsuiker Wit",
       "recipes": [
         {
@@ -619,7 +619,7 @@
       ]
     },
     "DeBietenBende|Stadskanaal": {
-      "running": false,
+      "running": true,
       "recipe": "BietenBende Kristalsuiker Wit",
       "recipes": [
         {
@@ -657,5 +657,5 @@
       ]
     }
   },
-  "simulator_running": false
+  "simulator_running": true
 }

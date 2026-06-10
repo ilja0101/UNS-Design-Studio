@@ -13,19 +13,15 @@
 import asyncio
 import os as _os
 import signal
-import threading
 import logging
 import random
 import json
-import socket
-import time
 import datetime
-from opcua import Server, ua
-from opcua.server.binary_server_asyncio import BinaryServer
-from json_persistence import load_json, load_json_or_raise
+from asyncua import Server, ua
+from json_persistence import load_json, load_json_or_raise, load_json_async
 from uns_tree import resolve_enterprise_root
 
-logging.getLogger('opcua').setLevel(logging.ERROR)
+logging.getLogger('asyncua').setLevel(logging.ERROR)
 logging.basicConfig(level=logging.WARN)
 
 BASE_DIR = _os.path.dirname(_os.path.abspath(__file__))
@@ -56,14 +52,14 @@ def _resolve_advertise_host() -> str:
 def _endpoint(host: str) -> str:
     return f"opc.tcp://{host}:{_OPC_PORT}/freeopcua/server/"
 
-BIND_ENDPOINT = _endpoint(_OPC_BIND_IP or '0.0.0.0')
+BIND_ENDPOINT       = _endpoint(_OPC_BIND_IP or '0.0.0.0')
 ADVERTISED_ENDPOINT = _endpoint(_resolve_advertise_host())
 NAMESPACE_URI_DEFAULT = "http://VirtualUNS.com/uns"
 TCP_SERVER_IP   = "0.0.0.0"
 TCP_SERVER_PORT = _TCP_PORT
 
-stop_flag         = False
-anomaly_overrides = {}
+_anomaly_lock    = None  # asyncio.Lock — initialized in main()
+anomaly_overrides: dict = {}
 
 def _get_namespace_uri() -> str:
     try:
@@ -95,20 +91,17 @@ def _get_enterprise_name() -> str:
 # ================================================================
 SIM_STATE_FILE = _os.path.join(BASE_DIR, 'sim_state.json')
 
-def _read_sim_state() -> dict:
-    try:
-        data = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
-        result = {}
-        plants = data.get('plants', {}) if isinstance(data, dict) else {}
-        for k, v in plants.items():
-            if isinstance(v, dict):
-                result[k] = v          # new format: {running, recipe, recipes, ...}
-            else:
-                result[k] = {'running': bool(v)}  # legacy format: bool
-        result['simulator_running'] = data.get('simulator_running', True) if isinstance(data, dict) else True
-        return result
-    except Exception:
-        return {}
+async def _read_sim_state() -> dict:
+    data = await load_json_async(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
+    result = {}
+    plants = data.get('plants', {}) if isinstance(data, dict) else {}
+    for k, v in plants.items():
+        if isinstance(v, dict):
+            result[k] = v          # new format: {running, recipe, recipes, ...}
+        else:
+            result[k] = {'running': bool(v)}  # legacy format: bool
+    result['simulator_running'] = data.get('simulator_running', True) if isinstance(data, dict) else True
+    return result
 
 # ================================================================
 # PLANT STATE MACHINE
@@ -544,9 +537,9 @@ def _load_uns_config():
 
 
 # ================================================================
-# DYNAMIC OPC-UA ADDRESS SPACE BUILDER (FIXED)
+# DYNAMIC OPC-UA ADDRESS SPACE BUILDER
 # ================================================================
-def _create_dynamic_address_space(server, idx, enterprise_obj):
+async def _create_dynamic_address_space(server, idx, enterprise_obj):
     cfg  = _load_uns_config()
     tree = cfg['tree']
     variables       = {}
@@ -564,7 +557,7 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
             _collect_canonical(child)
     _collect_canonical(enterprise_node)
 
-    def _walk(node, uns_parts, opc_parts, area_opc_parts, plant_key):
+    async def _walk(node, uns_parts, opc_parts, area_opc_parts, plant_key):
         ntype    = node.get('type', '')
         name     = node.get('name', '')
         opc_name = ('Factory' + name) if ntype == 'site' else name
@@ -596,9 +589,9 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
             current = enterprise_obj
             for part in target_opc[:-1]:
                 try:
-                    current = current.get_child([f"{idx}:{part}"])
+                    current = await current.get_child([f"{idx}:{part}"])
                 except Exception:
-                    current = current.add_object(idx, part)
+                    current = await current.add_object(idx, part)
 
             dt = (data_type or 'Float').strip()
             if dt in ('Float', 'Double', 'Real'):
@@ -615,8 +608,9 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
             else:
                 default, vt = 0.0,   ua.VariantType.Double
 
-            var = current.add_variable(idx, target_opc[-1], default, vt)
-            var.set_writable(str(tag.get('access', 'R')).upper() == 'RW')
+            var = await current.add_variable(idx, target_opc[-1], ua.Variant(default, vt))
+            if str(tag.get('access', 'R')).upper() == 'RW':
+                await var.set_writable()
 
             sim = tag.get('simulation')
             if not sim or not isinstance(sim, dict):
@@ -628,10 +622,10 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
             anomaly_key_map["".join(target_opc)] = var
 
         for child in node.get('children', []):
-            _walk(child, uns_parts + [name], new_opc, new_area, new_plant_key)
+            await _walk(child, uns_parts + [name], new_opc, new_area, new_plant_key)
 
     for child in enterprise_node.get('children', []):
-        _walk(child, [], [], [], None)
+        await _walk(child, [], [], [], None)
 
     print(f"[factory] Dynamic address space ready — {len(variables)} tags")
     return variables, anomaly_key_map
@@ -640,14 +634,14 @@ def _create_dynamic_address_space(server, idx, enterprise_obj):
 # ================================================================
 # MAIN SIMULATION LOOP
 # ================================================================
-async def run_simulation(variables, anomaly_key_map):
+async def run_simulation(variables, anomaly_key_map, stop_event: asyncio.Event):
     def _group_from_key(pk: str) -> str:
         return pk.split("|")[0] if pk and "|" in pk else ""
 
     plant_keys = set(pk for _, (_, _, pk) in variables.items() if pk)
 
-    while not stop_flag:
-        sim_state = _read_sim_state()
+    while not stop_event.is_set():
+        sim_state = await _read_sim_state()
         simulator_running = bool(sim_state.get('simulator_running', True))
 
         # Tick every plant state machine
@@ -659,33 +653,38 @@ async def run_simulation(variables, anomaly_key_map):
             ps = _get_plant_state(pk, _group_from_key(pk))
             ps.tick(running, plant_data)
 
+        # Snapshot anomaly overrides once per tick to avoid holding the lock during OPC writes
+        async with _anomaly_lock:
+            overrides_snapshot = dict(anomaly_overrides)
+
         # Write OPC-UA variables
         for opc_path, (var, sim, plant_key) in list(variables.items()):
             try:
                 anomaly_key = "".join(opc_path)
-                if anomaly_key in anomaly_overrides and anomaly_overrides[anomaly_key] is not None:
-                    var.set_value(anomaly_overrides[anomaly_key])
+                override = overrides_snapshot.get(anomaly_key)
+                if override is not None:
+                    await var.write_value(override)
                     continue
 
                 profile = sim.get("profile", "default")
                 ps      = _get_plant_state(plant_key, _group_from_key(plant_key)) if plant_key \
                           else PlantState("__global__", "")
-                val     = _profile_value(profile, ps, sim, var.get_value())
+                current = await var.read_value()
+                val     = _profile_value(profile, ps, sim, current)
 
-                current = var.get_value()
                 if isinstance(current, bool):
-                    var.set_value(bool(val))
+                    await var.write_value(bool(val))
                 elif isinstance(current, int):
-                    var.set_value(int(round(float(val))) if not isinstance(val, (str, bool)) else 0)
+                    await var.write_value(int(round(float(val))) if not isinstance(val, (str, bool)) else 0)
                 elif isinstance(current, float):
-                    var.set_value(float(val) if not isinstance(val, (str, bool)) else 0.0)
+                    await var.write_value(float(val) if not isinstance(val, (str, bool)) else 0.0)
                 elif isinstance(current, str):
-                    var.set_value(str(val))
+                    await var.write_value(str(val))
                 elif isinstance(current, datetime.datetime):
                     if isinstance(val, datetime.datetime):
-                        var.set_value(val)
+                        await var.write_value(val)
                 else:
-                    var.set_value(val)
+                    await var.write_value(val)
 
             except Exception:
                 pass
@@ -696,73 +695,59 @@ async def run_simulation(variables, anomaly_key_map):
 # ================================================================
 # TCP ANOMALY SERVER
 # ================================================================
-def handle_client(sock):
-    global anomaly_overrides
+async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     try:
-        data = sock.recv(1024).decode('utf-8')
+        data = await reader.read(1024)
         if data:
-            payload   = json.loads(data)
+            payload   = json.loads(data.decode('utf-8'))
             overrides = payload.get('anomaly_overrides')
             if overrides is not None:
-                anomaly_overrides.update(overrides)
+                async with _anomaly_lock:
+                    anomaly_overrides.update(overrides)
     except Exception:
         pass
     finally:
-        sock.close()
-
-def start_tcp_server():
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind((TCP_SERVER_IP, TCP_SERVER_PORT))
-        s.listen(5)
-        print(f"[factory] Anomaly TCP server listening on {TCP_SERVER_IP}:{TCP_SERVER_PORT}")
-        while not stop_flag:
-            client, _ = s.accept()
-            threading.Thread(target=handle_client, args=(client,), daemon=True).start()
-    except Exception as e:
-        print(f"[factory] TCP server error: {e}")
-
-
-# ================================================================
-# SHUTDOWN
-# ================================================================
-def signal_handler(_sig, _frame):
-    global stop_flag
-    stop_flag = True
-    print("[factory] Shutdown signal received...")
-
-signal.signal(signal.SIGINT,  signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except Exception:
+            pass
 
 
 # ================================================================
 # MAIN
 # ================================================================
 async def main():
-    global stop_flag
+    global _anomaly_lock
+    _anomaly_lock = asyncio.Lock()
+
+    stop_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, stop_event.set)
+
     server = Server()
-    # Bind/listen on opc_bind_ip, but advertise host_ip/opc_client_host in the
-    # endpoint returned to OPC-UA clients during GetEndpoints. This keeps Docker
-    # and remote clients reachable while preserving a useful discovery URL.
-    server.set_endpoint(ADVERTISED_ENDPOINT)
-    server.bserver = BinaryServer(server.iserver, _OPC_BIND_IP or '0.0.0.0', _OPC_PORT)
+    await server.init()
+    # Bind on opc_bind_ip (0.0.0.0 by default); advertised endpoint is logged for client reference
+    server.set_endpoint(BIND_ENDPOINT)
     server.set_server_name("UNS Design Studio | github.com/Ilja0101")
 
-    idx            = server.register_namespace(NAMESPACE_URI)
-    objects        = server.get_objects_node()
+    idx           = await server.register_namespace(NAMESPACE_URI)
+    objects       = server.nodes.objects
 
-    # DYNAMIC ROOT NAME — this was the main bug that broke custom namespace roots
     enterprise_name = _get_enterprise_name()
-    enterprise_obj  = objects.add_object(idx, enterprise_name)
+    enterprise_obj  = await objects.add_object(idx, enterprise_name)
 
-    variables, anomaly_key_map = _create_dynamic_address_space(server, idx, enterprise_obj)
+    variables, anomaly_key_map = await _create_dynamic_address_space(server, idx, enterprise_obj)
 
-    server.start()
+    tcp_server = await asyncio.start_server(handle_client, TCP_SERVER_IP, TCP_SERVER_PORT)
+    print(f"[factory] Anomaly TCP server listening on {TCP_SERVER_IP}:{TCP_SERVER_PORT}")
+
+    await server.start()
     print(f"[factory] OPC UA Server listening on {BIND_ENDPOINT} (advertising {ADVERTISED_ENDPOINT}, root: {enterprise_name})")
     await asyncio.sleep(1.5)
 
-    asyncio.create_task(run_simulation(variables, anomaly_key_map))
+    sim_task = asyncio.create_task(run_simulation(variables, anomaly_key_map, stop_event))
 
     print("=" * 70)
     print("    UNS Design Studio  |  github.com/Ilja0101")
@@ -772,12 +757,17 @@ async def main():
     print("=" * 70)
 
     try:
-        while not stop_flag:
-            await asyncio.sleep(1)
+        await stop_event.wait()
     finally:
-        server.stop()
+        sim_task.cancel()
+        try:
+            await sim_task
+        except asyncio.CancelledError:
+            pass
+        tcp_server.close()
+        await tcp_server.wait_closed()
+        await server.stop()
         print("[factory] Server stopped.")
 
 if __name__ == "__main__":
-    threading.Thread(target=start_tcp_server, daemon=True).start()
     asyncio.run(main())
