@@ -27,6 +27,9 @@ BASE_DIR         = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE      = os.path.join(BASE_DIR, 'bridge_config.json')
 UNS_CONFIG_FILE  = os.path.join(BASE_DIR, 'uns_config.json')
 SCHEMAS_FILE     = os.path.join(BASE_DIR, 'payload_schemas.json')
+OPC_READ_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_OPC_READ_BATCH", "500"))
+OPC_READ_CONCURRENCY = int(os.getenv("UNS_BRIDGE_OPC_READ_CONCURRENCY", "64"))
+PUBLISH_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_PUBLISH_BATCH", "250"))
 
 def _json_log(msg: str):
     print(msg, flush=True)
@@ -75,6 +78,13 @@ def _build_entries(tree, sep, prefix):
 def _emit():
     _stats["ts"] = time.time()
     print(f"[BRIDGE_STATS] {json.dumps(_stats)}", flush=True)
+
+
+async def _sleep_or_stop(stop_event: asyncio.Event, delay: float):
+    try:
+        await asyncio.wait_for(stop_event.wait(), timeout=max(0.0, delay))
+    except asyncio.TimeoutError:
+        pass
 
 
 def _ser(v):
@@ -165,6 +175,7 @@ class AsyncOpcPoller:
         self.sep      = sep
         self.prefix   = prefix
         self._opc     = None
+        self._batch_read_supported = True
         self._cache   = {}   # topic → (node_ref, unit_str, ...)
         uns = _load_uns()
         self._namespace_uri = uns.get('namespaceUri', 'http://royalfarmerscollective.com/uns')
@@ -224,7 +235,7 @@ class AsyncOpcPoller:
 
         _stats["opc_ok"] = True
 
-    async def poll(self) -> list:
+    async def poll(self, stop_event: asyncio.Event = None) -> list:
         ts      = time.time()
         schemas = _load_schemas()
         sim_state = await self._read_sim_state()
@@ -232,16 +243,83 @@ class AsyncOpcPoller:
         if not sim_state.get('simulator_running', False):
             return []
 
+        cache_items = list(self._cache.items())
+        values = await self._read_cached_values(cache_items, stop_event)
+
         out = []
-        for topic, (node, unit, schema_id, data_type, tag_name, plant_key) in self._cache.items():
+        for (topic, (node, unit, schema_id, data_type, tag_name, plant_key)), value in zip(cache_items, values):
+            if stop_event and stop_event.is_set():
+                break
             try:
-                v       = _ser(await node.read_value())
+                if isinstance(value, Exception):
+                    raise value
+                v       = _ser(value)
                 payload = _format_payload(v, ts, unit, schema_id, topic, self.sep,
                                           schemas, data_type, tag_name)
                 out.append((topic, payload))
             except Exception:
                 _stats["errors"] += 1
         return out
+
+    async def _read_cached_values(self, cache_items: list, stop_event: asyncio.Event = None) -> list:
+        if not cache_items:
+            return []
+        if self._batch_read_supported:
+            try:
+                return await self._read_values_batched(cache_items, stop_event)
+            except Exception as e:
+                self._batch_read_supported = False
+                print(f"[bridge] OPC batch read unavailable, using bounded reads: {e}", flush=True)
+        return await self._read_values_bounded(cache_items, stop_event)
+
+    async def _read_values_batched(self, cache_items: list, stop_event: asyncio.Event = None) -> list:
+        from asyncua import ua as _ua
+
+        values = []
+        for i in range(0, len(cache_items), OPC_READ_BATCH_SIZE):
+            if stop_event and stop_event.is_set():
+                break
+            chunk = cache_items[i:i + OPC_READ_BATCH_SIZE]
+            params = _ua.ReadParameters()
+            params.TimestampsToReturn = _ua.TimestampsToReturn.Neither
+            params.NodesToRead = []
+            for _topic, (node, *_rest) in chunk:
+                read_id = _ua.ReadValueId()
+                read_id.NodeId = node.nodeid
+                read_id.AttributeId = _ua.AttributeIds.Value
+                params.NodesToRead.append(read_id)
+
+            data_values = await self._opc.uaclient.read(params)
+            for data_value in data_values:
+                try:
+                    status = getattr(data_value, "StatusCode", None)
+                    if status is not None and hasattr(status, "is_good") and not status.is_good():
+                        raise RuntimeError(str(status))
+                    variant = getattr(data_value, "Value", data_value)
+                    values.append(getattr(variant, "Value", variant))
+                except Exception as e:
+                    values.append(e)
+        return values
+
+    async def _read_values_bounded(self, cache_items: list, stop_event: asyncio.Event = None) -> list:
+        sem = asyncio.Semaphore(max(1, OPC_READ_CONCURRENCY))
+
+        async def _read_one(item):
+            if stop_event and stop_event.is_set():
+                return RuntimeError("bridge stopping")
+            async with sem:
+                try:
+                    return await item[1][0].read_value()
+                except Exception as e:
+                    return e
+
+        values = []
+        for i in range(0, len(cache_items), OPC_READ_BATCH_SIZE):
+            if stop_event and stop_event.is_set():
+                break
+            chunk = cache_items[i:i + OPC_READ_BATCH_SIZE]
+            values.extend(await asyncio.gather(*(_read_one(item) for item in chunk)))
+        return values
 
     @staticmethod
     async def _read_sim_state() -> dict:
@@ -260,6 +338,17 @@ class AsyncOpcPoller:
         except Exception:
             pass
         self._opc = None
+
+
+async def _publish_batched(items: list, publish_one, stop_event: asyncio.Event) -> int:
+    published = 0
+    for i in range(0, len(items), PUBLISH_BATCH_SIZE):
+        if stop_event.is_set():
+            break
+        chunk = items[i:i + PUBLISH_BATCH_SIZE]
+        await asyncio.gather(*(publish_one(topic, payload) for topic, payload in chunk))
+        published += len(chunk)
+    return published
 
 
 # ── MQTT mode (async via aiomqtt) ─────────────────────────────────────────────
@@ -302,20 +391,22 @@ async def run_mqtt(cfg, stop_event: asyncio.Event):
                             _stats["errors"] += 1
                             print(f"[bridge] OPC connect error: {e}", flush=True)
                             _emit()
-                            await asyncio.sleep(5)
+                            await _sleep_or_stop(stop_event, 5)
                             continue
 
                     try:
                         t0    = time.time()
-                        items = await poller.poll()
-                        count = len(items)
-                        for topic, payload in items:
+                        items = await poller.poll(stop_event)
+
+                        async def _publish_one(topic, payload):
                             await client.publish(topic, payload)
+
+                        count = await _publish_batched(items, _publish_one, stop_event)
                         _stats["published"] += count
                         elapsed = time.time() - t0
                         _stats["rate"] = round(count / max(elapsed, 0.01), 1)
                         _emit()
-                        await asyncio.sleep(max(0.0, interval - elapsed))
+                        await _sleep_or_stop(stop_event, max(0.0, interval - elapsed))
 
                     except Exception as e:
                         _stats["opc_ok"] = False
@@ -328,7 +419,7 @@ async def run_mqtt(cfg, stop_event: asyncio.Event):
             _stats["connected"] = False
             print(f"[bridge] MQTT connection error: {e}, retrying in 5s", flush=True)
             _emit()
-            await asyncio.sleep(5)
+            await _sleep_or_stop(stop_event, 5)
 
     _stats["connected"] = False
     await poller.disconnect()
@@ -378,20 +469,22 @@ async def run_nats(cfg, stop_event: asyncio.Event):
                     _stats["errors"] += 1
                     print(f"[bridge] OPC connect error: {e}", flush=True)
                     _emit()
-                    await asyncio.sleep(5)
+                    await _sleep_or_stop(stop_event, 5)
                     continue
 
             try:
                 t0    = time.time()
-                items = await poller.poll()
-                count = len(items)
-                for subject, payload in items:
+                items = await poller.poll(stop_event)
+
+                async def _publish_one(subject, payload):
                     await nc.publish(subject, payload.encode())
+
+                count = await _publish_batched(items, _publish_one, stop_event)
                 _stats["published"] += count
                 elapsed = time.time() - t0
                 _stats["rate"] = round(count / max(elapsed, 0.01), 1)
                 _emit()
-                await asyncio.sleep(max(0.0, interval - elapsed))
+                await _sleep_or_stop(stop_event, max(0.0, interval - elapsed))
 
             except Exception as e:
                 _stats["opc_ok"] = False
@@ -414,7 +507,10 @@ async def _main():
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop_event.set)
+        try:
+            loop.add_signal_handler(sig, stop_event.set)
+        except NotImplementedError:
+            signal.signal(sig, lambda _s, _f: stop_event.set())
 
     cfg      = _load_cfg()
     protocol = cfg.get("protocol", "mqtt").lower()
