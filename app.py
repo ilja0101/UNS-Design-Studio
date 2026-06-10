@@ -201,6 +201,29 @@ async def _wait_for_opc_port(open_expected: bool, timeout_seconds: float, proc=N
         await asyncio.sleep(0.2)
     return await _opc_tcp_port_open() is open_expected
 
+async def _factory_accepts_connections() -> bool:
+    return await _opc_tcp_port_open()
+
+async def _ensure_factory_ready(reason: str = '') -> tuple[bool, str]:
+    if _server_alive():
+        if await _factory_accepts_connections():
+            return True, 'OPC UA server is ready'
+        if await _wait_for_opc_port(True, min(15.0, SERVER_START_TIMEOUT_SECONDS), proc=_state['server_proc']):
+            return True, 'OPC UA server is ready'
+        return False, 'OPC UA server process is running, but the OPC UA port is not ready yet'
+
+    if await _factory_accepts_connections():
+        _log(f"[server] OPC UA port is open without a dashboard-managed factory process ({reason})")
+        return True, 'OPC UA server is ready'
+
+    _log(f"[server] Factory process is not running; attempting restart ({reason})")
+    ok, msg = await start_factory_server()
+    if not ok:
+        return False, msg
+    if await _factory_accepts_connections():
+        return True, msg
+    return False, 'Factory process started, but the OPC UA port is not ready yet'
+
 def _default_recipe(group: str, plant: str = '') -> str:
     try:
         sim = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
@@ -502,7 +525,7 @@ async def _reset_then_start_all_plants(delay_seconds: float = SIM_STATE_START_RE
         _mark_all_plants_stopped('start-all reset before start')
         _log(f"[sim-state] Waiting {delay_seconds:.1f}s before start-all so factory.py can observe stopped state")
         await asyncio.sleep(delay_seconds)
-        if not _server_alive():
+        if not await _factory_accepts_connections():
             _mark_all_plants_stopped('factory process stopped during start-all reset')
             return False, 'OPC UA server stopped before plants could be started'
         _write_all_plants_running('start-all after reset')
@@ -514,7 +537,7 @@ async def _reset_then_start_plant(plant_key: str, delay_seconds: float = SIM_STA
         _write_single_plant_running(plant_key, False, 'single-plant reset before start')
         _log(f"[sim-state] Waiting {delay_seconds:.1f}s before starting {plant_key} so factory.py can observe stopped state")
         await asyncio.sleep(delay_seconds)
-        if not _server_alive():
+        if not await _factory_accepts_connections():
             _write_single_plant_running(plant_key, False, 'factory process stopped during single-plant reset')
             return False, 'OPC UA server stopped before plant could be started'
         _write_single_plant_running(plant_key, True, 'single-plant after reset')
@@ -909,12 +932,10 @@ async def api_server_config_save():
 
 @app.route('/api/plants/start-all', methods=['POST'])
 async def api_start_all():
-    if not _server_alive():
-        _mark_all_plants_stopped('start-all requested without factory process')
-        return jsonify({'ok': False, 'msg': 'Start the OPC UA server before starting plants'}), 409
-    if not await _opc_tcp_port_open():
-        _mark_all_plants_stopped('start-all requested before OPC UA port was ready')
-        return jsonify({'ok': False, 'msg': 'OPC UA server process is running, but the OPC UA port is not ready yet'}), 409
+    ready, ready_msg = await _ensure_factory_ready('start-all requested')
+    if not ready:
+        _mark_all_plants_stopped('start-all requested but factory was not ready')
+        return jsonify({'ok': False, 'msg': ready_msg}), 409
     ok, msg = await _reset_then_start_all_plants()
     return jsonify({'ok': ok, 'msg': msg}), 200 if ok else 409
 
@@ -933,13 +954,11 @@ async def api_plant_control():
     value  = data['value']
     if action == 'set_state':
         plant_key = f"{group}|{plant}"
-        if bool(value) and not _server_alive():
-            _mark_all_plants_stopped('plant start requested without factory process')
-            return jsonify({'ok': False, 'msg': 'Start the OPC UA server before starting plants'}), 409
-        if bool(value) and not await _opc_tcp_port_open():
-            _mark_all_plants_stopped('plant start requested before OPC UA port was ready')
-            return jsonify({'ok': False, 'msg': 'OPC UA server process is running, but the OPC UA port is not ready yet'}), 409
         if bool(value):
+            ready, ready_msg = await _ensure_factory_ready(f'plant start requested for {plant_key}')
+            if not ready:
+                _mark_all_plants_stopped('plant start requested but factory was not ready')
+                return jsonify({'ok': False, 'msg': ready_msg}), 409
             ok, msg = await _reset_then_start_plant(plant_key)
             if not ok:
                 return jsonify({'ok': False, 'msg': msg}), 409
@@ -1065,6 +1084,10 @@ async def start_bridge():
             return False, "Bridge is already running"
         if not os.path.exists(BRIDGE_PY):
             return False, f"bridge.py not found at {BRIDGE_PY}"
+        ready, ready_msg = await _ensure_factory_ready('bridge start requested')
+        if not ready:
+            _state['bridge_stats'].update({'connected': False, 'opc_ok': False, 'rate': 0.0})
+            return False, f"OPC UA server is not ready: {ready_msg}"
         try:
             cfg = _load_bridge_cfg()
             cfg['opc_host'] = _container_local_host(_state['opc_host'])
