@@ -10,7 +10,7 @@
 [![OPC-UA](https://img.shields.io/badge/OPC--UA-4840-green)](https://opcfoundation.org/)
 [![MQTT](https://img.shields.io/badge/MQTT%20%2F%20NATS-ready-orange)](https://mqtt.org/)
 
-[What is this?](#what-is-this) · [Devcontainer](#devcontainer-recommended) · [Quick start](#quick-start-local) · [Docker](#docker) · [Ports](#ports) · [Full docs](FEATURES.md)
+[Demo](#demo) · [Quick start](#quick-start) · [Docker](#docker) · [Portainer](#portainer--ghcr) · [Full docs](FEATURES.md)
 
 </div>
 
@@ -18,7 +18,7 @@
 
 ## What is this?
 
-UNS Design Studio lets you model an industrial enterprise, generate realistic plant data, and publish it through common OT/IIoT protocols — without connecting to real machines. Use it to prototype Unified Namespace designs, teach ISA-95 concepts, test MQTT/NATS pipelines, validate OPC-UA clients, and demo industrial dashboards with configurable sites, assets, recipes, tags, payloads, and faults.
+UNS Design Studio lets you model an industrial enterprise, generate realistic plant data, and publish it through common OT/IIoT protocols without connecting to real machines. Use it to prototype Unified Namespace designs, teach ISA-95 concepts, test MQTT/NATS pipelines, validate OPC-UA clients, and demo industrial dashboards with configurable sites, assets, recipes, tags, payloads, and faults.
 
 ## Demo
 
@@ -33,99 +33,21 @@ UNS Design Studio lets you model an industrial enterprise, generate realistic pl
 - Browser dashboard for virtual plant control, recipes, metrics, anomaly injection, and process supervision.
 - Visual ISA-95 / UNS tree designer backed by `uns_config.json`.
 - Dynamic OPC-UA server generated from the configured UNS.
-- OPC-UA → MQTT/NATS bridge with configurable broker, topic prefix, interval, and payload schemas.
-- Live UNS viewer for real-time topic inspection in the browser.
-- Built-in Mosquitto MQTT broker and MQTT Explorer — no external broker needed.
+- OPC-UA to MQTT/NATS bridge with configurable broker, topic prefix, interval, and payload schemas.
+- Live UNS viewer for broker-side topic validation.
 - Asset library, importable enterprise templates, and configurable simulation profiles.
+- Local Python, Docker Compose, Portainer, and GHCR deployment support.
 
----
+## Quick start
 
-## Devcontainer (recommended)
-
-The easiest way to run UNS Design Studio is with the included devcontainer. It automatically provisions the full environment — including an MQTT broker and MQTT Explorer — with zero manual setup.
-
-### Prerequisites
-
-- [VS Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), **or**
-- [GitHub Codespaces](https://github.com/features/codespaces)
-
-### Start
-
-1. Open this repository in VS Code and click **Reopen in Container** when prompted, or open it directly as a Codespace.
-2. Wait for the container to build and the `postStartCommand` to finish (~1 minute on first run).
-3. Start the dashboard:
-   ```bash
-   python app.py
-   ```
-4. Open the forwarded port **5000** in your browser.
-
-### What the devcontainer includes
-
-The devcontainer automatically starts two Docker containers alongside the dev environment:
-
-| Container | Port | Description |
-|---|---|---|
-| `mosquitto` | 1883 (TCP), 8083 (WebSocket) | Eclipse Mosquitto MQTT broker |
-| `mqtt-explorer` | 4000 | MQTT Explorer web UI |
-
-Both containers are on the `uns-net` Docker network and can address each other by container name.
-
-### Using the dashboard
-
-Once `python app.py` is running:
-
-1. Open **port 5000** — the main dashboard.
-2. Click **Start Server** to start the OPC-UA simulation server.
-3. Click **Start All Plants** to begin the simulation.
-4. Click **Start Bridge** to start publishing OPC-UA data to MQTT.
-
-The bridge builds a node cache on first start (~5 seconds), then begins publishing all UNS tags to Mosquitto at ~1 second intervals.
-
-### UNS Live View
-
-The **UNS Live View** (sidebar → Live View) shows the real-time topic tree from the MQTT broker directly in the browser.
-
-- The connection settings auto-detect the correct WebSocket URL for your environment.
-- If you previously used the live view with different settings, clear `uns-live-settings` from your browser's **LocalStorage** (DevTools → Application → Local Storage) and reload the page.
-- Click **Connect** — you should immediately see the topic tree populate with live values.
-
-The live view connects through the dashboard's built-in `/mqtt-ws` proxy, so it uses the same host and port as the dashboard itself. No separate broker port needed.
-
-### MQTT Explorer
-
-MQTT Explorer is a full-featured MQTT client pre-configured to connect to the local Mosquitto broker.
-
-1. Open **port 4000** in your browser.
-2. Select the **UNS Design Studio** connection (pre-configured).
-3. Click **Connect**.
-
-You will see the full UNS topic tree with live values, charts, and message history.
-
-### Bridge broker settings
-
-The MQTT bridge (`bridge.py`) runs on the host, not inside Docker. It connects to the broker at `localhost:1883`.
-
-> Do not change the broker host to `mosquitto` in the Settings page — that hostname only resolves inside Docker containers. The Python bridge uses `localhost`.
-
-MQTT Explorer and the UNS Live View connect through Docker, so they use `mosquitto:1883` (Explorer) and the `/mqtt-ws` proxy (live view) respectively.
-
----
-
-## Quick start (local)
-
-Requires Python 3.10+ and Docker (for the MQTT broker).
+Requires Python 3.10+.
 
 ```bash
 pip install -r requirements.txt
-# Start Mosquitto broker
-docker run -d --name mosquitto -p 1883:1883 -p 8083:8083 \
-  -v "$(pwd)/.devcontainer/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro" \
-  eclipse-mosquitto:2
-# Start the dashboard
 python app.py
 ```
 
-Open `http://localhost:5000`. Use the UI to start the OPC-UA server, plants, and bridge.
+Open `http://localhost:5000`. The Flask app starts the dashboard; use the UI/API controls to start the OPC-UA server and bridge.
 
 Optional launch scripts:
 
@@ -137,20 +59,11 @@ start_dashboard.bat
 bash start_dashboard.sh
 ```
 
----
+Default endpoints:
 
-## Ports
-
-| Port | Service | Notes |
-|---|---|---|
-| 5000 | Dashboard | Main web UI |
-| 4840 | OPC-UA | Started on demand from the dashboard |
-| 9999 | Anomaly TCP | Inject anomalies via TCP |
-| 1883 | MQTT (TCP) | Mosquitto broker |
-| 8083 | MQTT (WebSocket) | Mosquitto broker WebSocket listener |
-| 4000 | MQTT Explorer | Browser-based MQTT client |
-
----
+- Dashboard: `http://localhost:5000`
+- OPC-UA: `opc.tcp://localhost:4840`
+- Anomaly TCP: `localhost:9999`
 
 ## Docker
 
@@ -159,7 +72,7 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-The local Compose build tags the image as `uns-design-studio:2.0`. Runtime state is stored in the `uns-design-studio-data` Docker volume.
+The local Compose build tags the image as `uns-design-studio:2.0` by default. Runtime state is stored in the `uns-design-studio-data` Docker volume.
 
 ## Portainer / GHCR
 
@@ -175,25 +88,22 @@ In Portainer, paste the stack file and optionally set:
 UNS_IMAGE=ghcr.io/ilja0101/uns-design-studio:2.0
 ```
 
----
-
 ## Runtime files
 
 Root JSON files are live mutable state, not fixtures:
 
 `uns_config.json`, `sim_state.json`, `bridge_config.json`, `server_config.json`, `payload_schemas.json`, `asset_library.json`
 
-Docker seeds these into `/data` on first boot and symlinks `/app/*.json` to `/data/*.json`.
+Docker seeds these files into `/data` on first boot and symlinks `/app/*.json` to `/data/*.json`.
 
 ## Validation
 
 ```bash
 python -m py_compile app.py factory.py bridge.py
 docker compose config
+docker compose -f portainer-stack.yml config
 python -m pytest
 ```
-
----
 
 ## License
 

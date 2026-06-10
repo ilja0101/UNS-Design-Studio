@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Shared JSON persistence helpers for runtime config/state files."""
 
-import asyncio
-import functools
 import json
 import os
 import tempfile
@@ -76,30 +74,3 @@ def save_json_atomic(
             except Exception:
                 pass
         return False
-
-
-async def load_json_async(path: str, default=None, *, encoding: str = 'utf-8', logger=None, label: str = None):
-    """Async version of load_json — offloads blocking file read to the thread pool."""
-    loop = asyncio.get_running_loop()
-    fn = functools.partial(load_json, path, default, encoding=encoding, logger=logger, label=label)
-    return await loop.run_in_executor(None, fn)
-
-
-async def save_json_atomic_async(
-    path: str,
-    data,
-    *,
-    indent: int = 2,
-    ensure_ascii: bool = False,
-    encoding: str = 'utf-8',
-    logger=None,
-    label: str = None,
-):
-    """Async version of save_json_atomic — offloads blocking file write to the thread pool."""
-    loop = asyncio.get_running_loop()
-    fn = functools.partial(
-        save_json_atomic, path, data,
-        indent=indent, ensure_ascii=ensure_ascii,
-        encoding=encoding, logger=logger, label=label,
-    )
-    return await loop.run_in_executor(None, fn)

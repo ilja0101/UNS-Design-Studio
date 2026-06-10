@@ -6,9 +6,8 @@ Author : Ilja Bartels  |  https://github.com/Ilja0101
 License: MIT  |  https://github.com/Ilja0101/UNS-Design-Studio
 """
 
-import asyncio
-import os, sys, time, json, signal, atexit, hashlib
-from quart import Quart, render_template, jsonify, request
+import os, sys, time, json, socket, threading, subprocess, hashlib, atexit, signal
+from flask import Flask, render_template, jsonify, request
 from json_persistence import load_json, save_json_atomic
 from sim_state_service import get_site_recipes, merge_sim_state_update, sync_sim_state_with_uns
 from uns_tree import enterprise_structure, resolve_enterprise_root
@@ -16,8 +15,8 @@ from uns_tree import enterprise_structure, resolve_enterprise_root
 # ── Adjust path so recipe.py is importable ────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# ── Quart app ──────────────────────────────────────────────────────────────────
-app = Quart(__name__)
+# ── Flask app ──────────────────────────────────────────────────────────────────
+app = Flask(__name__)
 
 # ── Config file paths ─────────────────────────────────────────────────────────
 UNS_CONFIG_FILE      = os.path.join(BASE_DIR, 'uns_config.json')
@@ -50,7 +49,7 @@ _ENTERPRISE_FALLBACK = {
 
 def _get_enterprise_structure() -> dict:
     """Return {businessUnitName: [siteName, …]} from uns_config.json.
-
+    
     NOTE: Site names are used as-is (no 'Factory' prefix). This ensures
     plant_key = f"{group}|{plant}" matches sim_state.json keys correctly,
     and respects the actual naming in imported templates.
@@ -67,7 +66,8 @@ def _get_namespace_uri() -> str:
 
 # ── DYNAMIC ENTERPRISE NAME (FIXED) ───────────────────────────────────────────
 def _get_enterprise_name() -> str:
-    """Return the root enterprise name from uns_config.json."""
+    """Return the root enterprise name from uns_config.json.
+    Supports both legacy (tree IS enterprise) and wrapper (tree.children[0] is enterprise) layouts."""
     try:
         cfg = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
         name, _ = resolve_enterprise_root(cfg.get('tree', {}) if isinstance(cfg, dict) else {})
@@ -76,22 +76,31 @@ def _get_enterprise_name() -> str:
         return 'GlobalFoodCo'
 
 def _get_site_recipes(site_node: dict) -> list:
+    """Return the recipe definitions stored directly on a site node.
+    Recipes are defined in uns_config.json as site.recipes = [{name, params}, ...]
+    and edited via the Recipes tab in the UNS designer."""
     return get_site_recipes(site_node)
 
 def _ensure_sim_state_synced():
-    """Ensure sim_state.json has all plants from current uns_config.json."""
+    """Ensure sim_state.json has all plants from current uns_config.json.
+    FIXED: Now ALWAYS refreshes the 'recipes' list for every plant when the UNS Designer saves changes.
+    This solves the "recipes added in designer are not persisted / not selectable" issue."""
     cfg = load_json(UNS_CONFIG_FILE, None, logger=_json_log, label='uns_config.json')
     if not isinstance(cfg, dict):
-        return
+        return  # Can't sync without config
+    
     sim_state = load_json(SIM_STATE_FILE, {'plants': {}, 'simulator_running': False}, logger=_json_log, label='sim_state.json')
     if not isinstance(sim_state, dict):
         sim_state = {'plants': {}, 'simulator_running': False}
     sim_state = sync_sim_state_with_uns(cfg, sim_state)
+    
+    # Save updated sim_state
     if not save_json_atomic(SIM_STATE_FILE, sim_state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
         print("Warning: Could not write sim_state.json")
 
 def _get_division_meta() -> dict:
-    """Return {buName: {color, icon, label}} from uns_config.json BU nodes."""
+    """Return {buName: {color, icon, label}} from uns_config.json BU nodes.
+    Falls back to generic defaults for any group not found."""
     _DEFAULT = {'color': '#58a6ff', 'icon': '🏭', 'label': ''}
     result = {}
 
@@ -138,13 +147,12 @@ _state = {
         'protocol': '—', 'ts': 0.0,
     },
 }
-
-# asyncio.Lock instances — protect regions that span await points
 _locks = {
-    'proc':        asyncio.Lock(),  # server proc start/stop sequence
-    'bridge':      asyncio.Lock(),  # bridge proc start/stop sequence
-    'sim_control': asyncio.Lock(),  # plant start/stop with reset delay
-    'data':        asyncio.Lock(),  # plant_data / viz_values (written by poll, read by routes)
+    'logs':   threading.Lock(),
+    'data':   threading.Lock(),
+    'proc':   threading.Lock(),
+    'bridge': threading.Lock(),
+    'sim_control': threading.Lock(),
 }
 
 # factory.py reads sim_state.json once per 1.2s simulation tick.  Keep this
@@ -154,11 +162,31 @@ SIM_STATE_START_RESET_SECONDS = 1.35
 SERVER_START_TIMEOUT_SECONDS = 12.0
 SERVER_STOP_PORT_RELEASE_SECONDS = 8.0
 
+def _start_periodic_sync(interval: int = 10):
+    """Start a background thread that periodically calls _ensure_sim_state_synced()."""
+    def _worker():
+        while True:
+            try:
+                _ensure_sim_state_synced()
+            except Exception:
+                pass
+            time.sleep(interval)
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+
 # ── Helper functions ───────────────────────────────────────────────────────────
 def _endpoint():
     return f"opc.tcp://{_state['opc_host']}:{_state['opc_port']}/freeopcua/server/"
 
 def _container_local_host(host: str) -> str:
+    """Return a loopback-safe host for child processes inside this container.
+
+    The dashboard may advertise the Docker host/LAN IP so external OPC-UA
+    clients can discover a usable endpoint, but subprocesses running in the same
+    container should connect to the local listener directly. This avoids bridge
+    failures when `host_ip` is set to an address that is reachable externally but
+    not hairpin-routable from inside the container.
+    """
     host = (host or '').strip()
     if host in ('', '0.0.0.0', '::'):
         return '127.0.0.1'
@@ -170,37 +198,39 @@ def _container_local_host(host: str) -> str:
     return host
 
 def _normalize_connect_host(host: str) -> str:
+    """Normalize wildcard bind addresses when a config value is used by a client.
+
+    Users often type 0.0.0.0 because it is the address a broker/server listens
+    on. Client libraries cannot connect to that wildcard address reliably,
+    especially from inside Docker, so use loopback for same-container clients.
+    """
     host = (host or '').strip()
     return '127.0.0.1' if host in ('', '0.0.0.0', '::') else host
 
-async def _opc_tcp_port_open(timeout: float = 0.25) -> bool:
+def _opc_tcp_port_open(timeout: float = 0.25) -> bool:
     """Return True when the configured OPC-UA TCP endpoint accepts connections."""
     try:
-        _, writer = await asyncio.wait_for(
-            asyncio.open_connection(_state['opc_host'], int(_state['opc_port'])),
-            timeout=timeout,
-        )
-        writer.close()
-        try:
-            await writer.wait_closed()
-        except Exception:
-            pass
-        return True
-    except Exception:
+        with socket.create_connection((_state['opc_host'], int(_state['opc_port'])), timeout=timeout):
+            return True
+    except OSError:
         return False
 
-async def _wait_for_opc_port(open_expected: bool, timeout_seconds: float, proc=None) -> bool:
-    """Wait for the configured OPC-UA TCP port to become open/closed."""
+def _wait_for_opc_port(open_expected: bool, timeout_seconds: float, proc=None) -> bool:
+    """Wait for the configured OPC-UA TCP port to become open/closed.
+
+    When waiting for startup with a child process, stop early if the child exits.
+    """
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
-        if proc is not None and proc.returncode is not None:
+        if proc is not None and proc.poll() is not None:
             return False
-        if await _opc_tcp_port_open() is open_expected:
+        if _opc_tcp_port_open() is open_expected:
             return True
-        await asyncio.sleep(0.2)
-    return await _opc_tcp_port_open() is open_expected
+        time.sleep(0.2)
+    return _opc_tcp_port_open() is open_expected
 
 def _default_recipe(group: str, plant: str = '') -> str:
+    """Return the first recipe name for a plant from sim_state.json, or empty string."""
     try:
         sim = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
         plant_key = f"{group}|{plant}" if plant else None
@@ -215,28 +245,32 @@ def _default_recipe(group: str, plant: str = '') -> str:
     except Exception:
         return ''
 
-async def _send_anomaly(overrides: dict):
+def _send_anomaly(overrides: dict):
     try:
-        _, writer = await asyncio.wait_for(
-            asyncio.open_connection(_state['opc_host'], _state['tcp_port']),
-            timeout=3,
-        )
-        writer.write(json.dumps({'anomaly_overrides': overrides}).encode())
-        await writer.drain()
-        writer.close()
-        try:
-            await writer.wait_closed()
-        except Exception:
-            pass
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(3)
+            s.connect((_state['opc_host'], _state['tcp_port']))
+            s.send(json.dumps({'anomaly_overrides': overrides}).encode())
         return True
     except Exception as e:
         _log(f"[anomaly TCP error] {e}")
         return False
 
 def _log(msg: str):
-    _state['server_logs'].append(msg)
-    if len(_state['server_logs']) > 600:
-        _state['server_logs'].pop(0)
+    with _locks['logs']:
+        _state['server_logs'].append(msg)
+        if len(_state['server_logs']) > 600:
+            _state['server_logs'].pop(0)
+
+def _read_opc(node, path, default=None):
+    try:
+        current = node
+        for step in path:
+            current = current.get_child([step])
+        value = current.get_value()
+        return default if value is None else value
+    except Exception:
+        return default
 
 def _num(value, digits=1, default=0.0):
     try:
@@ -245,6 +279,7 @@ def _num(value, digits=1, default=0.0):
         return default
 
 # ── Dashboard metric path discovery ──────────────────────────────────────────
+# Maps simulation profile → dashboard field name
 _DASH_PROFILES = {
     'oee':              'oee',
     'power_kw':         'power',
@@ -255,6 +290,9 @@ _metric_path_cache: dict = {}
 _metric_path_cache_ts: float = 0.0
 
 def _find_dashboard_metric_paths(group: str, plant: str) -> dict:
+    """Return {field: [opc_path_from_enterprise_root]} for each dashboard metric.
+    Scans uns_config.json once per cache TTL (30s).  Uses same OPC naming as
+    factory.py — site nodes get a 'Factory' prefix."""
     global _metric_path_cache, _metric_path_cache_ts
     cache_key = f"{group}|{plant}"
     now = time.time()
@@ -304,7 +342,7 @@ def _find_dashboard_metric_paths(group: str, plant: str) -> dict:
     return result
 
 
-async def _collect_plant_data(ent, idx):
+def _collect_plant_data(ent, idx):
     """Collect plant data.
     • Running/recipe state — authoritative from sim_state.json
     • Metrics (OEE, power, etc.) — dynamically resolved via uns_config.json profiles,
@@ -314,14 +352,15 @@ async def _collect_plant_data(ent, idx):
     if not isinstance(sim_state, dict):
         sim_state = {'plants': {}}
 
-    async def _read_path(path):
+    def _read_path(path):
+        """Read an OPC value given a path list starting from enterprise root."""
         if not path:
             return 0.0
         try:
             node = ent
             for part in path:
-                node = await node.get_child([f"{idx}:{part}"])
-            val = await node.read_value()
+                node = node.get_child([f"{idx}:{part}"])
+            val = node.get_value()
             return float(val) if val is not None else 0.0
         except Exception:
             return 0.0
@@ -329,7 +368,7 @@ async def _collect_plant_data(ent, idx):
     plants = {}
     for group, plant_names in _get_enterprise_structure().items():
         try:
-            group_node = await ent.get_child([f"{idx}:{group}"])
+            group_node = ent.get_child([f"{idx}:{group}"])
         except Exception:
             continue
 
@@ -344,16 +383,20 @@ async def _collect_plant_data(ent, idx):
                 process_state = bool(plant_val)
                 recipe        = '--NA--'
 
+            # Verify site node exists (try Factory{plant} first — factory.py convention,
+            # then fall back to bare plant name for any future convention changes)
             site_exists = False
             for site_name in (f"Factory{plant}", plant):
                 try:
-                    await group_node.get_child([f"{idx}:{site_name}"])
+                    group_node.get_child([f"{idx}:{site_name}"])
                     site_exists = True
                     break
                 except Exception:
                     pass
 
             if not site_exists:
+                # Site not in OPC tree yet (server still starting) — opc_ready=False
+                # tells the dashboard to show '--' instead of misleading zeros
                 plants[plant_key] = {
                     'group': group, 'plant': plant,
                     'process_state': process_state, 'recipe': recipe,
@@ -363,6 +406,7 @@ async def _collect_plant_data(ent, idx):
                 }
                 continue
 
+            # Discover metric OPC paths from uns_config and read live values
             metric_paths = _find_dashboard_metric_paths(group, plant)
             plants[plant_key] = {
                 'group':         group,
@@ -371,14 +415,19 @@ async def _collect_plant_data(ent, idx):
                 'recipe':        recipe,
                 'maint_status':  'Running' if process_state else 'Stopped',
                 'opc_ready':     True,
-                'oee':        _num(await _read_path(metric_paths.get('oee',        []))),
-                'power':      _num(await _read_path(metric_paths.get('power',      []))),
-                'good_tons':  _num(await _read_path(metric_paths.get('good_tons',  []))),
-                'trucks_recv':_num(await _read_path(metric_paths.get('trucks_recv', []))),
+                'oee':        _num(_read_path(metric_paths.get('oee',        []))),
+                'power':      _num(_read_path(metric_paths.get('power',      []))),
+                'good_tons':  _num(_read_path(metric_paths.get('good_tons',  []))),
+                'trucks_recv':_num(_read_path(metric_paths.get('trucks_recv', []))),
             }
     return plants
 
 def _plant_data_from_sim_state(force_stopped: bool = False) -> dict:
+    """Build dashboard plant payload from sim_state.json without OPC values.
+
+    Used when the managed factory process is stopped or the OPC-UA port is not
+    ready so the dashboard never renders stale live data from the last poll.
+    """
     sim_state = load_json(SIM_STATE_FILE, {'plants': {}}, logger=_json_log, label='sim_state.json')
     if not isinstance(sim_state, dict):
         sim_state = {'plants': {}}
@@ -406,8 +455,10 @@ def _plant_data_from_sim_state(force_stopped: bool = False) -> dict:
     return plants
 
 def _sim_state_plants(running: bool) -> dict:
+    """Return {plant_key: {running: bool}} for every plant, preserving existing recipe data."""
     sim_state = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
     current = sim_state.get('plants', {}) if isinstance(sim_state, dict) else {}
+
     result = {}
     for pk, existing in current.items():
         if isinstance(existing, dict):
@@ -419,34 +470,41 @@ def _sim_state_plants(running: bool) -> dict:
     return result
 
 def _read_sim_state_raw() -> dict:
+    """Return raw sim_state.json content."""
     data = load_json(SIM_STATE_FILE, {'plants': {}, 'simulator_running': True}, logger=_json_log, label='sim_state.json')
     return data if isinstance(data, dict) else {'plants': {}, 'simulator_running': True}
 
 def _plant_running(plant_key: str, sim_state: dict) -> bool:
+    """Extract running bool from either old (bool) or new (dict) plant state format."""
     v = sim_state.get('plants', {}).get(plant_key, False)
     if isinstance(v, dict):
         return bool(v.get('running', False))
     return bool(v)
 
 def _plant_recipe(plant_key: str, sim_state: dict) -> str:
+    """Extract active recipe string from plant state."""
     v = sim_state.get('plants', {}).get(plant_key, {})
     if isinstance(v, dict):
         return v.get('recipe', '')
     return ''
 
 def _plant_recipes(plant_key: str, sim_state: dict) -> list:
+    """Extract recipe list for a plant."""
     v = sim_state.get('plants', {}).get(plant_key, {})
     if isinstance(v, dict):
         return v.get('recipes', [])
     return []
 
 def _write_sim_state(data: dict):
+    """Merge data into sim_state.json. Handles both old bool and new dict plant formats."""
     current = load_json(SIM_STATE_FILE, {'plants': {}, 'simulator_running': True}, logger=_json_log, label='sim_state.json')
     current = merge_sim_state_update(current, data)
+
     if not save_json_atomic(SIM_STATE_FILE, current, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
         raise OSError(f"Could not write {SIM_STATE_FILE}")
 
 def _all_sim_state_plants_stopped(sim_state: dict) -> bool:
+    """Return True when no persisted plant state claims to be running."""
     plants = sim_state.get('plants', {}) if isinstance(sim_state, dict) else {}
     for value in plants.values():
         if isinstance(value, dict):
@@ -457,21 +515,25 @@ def _all_sim_state_plants_stopped(sim_state: dict) -> bool:
     return not bool(sim_state.get('simulator_running', False)) if isinstance(sim_state, dict) else True
 
 def _mark_all_plants_stopped(reason: str = '') -> bool:
+    """Persist all plant running flags as stopped, preserving recipes and plant metadata."""
     state = _read_sim_state_raw()
     already_stopped = _all_sim_state_plants_stopped(state)
+
     state['plants'] = _sim_state_plants(False)
     state['simulator_running'] = False
     if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
         raise OSError(f"Could not write {SIM_STATE_FILE}")
-    for plant in _state['plant_data'].values():
-        if isinstance(plant, dict):
-            plant['process_state'] = False
-            plant['maint_status'] = 'Stopped'
+    with _locks['data']:
+        for plant in _state['plant_data'].values():
+            if isinstance(plant, dict):
+                plant['process_state'] = False
+                plant['maint_status'] = 'Stopped'
     if reason:
         _log(f"[sim-state] Marked all plants stopped: {reason}")
     return not already_stopped
 
 def _write_all_plants_running(reason: str = ''):
+    """Persist all plant running flags as running, preserving recipes and plant metadata."""
     state = _read_sim_state_raw()
     state['plants'] = _sim_state_plants(True)
     state['simulator_running'] = True
@@ -481,6 +543,7 @@ def _write_all_plants_running(reason: str = ''):
         _log(f"[sim-state] Marked all plants running: {reason}")
 
 def _write_single_plant_running(plant_key: str, running: bool, reason: str = ''):
+    """Persist one plant running flag and keep the global simulator flag consistent."""
     _write_sim_state({plant_key: {'running': bool(running)}})
     sim_state = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
     current_plants = sim_state.get('plants', {}) if isinstance(sim_state, dict) else {}
@@ -495,24 +558,26 @@ def _write_single_plant_running(plant_key: str, running: bool, reason: str = '')
     if reason:
         _log(f"[sim-state] Marked plant {plant_key} {'running' if running else 'stopped'}: {reason}")
 
-async def _reset_then_start_all_plants(delay_seconds: float = SIM_STATE_START_RESET_SECONDS):
-    async with _locks['sim_control']:
+def _reset_then_start_all_plants(delay_seconds: float = SIM_STATE_START_RESET_SECONDS):
+    """Force a durable stopped snapshot before starting all plants."""
+    with _locks['sim_control']:
         _ensure_sim_state_synced()
         _mark_all_plants_stopped('start-all reset before start')
         _log(f"[sim-state] Waiting {delay_seconds:.1f}s before start-all so factory.py can observe stopped state")
-        await asyncio.sleep(delay_seconds)
+        time.sleep(delay_seconds)
         if not _server_alive():
             _mark_all_plants_stopped('factory process stopped during start-all reset')
             return False, 'OPC UA server stopped before plants could be started'
         _write_all_plants_running('start-all after reset')
         return True, f'All plants started after {delay_seconds:.1f}s reset'
 
-async def _reset_then_start_plant(plant_key: str, delay_seconds: float = SIM_STATE_START_RESET_SECONDS):
-    async with _locks['sim_control']:
+def _reset_then_start_plant(plant_key: str, delay_seconds: float = SIM_STATE_START_RESET_SECONDS):
+    """Force a durable stopped snapshot before starting one plant."""
+    with _locks['sim_control']:
         _ensure_sim_state_synced()
         _write_single_plant_running(plant_key, False, 'single-plant reset before start')
         _log(f"[sim-state] Waiting {delay_seconds:.1f}s before starting {plant_key} so factory.py can observe stopped state")
-        await asyncio.sleep(delay_seconds)
+        time.sleep(delay_seconds)
         if not _server_alive():
             _write_single_plant_running(plant_key, False, 'factory process stopped during single-plant reset')
             return False, 'OPC UA server stopped before plant could be started'
@@ -520,6 +585,7 @@ async def _reset_then_start_plant(plant_key: str, delay_seconds: float = SIM_STA
         return True, f'Plant started after {delay_seconds:.1f}s reset'
 
 def _reconcile_sim_state_with_process(reason: str = ''):
+    """Clear stale persisted running flags whenever the managed factory process is not alive."""
     try:
         if not _server_alive():
             _mark_all_plants_stopped(reason or 'factory process is not running')
@@ -527,28 +593,28 @@ def _reconcile_sim_state_with_process(reason: str = ''):
         _log(f"[sim-state] Reconcile failed: {e}")
 
 def _server_alive() -> bool:
-    p = _state['server_proc']
-    return p is not None and p.returncode is None
+    with _locks['proc']:
+        p = _state['server_proc']
+        return p is not None and p.poll() is None
 
 # ── Server process management ──────────────────────────────────────────────────
-async def _capture_output(proc):
+def _capture_output(proc):
     try:
-        while True:
-            line = await proc.stdout.readline()
+        for line in iter(proc.stdout.readline, ''):
             if not line:
                 break
-            _log(line.decode('utf-8', errors='replace').rstrip())
+            _log(line.rstrip())
     except Exception:
         pass
 
-async def start_factory_server():
-    async with _locks['proc']:
-        if _state['server_proc'] and _state['server_proc'].returncode is None:
+def start_factory_server():
+    with _locks['proc']:
+        if _state['server_proc'] and _state['server_proc'].poll() is None:
             return False, "Server is already running"
         _state['server_proc'] = None
         _ensure_sim_state_synced()
         _mark_all_plants_stopped('starting fresh factory process')
-        if await _opc_tcp_port_open():
+        if _opc_tcp_port_open():
             msg = f"OPC UA port {_state['opc_port']} is already in use; stop the existing process before starting the dashboard-managed server"
             _log(f"[server] {msg}")
             return False, msg
@@ -556,29 +622,32 @@ async def start_factory_server():
         if not os.path.exists(factory_py):
             return False, f"factory.py not found at {factory_py}"
         try:
-            proc = await asyncio.create_subprocess_exec(
-                sys.executable, factory_py,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
+            proc = subprocess.Popen(
+                [sys.executable, factory_py],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True, bufsize=1,
                 cwd=BASE_DIR,
             )
             _state['server_proc'] = proc
-            asyncio.create_task(_capture_output(proc))
+            threading.Thread(target=_capture_output, args=(proc,), daemon=True).start()
 
-            if not await _wait_for_opc_port(True, SERVER_START_TIMEOUT_SECONDS, proc=proc):
+            if not _wait_for_opc_port(True, SERVER_START_TIMEOUT_SECONDS, proc=proc):
                 try:
-                    if proc.returncode is None:
+                    if proc.poll() is None:
                         proc.terminate()
-                        try:
-                            await asyncio.wait_for(proc.wait(), timeout=3)
-                        except asyncio.TimeoutError:
-                            proc.kill()
-                            await proc.wait()
+                        proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
                 except Exception:
                     pass
-                recent_logs = ' | '.join(_state['server_logs'][-5:])
-                exit_part = f"exited with code {proc.returncode}" if proc.returncode is not None else "did not open the OPC UA port"
-                msg = f"Server process {exit_part}. Recent logs: {recent_logs}"
+                try:
+                    remaining = proc.stdout.read() or ''
+                except Exception:
+                    remaining = ''
+                exit_part = f"exited with code {proc.returncode}" if proc.poll() is not None else "did not open the OPC UA port"
+                msg = f"Server process {exit_part}. Output: {remaining.strip()[:1000]}"
                 _log(f"[server] {msg}")
                 _state['server_proc'] = None
                 _mark_all_plants_stopped('factory process failed to start')
@@ -593,14 +662,14 @@ async def start_factory_server():
                 pass
             return False, str(e)
 
-async def stop_factory_server():
-    async with _locks['proc']:
+def stop_factory_server():
+    with _locks['proc']:
         try:
             _mark_all_plants_stopped('factory process stopping')
         except Exception as e:
             _log(f"[sim-state] Stop pre-reconcile failed: {e}")
         proc = _state['server_proc']
-        if proc is None or proc.returncode is not None:
+        if proc is None or proc.poll() is not None:
             _state['server_proc'] = None
             try:
                 _mark_all_plants_stopped('factory process was already stopped')
@@ -609,15 +678,12 @@ async def stop_factory_server():
             return True, "Server was not running"
         try:
             proc.terminate()
-            try:
-                await asyncio.wait_for(proc.wait(), timeout=6)
-            except asyncio.TimeoutError:
-                proc.kill()
-                await proc.wait()
-        except Exception:
-            pass
+            proc.wait(timeout=6)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()  # Ensure OS reclaims the process (and its sockets) before returning
         _state['server_proc'] = None
-        if not await _wait_for_opc_port(False, SERVER_STOP_PORT_RELEASE_SECONDS):
+        if not _wait_for_opc_port(False, SERVER_STOP_PORT_RELEASE_SECONDS):
             _log(f"[server] OPC UA port {_state['opc_port']} still accepts connections after factory process stop")
         try:
             _mark_all_plants_stopped('factory process stopped')
@@ -625,13 +691,13 @@ async def stop_factory_server():
             _log(f"[sim-state] Stop reconcile failed: {e}")
         return True, "Server stopped"
 
-async def _dashboard_shutdown():
+def _dashboard_shutdown():
     try:
-        await stop_bridge()
+        stop_bridge()
     except Exception:
         pass
     try:
-        await stop_factory_server()
+        stop_factory_server()
     except Exception:
         try:
             _mark_all_plants_stopped('dashboard shutdown')
@@ -639,28 +705,27 @@ async def _dashboard_shutdown():
             pass
 
 def _install_shutdown_handlers():
-    def _sync_shutdown():
-        for key in ('bridge_proc', 'server_proc'):
-            p = _state.get(key)
-            if p is not None and p.returncode is None:
-                try:
-                    p.terminate()
-                except Exception:
-                    pass
+    def _handle_signal(sig, _frame):
+        _dashboard_shutdown()
         try:
-            _mark_all_plants_stopped('dashboard shutdown')
+            signal.signal(sig, signal.SIG_DFL)
+        except Exception:
+            pass
+        raise SystemExit(0)
+
+    atexit.register(_dashboard_shutdown)
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            signal.signal(sig, _handle_signal)
         except Exception:
             pass
 
-    atexit.register(_sync_shutdown)
-
-    # Quart/hypercorn handle SIGINT and SIGTERM on their own (graceful shutdown).
-    # We only need to ensure our sync cleanup runs via atexit above.
-
 # ── OPC UA node-cache polling ──────────────────────────────────────────────────
-async def _poll_loop():
-    """Robust async polling for dynamic factory.py structure using asyncua."""
-    from asyncua import Client
+def _poll_loop():
+    """Robust polling for dynamic factory.py structure.
+    FIXED: Fully dynamic enterprise name from uns_config.json.
+    This solves the root namespace change breaking the simulator/dashboard."""
+    from opcua import Client
     last_endpoint = None
     last_enterprise = None
 
@@ -674,55 +739,69 @@ async def _poll_loop():
             _log(f"[poll] Endpoint or enterprise changed → {current_endpoint} | Root: {current_enterprise}")
 
         try:
-            async with Client(current_endpoint) as client:
-                ns_idx = None
-                ent    = None
-                current_namespace = _get_namespace_uri()
-                for attempt in range(12):
-                    try:
-                        ns_idx = await client.get_namespace_index(current_namespace)
-                    except Exception as e:
-                        if "BadNoMatch" in str(e):
-                            await asyncio.sleep(0.5)
-                            continue
-                        raise
+            client = Client(current_endpoint)
+            client.connect()
 
-                    try:
-                        root = client.nodes.root
-                        ent = await root.get_child(["0:Objects", f"{ns_idx}:{current_enterprise}"])
-                        break
-                    except Exception:
-                        await asyncio.sleep(0.5)
+            ns_idx = None
+            ent = None
+            current_namespace = _get_namespace_uri()
+            for attempt in range(12):
+                try:
+                    ns_idx = client.get_namespace_index(current_namespace)
+                except Exception as e:
+                    if "BadNoMatch" in str(e):
+                        time.sleep(0.5)
                         continue
+                    raise
 
-                if ent is None:
-                    _state['opc_connected'] = False
-                    _state['viz_values'] = {}
-                    _log(f"[poll] OPC UA available but root node '{current_enterprise}' not ready yet")
-                    await asyncio.sleep(1)
+                try:
+                    root = client.get_root_node()
+                    ent = root.get_child(["0:Objects", f"{ns_idx}:{current_enterprise}"])
+                    break
+                except Exception:
+                    time.sleep(0.5)
                     continue
 
-                _state['opc_connected'] = True
-                _log(f"[poll] Successfully connected to OPC UA server — Enterprise: {current_enterprise}")
+            if ent is None:
+                _state['opc_connected'] = False
+                with _locks['data']:
+                    _state['viz_values'] = {}
+                _log(f"[poll] OPC UA available but root node '{current_enterprise}' not ready yet")
+                try:
+                    client.disconnect()
+                except Exception:
+                    pass
+                time.sleep(1)
+                continue
 
-                async with _locks['data']:
-                    _state['plant_data'] = await _collect_plant_data(ent, ns_idx)
+            _state['opc_connected'] = True
+            _log(f"[poll] Successfully connected to OPC UA server — Enterprise: {current_enterprise}")
 
-                while _endpoint() == current_endpoint and _state['opc_connected']:
-                    try:
-                        async with _locks['data']:
-                            _state['plant_data'] = await _collect_plant_data(ent, ns_idx)
-                            _state['viz_values'] = await _collect_viz_values(ent, ns_idx)
-                    except Exception as e:
-                        _log(f"[poll] Data collection error (triggering reconnect): {e}")
-                        _state['opc_connected'] = False
+            with _locks['data']:
+                _state['plant_data'] = _collect_plant_data(ent, ns_idx)
+
+            while _endpoint() == current_endpoint and _state['opc_connected']:
+                try:
+                    with _locks['data']:
+                        _state['plant_data'] = _collect_plant_data(ent, ns_idx)
+                        _state['viz_values'] = _collect_viz_values(ent, ns_idx)
+                except Exception as e:
+                    _log(f"[poll] Data collection error (triggering reconnect): {e}")
+                    _state['opc_connected'] = False
+                    with _locks['data']:
                         _state['viz_values'] = {}
-                        break
-                    await asyncio.sleep(3)
+                    break
+                time.sleep(3)
+
+            try:
+                client.disconnect()
+            except Exception:
+                pass
 
         except Exception as e:
             _state['opc_connected'] = False
-            _state['viz_values'] = {}
+            with _locks['data']:
+                _state['viz_values'] = {}
             err_str = str(e)
             if "10061" in err_str or "ConnectionRefused" in err_str or "Connection refused" in err_str:
                 _log("[poll] OPC UA unavailable: Connection refused - Is the factory server running?")
@@ -730,19 +809,24 @@ async def _poll_loop():
                 _log(f"[poll] OPC UA unavailable: BadNoMatch (root node '{current_enterprise}' not found)")
             else:
                 _log(f"[poll] OPC UA unavailable: {type(e).__name__} - {err_str}")
-            await asyncio.sleep(4)
+            time.sleep(4)
+
+threading.Thread(target=_poll_loop, daemon=True, name="opc-poll").start()
 
 # ── OPC UA write helper (one-shot client per command) ─────────────────────────
-async def _opc_write(fn):
-    """Connect, call fn(client, idx, enterprise), disconnect. Returns (ok, msg)."""
-    from asyncua import Client
+def _opc_write(fn):
+    """Connect, call fn(client, idx, enterprise), disconnect. Returns (ok, msg).
+    Enterprise name is read dynamically from uns_config.json tree root."""
+    from opcua import Client
     try:
         enterprise_name = _get_enterprise_name()
-        async with Client(_endpoint()) as client:
-            idx  = await client.get_namespace_index(_get_namespace_uri())
-            root = client.nodes.root
-            ent  = await root.get_child(["0:Objects", f"{idx}:{enterprise_name}"])
-            result = await fn(client, idx, ent)
+        client = Client(_endpoint())
+        client.connect()
+        idx  = client.get_namespace_index(_get_namespace_uri())
+        root = client.get_root_node()
+        ent  = root.get_child(["0:Objects", f"{idx}:{enterprise_name}"])
+        result = fn(client, idx, ent)
+        client.disconnect()
         return True, result or "OK"
     except Exception as e:
         return False, str(e)
@@ -788,54 +872,32 @@ def _get_plant_tags(group: str, plant: str) -> list:
             break
     return results
 
-# ── Periodic sync loop ────────────────────────────────────────────────────────
-async def _periodic_sync_loop(interval: int = 10):
-    while True:
-        try:
-            _ensure_sim_state_synced()
-        except Exception:
-            pass
-        await asyncio.sleep(interval)
-
-# ── Quart startup hook ────────────────────────────────────────────────────────
-@app.before_serving
-async def startup():
-    _ensure_sim_state_synced()
-    _mark_all_plants_stopped('dashboard startup')
-    _install_shutdown_handlers()
-    asyncio.create_task(_periodic_sync_loop(interval=10))
-    asyncio.create_task(_poll_loop())
-    print()
-    print("==============================================================")
-    print("UNS Design Studio")
-    print("Dashboard: http://localhost:5000")
-    print("==============================================================")
-    print()
-
-# ── Quart routes ───────────────────────────────────────────────────────────────
+# ── Flask routes ───────────────────────────────────────────────────────────────
 @app.route('/')
-async def index():
-    return await render_template(
+def index():
+    return render_template(
         'index.html',
         structure=_get_enterprise_structure(),
         division_meta=_get_division_meta(),
     )
 
 @app.route('/api/status')
-async def api_status():
+def api_status():
     _reconcile_sim_state_with_process('status poll found no factory process')
     server_running = _server_alive()
-    server_ready = server_running and await _opc_tcp_port_open()
+    server_ready = server_running and _opc_tcp_port_open()
     if not server_ready:
         _state['opc_connected'] = False
         plants = _plant_data_from_sim_state(force_stopped=True)
-        _state['plant_data'] = plants
+        with _locks['data']:
+            _state['plant_data'] = plants
     else:
-        async with _locks['data']:
+        with _locks['data']:
             plants = dict(_state['plant_data'])
         if not plants:
             plants = _plant_data_from_sim_state(force_stopped=False)
-    bstats = dict(_state['bridge_stats'])
+    with _locks['data']:
+        bstats = dict(_state['bridge_stats'])
     cfg = _load_bridge_cfg()
     cfg.pop('password', None)
     struct = _get_enterprise_structure()
@@ -857,23 +919,24 @@ async def api_status():
     ))
 
 @app.route('/api/logs')
-async def api_logs():
-    logs = list(_state['server_logs'][-150:])
+def api_logs():
+    with _locks['logs']:
+        logs = list(_state['server_logs'][-150:])
     return jsonify({'logs': logs})
 
 @app.route('/api/server/start', methods=['POST'])
-async def api_server_start():
-    ok, msg = await start_factory_server()
+def api_server_start():
+    ok, msg = start_factory_server()
     return jsonify({'ok': ok, 'msg': msg}), 200 if ok else 409
 
 @app.route('/api/server/stop', methods=['POST'])
-async def api_server_stop():
-    ok, msg = await stop_factory_server()
+def api_server_stop():
+    ok, msg = stop_factory_server()
     return jsonify({'ok': ok, 'msg': msg})
 
 @app.route('/api/config', methods=['POST'])
-async def api_config():
-    data = await request.get_json() or {}
+def api_config():
+    data = request.json or {}
     if 'host' in data:
         _state['opc_host'] = data['host'].strip()
     if 'port' in data:
@@ -881,7 +944,7 @@ async def api_config():
     return jsonify({'ok': True, 'host': _state['opc_host'], 'port': _state['opc_port']})
 
 @app.route('/api/server-config', methods=['GET'])
-async def api_server_config_get():
+def api_server_config_get():
     cfg = _load_server_cfg()
     cfg.setdefault('opc_bind_ip',    '0.0.0.0')
     cfg.setdefault('opc_port',       4840)
@@ -891,8 +954,8 @@ async def api_server_config_get():
     return jsonify(cfg)
 
 @app.route('/api/server-config', methods=['POST'])
-async def api_server_config_save():
-    data = await request.get_json() or {}
+def api_server_config_save():
+    data = request.json or {}
     cfg  = _load_server_cfg()
     for key in ('opc_bind_ip', 'opc_client_host', 'host_ip'):
         if key in data:
@@ -907,25 +970,26 @@ async def api_server_config_save():
     return jsonify({'ok': True})
 
 @app.route('/api/plants/start-all', methods=['POST'])
-async def api_start_all():
+def api_start_all():
+    # sim_state.json is the authoritative control source — no OPC writes needed
     if not _server_alive():
         _mark_all_plants_stopped('start-all requested without factory process')
         return jsonify({'ok': False, 'msg': 'Start the OPC UA server before starting plants'}), 409
-    if not await _opc_tcp_port_open():
+    if not _opc_tcp_port_open():
         _mark_all_plants_stopped('start-all requested before OPC UA port was ready')
         return jsonify({'ok': False, 'msg': 'OPC UA server process is running, but the OPC UA port is not ready yet'}), 409
-    ok, msg = await _reset_then_start_all_plants()
+    ok, msg = _reset_then_start_all_plants()
     return jsonify({'ok': ok, 'msg': msg}), 200 if ok else 409
 
 @app.route('/api/plants/stop-all', methods=['POST'])
-async def api_stop_all():
+def api_stop_all():
     _ensure_sim_state_synced()
     _mark_all_plants_stopped('stop-all requested')
     return jsonify({'ok': True, 'msg': 'Plants stopped'})
 
 @app.route('/api/plant/control', methods=['POST'])
-async def api_plant_control():
-    data   = await request.get_json() or {}
+def api_plant_control():
+    data   = request.json or {}
     group  = data['group']
     plant  = data['plant']
     action = data['action']
@@ -935,15 +999,15 @@ async def api_plant_control():
         if bool(value) and not _server_alive():
             _mark_all_plants_stopped('plant start requested without factory process')
             return jsonify({'ok': False, 'msg': 'Start the OPC UA server before starting plants'}), 409
-        if bool(value) and not await _opc_tcp_port_open():
+        if bool(value) and not _opc_tcp_port_open():
             _mark_all_plants_stopped('plant start requested before OPC UA port was ready')
             return jsonify({'ok': False, 'msg': 'OPC UA server process is running, but the OPC UA port is not ready yet'}), 409
         if bool(value):
-            ok, msg = await _reset_then_start_plant(plant_key)
+            ok, msg = _reset_then_start_plant(plant_key)
             if not ok:
                 return jsonify({'ok': False, 'msg': msg}), 409
         else:
-            async with _locks['sim_control']:
+            with _locks['sim_control']:
                 _write_single_plant_running(plant_key, False, 'single-plant stop requested')
     elif action == 'set_recipe':
         plant_key = f"{group}|{plant}"
@@ -952,9 +1016,11 @@ async def api_plant_control():
     return jsonify({'ok': True, 'msg': f'{action} applied'})
 
 @app.route('/api/recipes/<group>/<plant>')
-async def api_recipes(group, plant):
+def api_recipes(group, plant):
+    """Return available recipes (from uns_config.json site node) and active recipe (from sim_state.json)."""
     plant_key = f"{group}|{plant}"
 
+    # Recipe definitions come from uns_config.json site.recipes
     recipes = []
     try:
         cfg = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
@@ -971,6 +1037,7 @@ async def api_recipes(group, plant):
     except Exception:
         pass
 
+    # Active selection comes from sim_state.json
     active = ''
     try:
         sim_state = load_json(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
@@ -982,7 +1049,9 @@ async def api_recipes(group, plant):
     return jsonify({'recipes': recipes, 'active': active})
 
 @app.route('/api/equipment/<group>')
-async def api_equipment(group):
+def api_equipment(group):
+    # Equipment options are now dynamically built from plant tags in uns_config.json
+    # Return tags that are writable (access=RW) for the given group as equipment options
     result = {}
     try:
         cfg = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
@@ -997,32 +1066,30 @@ async def api_equipment(group):
                             for child in node.get('children', []):
                                 _collect(child)
                         _collect(site)
-                        break
+                        break  # first site is representative
                 break
     except Exception:
         pass
     return jsonify({'equipment': result})
 
 @app.route('/api/plant/tags/<group>/<plant>')
-async def api_plant_tags(group, plant):
+def api_plant_tags(group, plant):
     tags = _get_plant_tags(group, plant)
     return jsonify({'tags': tags})
 
 @app.route('/api/anomaly/inject', methods=['POST'])
-async def api_anomaly():
-    data      = await request.get_json() or {}
+def api_anomaly():
+    data      = request.json or {}
     overrides = data.get('overrides', {})
     duration  = float(data.get('duration', 30))
     if not overrides:
         return jsonify({'ok': False, 'msg': 'No overrides specified'})
-
-    async def _run():
-        await _send_anomaly(overrides)
+    def _run():
+        _send_anomaly(overrides)
         if duration > 0:
-            await asyncio.sleep(duration)
-            await _send_anomaly({k: None for k in overrides})
-
-    asyncio.create_task(_run())
+            time.sleep(duration)
+            _send_anomaly({k: None for k in overrides})
+    threading.Thread(target=_run, daemon=True).start()
     return jsonify({'ok': True, 'tags': len(overrides), 'duration': duration})
 
 # ── Broker Bridge management ───────────────────────────────────────────────────
@@ -1037,20 +1104,21 @@ def _save_bridge_cfg(data: dict):
         raise OSError(f"Could not write {BRIDGE_CONFIG_FILE}")
 
 def _bridge_alive() -> bool:
-    p = _state['bridge_proc']
-    return p is not None and p.returncode is None
+    with _locks['bridge']:
+        p = _state['bridge_proc']
+        return p is not None and p.poll() is None
 
-async def _capture_bridge_output(proc):
+def _capture_bridge_output(proc):
     try:
-        while True:
-            line = await proc.stdout.readline()
+        for line in iter(proc.stdout.readline, ''):
             if not line:
                 break
-            line = line.decode('utf-8', errors='replace').rstrip()
+            line = line.rstrip()
             if line.startswith('[BRIDGE_STATS] '):
                 try:
                     stats = json.loads(line[15:])
-                    _state['bridge_stats'].update(stats)
+                    with _locks['data']:
+                        _state['bridge_stats'].update(stats)
                 except Exception:
                     pass
             else:
@@ -1058,9 +1126,9 @@ async def _capture_bridge_output(proc):
     except Exception:
         pass
 
-async def start_bridge():
-    async with _locks['bridge']:
-        if _state['bridge_proc'] and _state['bridge_proc'].returncode is None:
+def start_bridge():
+    with _locks['bridge']:
+        if _state['bridge_proc'] and _state['bridge_proc'].poll() is None:
             return False, "Bridge is already running"
         if not os.path.exists(BRIDGE_PY):
             return False, f"bridge.py not found at {BRIDGE_PY}"
@@ -1073,56 +1141,56 @@ async def start_bridge():
         except Exception as e:
             return False, f"Could not update bridge config: {e}"
         try:
-            proc = await asyncio.create_subprocess_exec(
-                sys.executable, BRIDGE_PY,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
+            proc = subprocess.Popen(
+                [sys.executable, BRIDGE_PY],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True, bufsize=1,
                 cwd=BASE_DIR,
             )
             _state['bridge_proc'] = proc
-            asyncio.create_task(_capture_bridge_output(proc))
+            threading.Thread(target=_capture_bridge_output, args=(proc,), daemon=True).start()
             return True, "Bridge process started"
         except Exception as e:
             return False, str(e)
 
-async def stop_bridge():
-    async with _locks['bridge']:
+def stop_bridge():
+    with _locks['bridge']:
         proc = _state['bridge_proc']
-        if proc is None or proc.returncode is not None:
+        if proc is None or proc.poll() is not None:
             _state['bridge_proc'] = None
             return True, "Bridge was not running"
         try:
             proc.terminate()
-            try:
-                await asyncio.wait_for(proc.wait(), timeout=6)
-            except asyncio.TimeoutError:
-                proc.kill()
-                await proc.wait()
-        except Exception:
-            pass
+            proc.wait(timeout=6)
+        except subprocess.TimeoutExpired:
+            proc.kill()
         _state['bridge_proc'] = None
-        _state['bridge_stats'].update({'connected': False, 'opc_ok': False, 'rate': 0.0})
+        with _locks['data']:
+            _state['bridge_stats'].update({
+                'connected': False, 'opc_ok': False, 'rate': 0.0
+            })
         return True, "Bridge stopped"
 
 @app.route('/api/bridge/start', methods=['POST'])
-async def api_bridge_start():
-    ok, msg = await start_bridge()
+def api_bridge_start():
+    ok, msg = start_bridge()
     return jsonify({'ok': ok, 'msg': msg})
 
 @app.route('/api/bridge/stop', methods=['POST'])
-async def api_bridge_stop():
-    ok, msg = await stop_bridge()
+def api_bridge_stop():
+    ok, msg = stop_bridge()
     return jsonify({'ok': ok, 'msg': msg})
 
 @app.route('/api/bridge/config', methods=['GET'])
-async def api_bridge_cfg_get():
+def api_bridge_cfg_get():
     cfg = _load_bridge_cfg()
     cfg.pop('password', None)
     return jsonify(cfg)
 
 @app.route('/api/bridge/config', methods=['POST'])
-async def api_bridge_cfg_save():
-    data = await request.get_json() or {}
+def api_bridge_cfg_save():
+    data = request.json or {}
     cfg  = _load_bridge_cfg()
     for key in ('protocol', 'broker_host', 'broker_port', 'topic_prefix',
                 'interval', 'username', 'password'):
@@ -1132,8 +1200,8 @@ async def api_bridge_cfg_save():
         cfg['broker_host'] = _normalize_connect_host(cfg.get('broker_host', 'localhost'))
     _save_bridge_cfg(cfg)
     if _bridge_alive():
-        await stop_bridge()
-        ok, msg = await start_bridge()
+        stop_bridge()
+        ok, msg = start_bridge()
         return jsonify({'ok': ok, 'restarted': True, 'msg': msg})
     return jsonify({'ok': True, 'restarted': False})
 
@@ -1145,12 +1213,12 @@ def _load_asset_library() -> dict:
     return data if isinstance(data, dict) else {"assets": []}
 
 @app.route('/api/asset-library', methods=['GET'])
-async def api_asset_library():
+def api_asset_library():
     return jsonify(_load_asset_library())
 
 # ── Simulation Profile Catalogue ───────────────────────────────────────────────
 @app.route('/api/simulation-profiles', methods=['GET'])
-async def api_simulation_profiles():
+def api_simulation_profiles():
     profiles = {
         "oee":                   {"label": "OEE (%)",                       "group": "OT / Process"},
         "availability":          {"label": "Availability (%)",              "group": "OT / Process"},
@@ -1223,68 +1291,30 @@ async def api_simulation_profiles():
 
 # ── UNS Live View ──────────────────────────────────────────────────────────────
 @app.route('/live')
-async def uns_live():
-    return await render_template('uns_live.html')
-
-@app.websocket('/mqtt-ws')
-async def mqtt_ws_proxy():
-    """Proxy MQTT-over-WebSocket to the local Mosquitto broker.
-    Lets the browser connect to the dashboard host instead of a separate port.
-    """
-    import websockets
-    from quart import websocket as ws
-    subprotocols = ws.headers.get('Sec-Websocket-Protocol', '').split(',')
-    subprotocols = [s.strip() for s in subprotocols if s.strip()]
-    broker_url = f"ws://localhost:{_state.get('mqtt_ws_port', 8083)}/mqtt"
-    try:
-        async with websockets.connect(
-            broker_url,
-            subprotocols=subprotocols or ['mqtt'],
-            max_size=2**20,
-        ) as broker_ws:
-            async def client_to_broker():
-                while True:
-                    data = await ws.receive()
-                    await broker_ws.send(data)
-
-            async def broker_to_client():
-                async for msg in broker_ws:
-                    if isinstance(msg, bytes):
-                        await ws.send(msg)
-                    else:
-                        await ws.send(msg)
-
-            done, pending = await asyncio.wait(
-                [asyncio.create_task(client_to_broker()),
-                 asyncio.create_task(broker_to_client())],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for t in pending:
-                t.cancel()
-    except Exception:
-        pass
+def uns_live():
+    return render_template('uns_live.html')
 
 @app.route('/manual')
-async def user_manual():
-    return await render_template('manual.html')
+def user_manual():
+    return render_template('manual.html')
 
 @app.route('/settings')
-async def settings_page():
-    return await render_template('settings.html')
+def settings_page():
+    return render_template('settings.html')
 
 # ── UNS Topic Designer ─────────────────────────────────────────────────────────
 @app.route('/uns')
-async def uns_editor():
-    return await render_template('uns_editor.html')
+def uns_editor():
+    return render_template('uns_editor.html')
 
 @app.route('/api/uns', methods=['GET'])
-async def api_uns_get():
+def api_uns_get():
     data = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
     return jsonify(data if isinstance(data, dict) else {})
 
 @app.route('/api/uns', methods=['POST'])
-async def api_uns_save():
-    data = await request.get_json() or {}
+def api_uns_save():
+    data = request.json or {}
     data['lastModified'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     if not save_json_atomic(UNS_CONFIG_FILE, data, ensure_ascii=False, logger=_json_log, label='uns_config.json'):
         return jsonify({'ok': False, 'error': 'Could not write UNS config'}), 500
@@ -1292,47 +1322,52 @@ async def api_uns_save():
     factory_was_running = _server_alive()
     if factory_was_running:
         _state['opc_connected'] = False
-        await asyncio.sleep(1)
-        await stop_factory_server()
-        await asyncio.sleep(1)
-        ok, _ = await start_factory_server()
+        time.sleep(1)
+        stop_factory_server()
+        time.sleep(1)  # Let OS release port 4840 before binding again
+        ok, _ = start_factory_server()
         if not ok:
-            await asyncio.sleep(3)
-            ok, _ = await start_factory_server()
+            # First attempt failed (port still in TIME_WAIT) — retry once after a longer wait
+            time.sleep(3)
+            ok, _ = start_factory_server()
         if ok:
             restarted.append('factory')
+            # Invalidate metric path cache so new UNS structure is picked up
             global _metric_path_cache, _metric_path_cache_ts
             _metric_path_cache = {}
             _metric_path_cache_ts = 0.0
+            # Sync sim_state.json with new UNS structure (preserves running states,
+            # adds new plants as stopped, removes deleted plants)
             _ensure_sim_state_synced()
-
-            async def _delayed_bridge_restart():
-                await asyncio.sleep(4)
+            def _delayed_bridge_restart():
+                time.sleep(4)
                 if _bridge_alive():
-                    await stop_bridge()
-                    await start_bridge()
-
-            asyncio.create_task(_delayed_bridge_restart())
+                    stop_bridge()
+                    start_bridge()
+            threading.Thread(target=_delayed_bridge_restart, daemon=True).start()
     return jsonify({'ok': True, 'restarted': restarted})
 
 # ── Payload Schema Designer ───────────────────────────────────────────────────
 @app.route('/payload-schemas')
-async def payload_schemas_page():
-    return await render_template('payload_schemas.html')
+def payload_schemas_page():
+    return render_template('payload_schemas.html')
 
 @app.route('/api/payload-schemas', methods=['GET'])
-async def api_schemas_get():
+def api_schemas_get():
     data = load_json(SCHEMAS_CONFIG_FILE, {'schemas': []}, logger=_json_log, label='payload_schemas.json')
     return jsonify(data if isinstance(data, dict) else {'schemas': []})
 
 @app.route('/api/payload-schemas', methods=['POST'])
-async def api_schemas_save():
-    data = await request.get_json() or {}
+def api_schemas_save():
+    data = request.json or {}
     if not save_json_atomic(SCHEMAS_CONFIG_FILE, data, ensure_ascii=False, logger=_json_log, label='payload_schemas.json'):
         return jsonify({'ok': False, 'error': 'Could not write payload schemas'}), 500
     return jsonify({'ok': True})
 
 # ── Visualization (SCADA mimic) ───────────────────────────────────────────────
+# Pure logic lives in viz_service.py; this module only holds the Flask routes
+# and the OPC traversal callable used by the poll loop.
+
 import viz_service
 
 def _suggest_kind(name): return viz_service.suggest_kind(name)
@@ -1342,40 +1377,40 @@ def _walk_viz_entities(): return viz_service.walk_entities(UNS_CONFIG_FILE)
 def _viz_resolve_tag_path(entity_id, tag_name):
     return viz_service.resolve_tag_path(UNS_CONFIG_FILE, entity_id, tag_name)
 
-async def _collect_viz_values(ent, idx):
-    """Bridge viz_service.collect_values_async to a live OPC client (poll loop only)."""
-    async def read(path):
+def _collect_viz_values(ent, idx):
+    """Bridge viz_service.collect_values to a live OPC client (poll loop only)."""
+    def read(path):
         try:
             n = ent
             for part in path:
-                n = await n.get_child([f"{idx}:{part}"])
-            return await n.read_value()
+                n = n.get_child([f"{idx}:{part}"])
+            return n.get_value()
         except Exception:
             return None
-    return await viz_service.collect_values_async(
+    return viz_service.collect_values(
         _load_viz_cfg().get('gauges', []),
         _viz_resolve_tag_path,
         read,
     )
 
 @app.route('/viz')
-async def viz_page():
-    return await render_template('visualization.html')
+def viz_page():
+    return render_template('visualization.html')
 
 @app.route('/api/viz/config', methods=['GET'])
-async def api_viz_get():
+def api_viz_get():
     return jsonify(_load_viz_cfg())
 
 @app.route('/api/viz/config', methods=['POST'])
-async def api_viz_save():
-    data = await request.get_json() or {}
+def api_viz_save():
+    data = request.json or {}
     data.setdefault('version', 1)
     data['lastModified'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     _save_viz_cfg(data)
     return jsonify({'ok': True})
 
 @app.route('/api/viz/entities', methods=['GET'])
-async def api_viz_entities():
+def api_viz_entities():
     mapped   = _load_viz_cfg().get('entities', {})
     entities = _walk_viz_entities()
     for e in entities:
@@ -1386,8 +1421,9 @@ async def api_viz_entities():
     return jsonify({'kinds': viz_service.EQUIPMENT_KINDS, 'entities': entities})
 
 @app.route('/api/viz/values', methods=['GET'])
-async def api_viz_values():
-    values = dict(_state.get('viz_values') or {})
+def api_viz_values():
+    with _locks['data']:
+        values = dict(_state.get('viz_values') or {})
     return jsonify({
         'values':    values,
         'opc_ready': bool(_state.get('opc_connected')),
@@ -1395,9 +1431,21 @@ async def api_viz_values():
     })
 
 @app.route('/api/viz/tags/<path:entity_id>', methods=['GET'])
-async def api_viz_tags(entity_id):
+def api_viz_tags(entity_id):
     return jsonify({'tags': viz_service.entity_tags(UNS_CONFIG_FILE, entity_id)})
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    # Ensure sim_state.json is synced with current uns_config.json
+    _ensure_sim_state_synced()
+    _mark_all_plants_stopped('dashboard startup')
+    _install_shutdown_handlers()
+    # Start periodic background sync to pick up changes made in the UNS Designer
+    _start_periodic_sync(interval=10)
+    print()
+    print("==============================================================")
+    print("UNS Design Studio")
+    print("Dashboard: http://localhost:5000")
+    print("==============================================================")
+    print()
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
