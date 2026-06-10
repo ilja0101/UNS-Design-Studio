@@ -30,4 +30,5 @@ services:
 
 volumes:
   uns-design-studio-data:
+    name: uns-design-studio-data
 

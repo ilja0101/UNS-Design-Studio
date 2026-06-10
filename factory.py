@@ -25,6 +25,7 @@ logging.getLogger('asyncua').setLevel(logging.ERROR)
 logging.basicConfig(level=logging.WARN)
 
 BASE_DIR = _os.path.dirname(_os.path.abspath(__file__))
+DATA_DIR = _os.environ.get('UNS_DATA_DIR') or ('/data' if _os.path.isdir('/data') else BASE_DIR)
 
 def _json_log(msg: str):
     print(msg, flush=True)
@@ -33,7 +34,7 @@ def _json_log(msg: str):
 # CONFIG
 # ================================================================
 def _load_server_cfg():
-    cfg_path = _os.path.join(BASE_DIR, 'server_config.json')
+    cfg_path = _os.path.join(DATA_DIR, 'server_config.json')
     return load_json(cfg_path, {}, logger=_json_log, label='server_config.json')
 
 _scfg            = _load_server_cfg()
@@ -63,7 +64,7 @@ anomaly_overrides: dict = {}
 
 def _get_namespace_uri() -> str:
     try:
-        path = _os.path.join(BASE_DIR, 'uns_config.json')
+        path = _os.path.join(DATA_DIR, 'uns_config.json')
         cfg = load_json(path, {}, logger=_json_log, label='uns_config.json')
         if isinstance(cfg, dict):
             return cfg.get('namespaceUri') or NAMESPACE_URI_DEFAULT
@@ -79,7 +80,7 @@ NAMESPACE_URI = _get_namespace_uri()
 def _get_enterprise_name() -> str:
     """Return the root enterprise name from uns_config.json (supports any name set in UNS Designer)."""
     try:
-        path = _os.path.join(BASE_DIR, 'uns_config.json')
+        path = _os.path.join(DATA_DIR, 'uns_config.json')
         cfg = load_json(path, {}, logger=_json_log, label='uns_config.json')
         name, _ = resolve_enterprise_root(cfg.get('tree', {}) if isinstance(cfg, dict) else {})
         return name
@@ -89,7 +90,7 @@ def _get_enterprise_name() -> str:
 # ================================================================
 # SIM STATE  (read on every tick — picks up recipe changes live)
 # ================================================================
-SIM_STATE_FILE = _os.path.join(BASE_DIR, 'sim_state.json')
+SIM_STATE_FILE = _os.path.join(DATA_DIR, 'sim_state.json')
 
 async def _read_sim_state() -> dict:
     data = await load_json_async(SIM_STATE_FILE, {}, logger=_json_log, label='sim_state.json')
@@ -532,7 +533,7 @@ SIMULATION_PROFILES = {
 # UNS CONFIG LOADER
 # ================================================================
 def _load_uns_config():
-    path = _os.path.join(BASE_DIR, 'uns_config.json')
+    path = _os.path.join(DATA_DIR, 'uns_config.json')
     return load_json_or_raise(path, logger=_json_log, label='uns_config.json')
 
 

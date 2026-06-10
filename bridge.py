@@ -24,9 +24,10 @@ logging.getLogger('asyncua').setLevel(logging.ERROR)
 logging.basicConfig(level=logging.WARNING)
 
 BASE_DIR         = os.path.dirname(os.path.abspath(__file__))
-CONFIG_FILE      = os.path.join(BASE_DIR, 'bridge_config.json')
-UNS_CONFIG_FILE  = os.path.join(BASE_DIR, 'uns_config.json')
-SCHEMAS_FILE     = os.path.join(BASE_DIR, 'payload_schemas.json')
+DATA_DIR         = os.environ.get("UNS_DATA_DIR") or ("/data" if os.path.isdir("/data") else BASE_DIR)
+CONFIG_FILE      = os.path.join(DATA_DIR, 'bridge_config.json')
+UNS_CONFIG_FILE  = os.path.join(DATA_DIR, 'uns_config.json')
+SCHEMAS_FILE     = os.path.join(DATA_DIR, 'payload_schemas.json')
 OPC_READ_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_OPC_READ_BATCH", "500"))
 OPC_READ_CONCURRENCY = int(os.getenv("UNS_BRIDGE_OPC_READ_CONCURRENCY", "64"))
 PUBLISH_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_PUBLISH_BATCH", "250"))
@@ -323,7 +324,7 @@ class AsyncOpcPoller:
 
     @staticmethod
     async def _read_sim_state() -> dict:
-        sim_file = os.path.join(BASE_DIR, 'sim_state.json')
+        sim_file = os.path.join(DATA_DIR, 'sim_state.json')
         data = await load_json_async(sim_file, {}, logger=_json_log, label='sim_state.json')
         result = data.get('plants', {}).copy() if isinstance(data, dict) else {}
         if isinstance(data, dict) and 'simulator_running' in data:

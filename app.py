@@ -15,16 +15,17 @@ from uns_tree import enterprise_structure, resolve_enterprise_root
 
 # ── Adjust path so recipe.py is importable ────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get('UNS_DATA_DIR') or ('/data' if os.path.isdir('/data') else BASE_DIR)
 
 # ── Quart app ──────────────────────────────────────────────────────────────────
 app = Quart(__name__)
 
 # ── Config file paths ─────────────────────────────────────────────────────────
-UNS_CONFIG_FILE      = os.path.join(BASE_DIR, 'uns_config.json')
-SCHEMAS_CONFIG_FILE  = os.path.join(BASE_DIR, 'payload_schemas.json')
-SERVER_CONFIG_FILE   = os.path.join(BASE_DIR, 'server_config.json')
-SIM_STATE_FILE       = os.path.join(BASE_DIR, 'sim_state.json')
-VIZ_CONFIG_FILE      = os.path.join(BASE_DIR, 'visualization.json')
+UNS_CONFIG_FILE      = os.path.join(DATA_DIR, 'uns_config.json')
+SCHEMAS_CONFIG_FILE  = os.path.join(DATA_DIR, 'payload_schemas.json')
+SERVER_CONFIG_FILE   = os.path.join(DATA_DIR, 'server_config.json')
+SIM_STATE_FILE       = os.path.join(DATA_DIR, 'sim_state.json')
+VIZ_CONFIG_FILE      = os.path.join(DATA_DIR, 'visualization.json')
 
 def _json_log(msg: str):
     print(msg, flush=True)
@@ -1026,7 +1027,7 @@ async def api_anomaly():
     return jsonify({'ok': True, 'tags': len(overrides), 'duration': duration})
 
 # ── Broker Bridge management ───────────────────────────────────────────────────
-BRIDGE_CONFIG_FILE = os.path.join(BASE_DIR, 'bridge_config.json')
+BRIDGE_CONFIG_FILE = os.path.join(DATA_DIR, 'bridge_config.json')
 BRIDGE_PY          = os.path.join(BASE_DIR, 'bridge.py')
 
 def _load_bridge_cfg() -> dict:
@@ -1138,7 +1139,7 @@ async def api_bridge_cfg_save():
     return jsonify({'ok': True, 'restarted': False})
 
 # ── Asset Library ──────────────────────────────────────────────────────────────
-ASSET_LIBRARY_FILE = os.path.join(BASE_DIR, 'asset_library.json')
+ASSET_LIBRARY_FILE = os.path.join(DATA_DIR, 'asset_library.json')
 
 def _load_asset_library() -> dict:
     data = load_json(ASSET_LIBRARY_FILE, {"assets": []}, logger=_json_log, label='asset_library.json')
