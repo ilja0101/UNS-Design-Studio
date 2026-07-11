@@ -58,6 +58,7 @@ def test_build_bridge_entries_uses_factory_site_opc_name_and_opc_path_relative_t
         'standard',
         'Float',
         'Local Temp',
+        'Enterprise|BU|Site|Area',
     )
     assert entries[1][0] == 'prefix/Enterprise/BU/Site/Area/Remote_Flow'
     assert entries[1][1] == ['Enterprise', 'BU', 'FactorySite', 'Area', 'Line 1', 'Flow']

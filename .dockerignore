@@ -8,3 +8,7 @@ __pycache__/
 # Local/private UNS generation artifacts
 scripts/generate_royal_farmers_uns.py
 example_UNS_jsons_to_import/RoyalFarmersCollective_UNS_Import.json
+
+# UI build
+ui/node_modules
+static/spa

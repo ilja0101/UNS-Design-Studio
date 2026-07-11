@@ -91,10 +91,76 @@ def build_bridge_entries(tree: dict, sep: str, prefix: str) -> list:
             topic = sep.join(safe_uns_parts + [safe_tag_uns])
             if prefix:
                 topic = prefix + sep + topic
-            entries.append((topic, tag_opc_parts, tag_unit, tag_schema, tag_data_type, tag_uns))
+            # node_path is the "|"-joined UNS name path of the node this tag lives
+            # on (unsanitized, matching viz_service / plant_key conventions). Used
+            # for per-node live-UNS membership filtering in the bridge.
+            node_path = '|'.join(new_uns)
+            entries.append((topic, tag_opc_parts, tag_unit, tag_schema, tag_data_type, tag_uns, node_path))
 
         for child in node.get('children', []):
             _walk(child, new_uns, new_opc, new_area_opc)
 
     _walk(enterprise_node, [], [], [])
     return entries
+
+
+# ── Live-UNS membership (per-node publish gating) ──────────────────────────────
+# Membership is expressed as a set of inclusion *prefixes* over "|"-joined node
+# paths. A node publishes iff its path equals, or is a descendant of, one of the
+# prefixes. This makes "add a branch (with everything under it)" a single entry,
+# and auto-includes assets added later under a live branch. Everything is derived
+# from the live tree — no assumptions about names, depth or shape.
+
+def path_covered(node_path: str, prefixes) -> bool:
+    """True if node_path is equal to, or a descendant of, any prefix."""
+    for p in prefixes:
+        if node_path == p or node_path.startswith(p + '|'):
+            return True
+    return False
+
+
+def _find_by_path(root: dict, parts: list):
+    """Return the node at the given "|"-split name path (rooted at *root*), or None."""
+    if not parts or root.get('name') != parts[0]:
+        return None
+    node = root
+    for name in parts[1:]:
+        child = next((c for c in node.get('children', []) if c.get('name') == name), None)
+        if child is None:
+            return None
+        node = child
+    return node
+
+
+def carve_out(tree: dict, ancestor_path: str, remove_path: str) -> list:
+    """Return the inclusion prefixes that keep everything under *ancestor_path*
+    live EXCEPT the *remove_path* subtree.
+
+    Walks from the ancestor toward the node to remove; at each step every sibling
+    that does not continue toward remove_path is kept as its own prefix. Removing
+    the ancestor itself (ancestor_path == remove_path) yields []. Robust to any
+    tree shape; a stale path simply stops the walk early.
+    """
+    _, enterprise_node = resolve_enterprise_root(tree)
+    a_parts = ancestor_path.split('|')
+    r_parts = remove_path.split('|')
+    if r_parts[:len(a_parts)] != a_parts:
+        # remove_path is not under ancestor_path — nothing to carve, keep ancestor.
+        return [ancestor_path]
+    node = _find_by_path(enterprise_node, a_parts)
+    if node is None:
+        return [ancestor_path]
+    kept = []
+    cur_parts = list(a_parts)
+    rel = r_parts[len(a_parts):]           # segments from ancestor down to remove
+    for seg in rel:
+        for child in node.get('children', []):
+            cname = child.get('name', '')
+            if cname != seg:
+                kept.append('|'.join(cur_parts + [cname]))
+        nxt = next((c for c in node.get('children', []) if c.get('name') == seg), None)
+        if nxt is None:
+            break                          # stale path — stop; remove already excluded
+        node = nxt
+        cur_parts = cur_parts + [seg]
+    return kept

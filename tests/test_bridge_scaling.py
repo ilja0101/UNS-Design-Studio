@@ -156,8 +156,8 @@ async def test_walk_cache_build_reuses_intermediate_nodes():
 
     poller = bridge.AsyncOpcPoller.__new__(bridge.AsyncOpcPoller)
     poller._entries = [
-        ("Enterprise/BU/Site/Area/TagA", ["Enterprise", "BU", "FactorySite", "Area", "TagA"], "", "standard", "Float", "TagA"),
-        ("Enterprise/BU/Site/Area/TagB", ["Enterprise", "BU", "FactorySite", "Area", "TagB"], "", "standard", "Float", "TagB"),
+        ("Enterprise/BU/Site/Area/TagA", ["Enterprise", "BU", "FactorySite", "Area", "TagA"], "", "standard", "Float", "TagA", "Enterprise|BU|Site|Area"),
+        ("Enterprise/BU/Site/Area/TagB", ["Enterprise", "BU", "FactorySite", "Area", "TagB"], "", "standard", "Float", "TagB", "Enterprise|BU|Site|Area"),
     ]
     poller._cache = {}
 

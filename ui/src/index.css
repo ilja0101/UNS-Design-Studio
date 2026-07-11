@@ -1,0 +1,142 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+@import "@xyflow/react/dist/style.css";
+
+/* Dark theme via class toggle (persisted in localStorage "uds-theme", light
+   default — UNS family rule). Tokens copied from the family baseline
+   (UNS-Trendminer ui/src/index.css); state colours are reserved for state. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #eef0f3;
+  --surface-3: #e4e7ec;
+  --border: #e2e5ea;
+  --fg: #16181d;
+  --fg-muted: #626a76;
+  --fg-faint: #9aa2ae;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #eff4ff;
+  --accent-fg: #ffffff;
+  --state-ok: #16a34a;
+  --state-ok-soft: #ecfdf3;
+  --state-warn: #d97706;
+  --state-warn-soft: #fffaeb;
+  --state-err: #dc2626;
+  --state-err-soft: #fef3f2;
+  --sidebar: #101319;
+  --sidebar-fg: #b9c0cc;
+  --sidebar-active: #1c2230;
+  --shadow-card: 0 1px 2px rgb(16 19 25 / 0.05), 0 1px 3px rgb(16 19 25 / 0.06);
+  --shadow-pop: 0 4px 12px rgb(16 19 25 / 0.10), 0 12px 32px rgb(16 19 25 / 0.12);
+}
+
+.dark {
+  --bg: #0c0f14;
+  --surface: #151920;
+  --surface-2: #1c212a;
+  --surface-3: #232936;
+  --border: #262c37;
+  --fg: #e8eaee;
+  --fg-muted: #949daa;
+  --fg-faint: #626a76;
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-soft: #172138;
+  --accent-fg: #ffffff;
+  --state-ok: #4ade80;
+  --state-ok-soft: #12241a;
+  --state-warn: #fbbf24;
+  --state-warn-soft: #292013;
+  --state-err: #f87171;
+  --state-err-soft: #2c1717;
+  --sidebar: #0a0d12;
+  --sidebar-fg: #949daa;
+  --sidebar-active: #1a2029;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.25);
+  --shadow-pop: 0 4px 12px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.5);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+  --color-ok: var(--state-ok);
+  --color-ok-soft: var(--state-ok-soft);
+  --color-warn: var(--state-warn);
+  --color-warn-soft: var(--state-warn-soft);
+  --color-err: var(--state-err);
+  --color-err-soft: var(--state-err-soft);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-fg: var(--sidebar-fg);
+  --color-sidebar-active: var(--sidebar-active);
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Motion discipline: 150–250 ms ease-out, nothing bounces. */
+button,
+a,
+.transition-tokens {
+  transition:
+    background-color 180ms ease-out,
+    border-color 180ms ease-out,
+    color 180ms ease-out,
+    box-shadow 180ms ease-out,
+    opacity 180ms ease-out;
+}
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.rise-in { animation: rise-in 220ms ease-out both; }
+
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+
+/* Hub-spoke: smooth node glides + a publish pulse on live edges. */
+.react-flow__node { transition: transform 220ms ease-out; }
+.react-flow__edge.uns-pulse .react-flow__edge-path {
+  stroke: var(--state-ok);
+  stroke-dasharray: 6 6;
+  animation: uns-dash 600ms linear infinite;
+}
+@keyframes uns-dash { to { stroke-dashoffset: -12; } }

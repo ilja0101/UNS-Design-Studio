@@ -10,9 +10,13 @@ import asyncio
 import hmac
 import os, sys, time, json, signal, atexit, hashlib
 from datetime import datetime
-from quart import Quart, render_template, jsonify, request, Response
+from quart import Quart, render_template, jsonify, request, Response, redirect, send_from_directory
 from json_persistence import load_json, save_json_atomic
-from sim_state_service import get_site_recipes, merge_sim_state_update, sync_sim_state_with_uns
+from sim_state_service import (
+    get_site_recipes, merge_sim_state_update, sync_sim_state_with_uns,
+    get_live_config, set_live, reset_live,
+)
+from graph_service import build_graph
 from uns_tree import enterprise_structure, resolve_enterprise_root
 import shift
 
@@ -937,13 +941,41 @@ async def startup():
     print()
 
 # ── Quart routes ───────────────────────────────────────────────────────────────
+SPA_DIR = os.path.join(BASE_DIR, 'static', 'spa')
+
 @app.route('/')
 async def index():
+    # The hub-spoke React SPA is the primary dashboard; the classic factory-card
+    # dashboard stays available at /classic during the migration.
+    return redirect('/app')
+
+@app.route('/classic')
+async def classic_dashboard():
     return await render_template(
         'index.html',
         structure=_get_enterprise_structure(),
         division_meta=_get_division_meta(),
     )
+
+@app.route('/app')
+@app.route('/app/')
+@app.route('/app/<path:_rest>')
+async def spa_app(_rest: str = ''):
+    """Serve the SPA shell for any /app route (client-side routing). The shell is
+    never cached so a new build's hashed assets are always picked up; the hashed
+    assets themselves (under /spa) are safe to cache."""
+    resp = await send_from_directory(SPA_DIR, 'index.html')
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+@app.route('/spa/<path:filename>')
+async def spa_assets(filename: str):
+    return await send_from_directory(SPA_DIR, filename)
+
+@app.route('/healthz')
+async def healthz():
+    """Unauthenticated liveness probe (exempted in the auth hook)."""
+    return jsonify({'ok': True})
 
 @app.route('/api/status')
 async def api_status():
@@ -1009,6 +1041,51 @@ async def api_shift_save():
     status = shift.compute_status(cfg, datetime.now(tz), running, total)
     _state['shift_status'] = status
     return jsonify({'ok': True, 'status': status})
+
+# ── Live-UNS membership (which nodes publish to the bus) ───────────────────────
+def _save_sim_state_raw(state: dict):
+    if not save_json_atomic(SIM_STATE_FILE, state, ensure_ascii=False, logger=_json_log, label='sim_state.json'):
+        raise OSError(f"Could not write {SIM_STATE_FILE}")
+
+def _uns_tree() -> dict:
+    cfg = load_json(UNS_CONFIG_FILE, {}, logger=_json_log, label='uns_config.json')
+    return cfg.get('tree', {}) if isinstance(cfg, dict) else {}
+
+@app.route('/api/graph', methods=['GET'])
+async def api_graph():
+    """Hub-spoke graph: full UNS topology + live/running/publish state in one call."""
+    return jsonify(build_graph(_uns_tree(), _read_sim_state_raw(), dict(_state['bridge_stats'])))
+
+@app.route('/api/uns/live', methods=['GET'])
+async def api_uns_live_get():
+    """Current live-UNS membership ({mode, paths})."""
+    return jsonify(get_live_config(_read_sim_state_raw()))
+
+@app.route('/api/uns/live', methods=['POST'])
+async def api_uns_live_set():
+    """Add or remove a node subtree from the live UNS. Body: {path, live, include_descendants?}.
+    No factory/bridge restart — the bridge honours membership on its next poll."""
+    data = await request.get_json() or {}
+    path = (data.get('path') or '').strip()
+    if not path:
+        return jsonify({'ok': False, 'msg': 'path required'}), 400
+    async with _locks['sim_control']:
+        state = _read_sim_state_raw()
+        cfg = set_live(state, _uns_tree(), path, bool(data.get('live', True)),
+                       bool(data.get('include_descendants', True)))
+        _save_sim_state_raw(state)
+    return jsonify({'ok': True, 'live': cfg})
+
+@app.route('/api/uns/live/reset', methods=['POST'])
+async def api_uns_live_reset():
+    """Reset live membership. Body: {mode: 'all'|'none'}. 'none' = Clear live UNS (demo)."""
+    data = await request.get_json() or {}
+    mode = data.get('mode', 'all')
+    async with _locks['sim_control']:
+        state = _read_sim_state_raw()
+        cfg = reset_live(state, mode)
+        _save_sim_state_raw(state)
+    return jsonify({'ok': True, 'live': cfg})
 
 @app.route('/api/server/start', methods=['POST'])
 async def api_server_start():

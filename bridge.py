@@ -18,7 +18,15 @@ import time
 import signal
 import logging
 from json_persistence import load_json, load_json_or_raise, load_json_async
-from uns_tree import build_bridge_entries
+from uns_tree import build_bridge_entries, path_covered as _path_covered
+
+
+def _live_config(sim_state: dict) -> dict:
+    """Read the live-UNS membership block from sim_state (default: all live)."""
+    raw = sim_state.get('live_nodes') if isinstance(sim_state, dict) else None
+    if not isinstance(raw, dict) or raw.get('mode') != 'explicit':
+        return {'mode': 'all'}
+    return {'mode': 'explicit', 'paths': [p for p in raw.get('paths', []) if isinstance(p, str) and p]}
 
 logging.getLogger('asyncua').setLevel(logging.ERROR)
 logging.basicConfig(level=logging.WARNING)
@@ -41,6 +49,7 @@ _stats = {
     "connected": False, "opc_ok": False,
     "published": 0, "errors": 0, "rate": 0.0,
     "protocol": "-", "ts": 0.0,
+    "per_plant": {},   # plant_key -> published count (feeds the hub-spoke edge pulse)
 }
 
 
@@ -208,7 +217,7 @@ class AsyncOpcPoller:
     async def _build_cache_with_walk(self, root, idx: int) -> tuple:
         node_cache = {(): root}
         ok = miss = 0
-        for topic, opc_parts, unit, schema_id, data_type, tag_name in self._entries:
+        for topic, opc_parts, unit, schema_id, data_type, tag_name, node_path in self._entries:
             try:
                 path_parts = ['0:Objects'] + [f'{idx}:{p}' for p in opc_parts]
                 node = root
@@ -223,7 +232,7 @@ class AsyncOpcPoller:
                 plant_key = None
                 if len(opc_parts) >= 3 and opc_parts[2].startswith('Factory'):
                     plant_key = f"{opc_parts[1]}|{opc_parts[2]}"
-                self._cache[topic] = (node, unit, schema_id, data_type, tag_name, plant_key)
+                self._cache[topic] = (node, unit, schema_id, data_type, tag_name, plant_key, node_path)
                 ok += 1
             except Exception:
                 miss += 1
@@ -253,13 +262,13 @@ class AsyncOpcPoller:
 
         ok = miss = 0
         for entry, res in zip(self._entries, all_res):
-            topic, opc_parts, unit, schema_id, data_type, tag_name = entry
+            topic, opc_parts, unit, schema_id, data_type, tag_name, node_path = entry
             if res.StatusCode.is_good() and res.Targets:
                 node = self._opc.get_node(res.Targets[0].TargetId)
                 plant_key = None
                 if len(opc_parts) >= 3 and opc_parts[2].startswith('Factory'):
                     plant_key = f"{opc_parts[1]}|{opc_parts[2]}"
-                self._cache[topic] = (node, unit, schema_id, data_type, tag_name, plant_key)
+                self._cache[topic] = (node, unit, schema_id, data_type, tag_name, plant_key, node_path)
                 ok += 1
             else:
                 miss += 1
@@ -295,13 +304,21 @@ class AsyncOpcPoller:
         if not sim_state.get('simulator_running', False):
             return []
 
+        # Live-UNS membership: only publish nodes that are part of the live UNS.
+        # Absent / mode "all" => publish everything (default). Built once per poll.
+        live = _live_config(sim_state)
+        live_all = live.get('mode') != 'explicit'
+        live_paths = live.get('paths', [])
+
         cache_items = list(self._cache.items())
         values = await self._read_cached_values(cache_items, stop_event)
 
         out = []
-        for (topic, (node, unit, schema_id, data_type, tag_name, plant_key)), value in zip(cache_items, values):
+        for (topic, (node, unit, schema_id, data_type, tag_name, plant_key, node_path)), value in zip(cache_items, values):
             if stop_event and stop_event.is_set():
                 break
+            if not (live_all or _path_covered(node_path, live_paths)):
+                continue
             try:
                 if isinstance(value, Exception):
                     raise value
@@ -309,6 +326,9 @@ class AsyncOpcPoller:
                 payload = _format_payload(v, ts, unit, schema_id, topic, self.sep,
                                           schemas, data_type, tag_name)
                 out.append((topic, payload))
+                if plant_key:
+                    pp = _stats["per_plant"]
+                    pp[plant_key] = pp.get(plant_key, 0) + 1
             except Exception:
                 _stats["errors"] += 1
         return out
