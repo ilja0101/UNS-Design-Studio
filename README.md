@@ -21,6 +21,7 @@
 UNS Design Studio lets you model an industrial enterprise, generate realistic plant data, and publish it through common OT/IIoT protocols — without connecting to real machines. Use it to prototype Unified Namespace designs, teach ISA-95 concepts, test MQTT/NATS pipelines, validate OPC-UA clients, and demo industrial dashboards with configurable sites, assets, recipes, tags, payloads, and faults.
 
 ## Demo
+<img width="1920" height="928" alt="image" src="https://github.com/user-attachments/assets/162555e0-03bb-4573-a635-912d656de889" />
 
 [![UNS Design Studio dashboard](docs/v2/Main.JPG)](docs/v2/UNS%20Design%20Studio%20v2.mp4)
 
