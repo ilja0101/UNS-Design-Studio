@@ -7,8 +7,9 @@ License: MIT  |  https://github.com/Ilja0101/UNS-Design-Studio
 """
 
 import asyncio
+import hmac
 import os, sys, time, json, signal, atexit, hashlib
-from quart import Quart, render_template, jsonify, request
+from quart import Quart, render_template, jsonify, request, Response
 from json_persistence import load_json, save_json_atomic
 from sim_state_service import get_site_recipes, merge_sim_state_update, sync_sim_state_with_uns
 from uns_tree import enterprise_structure, resolve_enterprise_root
@@ -19,6 +20,33 @@ DATA_DIR = os.environ.get('UNS_DATA_DIR') or ('/data' if os.path.isdir('/data') 
 
 # ── Quart app ──────────────────────────────────────────────────────────────────
 app = Quart(__name__)
+
+# ── Auth (HTTP Basic, single shared demo credential) ────────────────────────
+# No login UI here, and no per-user store — this mirrors the rest of the UNS
+# family's approach for apps without a built-in login page: gate everything
+# behind one shared admin credential (UDS_ADMIN_USERNAME/UDS_ADMIN_PASSWORD).
+# Unset (the default) leaves the app open, same as before.
+_AUTH_USER = os.environ.get('UDS_ADMIN_USERNAME', '')
+_AUTH_PASS = os.environ.get('UDS_ADMIN_PASSWORD', '')
+
+@app.before_request
+async def _require_basic_auth():
+    if not (_AUTH_USER and _AUTH_PASS):
+        return None
+    if request.path == '/healthz':
+        return None
+    auth = request.authorization
+    if (
+        auth is not None
+        and auth.type == 'basic'
+        and hmac.compare_digest(auth.username or '', _AUTH_USER)
+        and hmac.compare_digest(auth.password or '', _AUTH_PASS)
+    ):
+        return None
+    return Response(
+        'Unauthenticated', 401,
+        {'WWW-Authenticate': 'Basic realm="UNS Design Studio", charset="UTF-8"'},
+    )
 
 # ── Config file paths ─────────────────────────────────────────────────────────
 UNS_CONFIG_FILE      = os.path.join(DATA_DIR, 'uns_config.json')
