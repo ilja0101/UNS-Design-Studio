@@ -456,6 +456,10 @@ function MapNode({
         e.stopPropagation();
         onClick();
       }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
     >
       {selected && <circle r={r} fill="none" stroke="var(--accent)" strokeWidth={2} className="spoke-pulse" />}
       <g className="spoke-body" style={{ transform: active ? "scale(1.08)" : "scale(1)" }}>
