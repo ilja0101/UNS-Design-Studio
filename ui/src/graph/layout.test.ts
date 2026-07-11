@@ -12,8 +12,8 @@ function n(id: string, type: GraphNode["type"], parentId: string | null, extra: 
 function graph(nodes: GraphNode[], singleBU: boolean): GraphResponse {
   return {
     enterprise: { id: "E", name: "E" }, singleBusinessUnit: singleBU, nodes,
-    liveMode: "all", simulatorRunning: true,
-    bridge: { connected: true, protocol: "nats", msgsPerSec: 1, perPlant: {} },
+    liveMode: "all", simulatorRunning: true, server: { running: true },
+    bridge: { connected: true, running: true, protocol: "nats", msgsPerSec: 1, perPlant: {} },
   };
 }
 

@@ -20,41 +20,31 @@ export function useGraph() {
 
   const hasChildren = useCallback((id: string) => (childrenOf.get(id)?.length ?? 0) > 0, [childrenOf]);
 
-  // Accordion expand: opening a node closes its expanded siblings (and any of
-  // their descendants), keeping the stage clean.
+  // Independent expand/collapse — toggling one node never touches its siblings,
+  // so you can open several branches at once and click through them freely.
+  // Collapsing a node also collapses everything beneath it, so re-opening it
+  // shows just the next level again.
   const toggleExpand = useCallback(
     (id: string) => {
       setExpanded((prev) => {
         const next = new Set(prev);
-        const descendants = (start: string) => {
-          const out: string[] = [];
-          const stack = [start];
+        if (next.has(id)) {
+          next.delete(id);
+          const stack = [id];
           while (stack.length) {
             const cur = stack.pop()!;
             for (const c of childrenOf.get(cur) ?? []) {
-              out.push(c.id);
+              next.delete(c.id);
               stack.push(c.id);
             }
           }
-          return out;
-        };
-        if (next.has(id)) {
-          next.delete(id);
-          for (const d of descendants(id)) next.delete(d);
         } else {
-          const parent = byId.get(id)?.parentId ?? null;
-          for (const sib of childrenOf.get(parent ?? "") ?? []) {
-            if (sib.id !== id && next.has(sib.id)) {
-              next.delete(sib.id);
-              for (const d of descendants(sib.id)) next.delete(d);
-            }
-          }
           next.add(id);
         }
         return next;
       });
     },
-    [byId, childrenOf],
+    [childrenOf],
   );
 
   const collapseAll = useCallback(() => setExpanded(new Set()), []);
@@ -69,6 +59,18 @@ export function useGraph() {
     onSuccess: invalidate,
   });
   const saveUns = useMutation({ mutationFn: (cfg: unknown) => api.unsSave(cfg), onSuccess: invalidate });
+  const simulation = useMutation({
+    mutationFn: (on: boolean) => (on ? api.simStart() : api.simStop()),
+    onSuccess: invalidate,
+  });
+  const server = useMutation({
+    mutationFn: (on: boolean) => (on ? api.serverStart() : api.serverStop()),
+    onSuccess: invalidate,
+  });
+  const bridge = useMutation({
+    mutationFn: (on: boolean) => (on ? api.bridgeStart() : api.bridgeStop()),
+    onSuccess: invalidate,
+  });
 
   return {
     query,
@@ -84,5 +86,8 @@ export function useGraph() {
     setLive,
     resetLive,
     saveUns,
+    simulation,
+    server,
+    bridge,
   };
 }

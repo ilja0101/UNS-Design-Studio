@@ -7,7 +7,7 @@ const LOOK: Record<string, { emoji: string; label: string; cls: string }> = {
   dayoff: { emoji: "🎣", label: "Day off", cls: "text-accent" },
 };
 
-function countdown(iso?: string): string {
+function countdown(iso?: string | null): string {
   if (!iso) return "";
   const ms = new Date(iso).getTime() - Date.now();
   if (isNaN(ms) || ms <= 0) return "any moment";

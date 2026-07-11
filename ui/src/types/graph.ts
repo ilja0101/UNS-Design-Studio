@@ -28,8 +28,10 @@ export interface GraphResponse {
   nodes: GraphNode[];
   liveMode: "all" | "explicit";
   simulatorRunning: boolean;
+  server: { running: boolean };
   bridge: {
     connected: boolean;
+    running: boolean;
     protocol: string;
     msgsPerSec: number;
     perPlant: Record<string, number>;

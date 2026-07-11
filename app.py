@@ -1053,8 +1053,12 @@ def _uns_tree() -> dict:
 
 @app.route('/api/graph', methods=['GET'])
 async def api_graph():
-    """Hub-spoke graph: full UNS topology + live/running/publish state in one call."""
-    return jsonify(build_graph(_uns_tree(), _read_sim_state_raw(), dict(_state['bridge_stats'])))
+    """Hub-spoke graph: full UNS topology + live/running/publish state in one call,
+    plus server/bridge run state so the hub can show start/stop controls."""
+    g = build_graph(_uns_tree(), _read_sim_state_raw(), dict(_state['bridge_stats']))
+    g['server'] = {'running': _server_alive()}
+    g['bridge']['running'] = _bridge_alive()
+    return jsonify(g)
 
 @app.route('/api/uns/live', methods=['GET'])
 async def api_uns_live_get():

@@ -30,7 +30,7 @@ export function NodePanel({
   const path = node.id.split("|");
 
   return (
-    <div className="rise-in absolute right-4 top-4 z-10 w-72 rounded-xl border border-border bg-surface shadow-pop">
+    <div className="rise-in absolute bottom-4 left-4 z-20 w-72 rounded-xl border border-border bg-surface shadow-pop">
       <div className="flex items-start gap-2 border-b border-border px-3 py-2.5">
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-fg">{node.name}</div>

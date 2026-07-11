@@ -400,6 +400,10 @@ class AsyncOpcPoller:
         result = data.get('plants', {}).copy() if isinstance(data, dict) else {}
         if isinstance(data, dict) and 'simulator_running' in data:
             result['simulator_running'] = data['simulator_running']
+        # Carry the live-UNS membership block through — without it the poll()
+        # filter can never see explicit membership and would publish everything.
+        if isinstance(data, dict) and 'live_nodes' in data:
+            result['live_nodes'] = data['live_nodes']
         return result
 
     async def disconnect(self):
@@ -606,4 +610,14 @@ async def _main():
 
 
 if __name__ == "__main__":
+    # On Windows the default Proactor event loop does not implement
+    # loop.add_reader/add_writer, which aiomqtt (paho) relies on — so MQTT mode
+    # fails to connect with a NotImplementedError / timeout. The Selector loop
+    # supports them and is safe here: the bridge only does socket I/O, it never
+    # spawns subprocesses (the reason Proactor is the platform default).
+    if sys.platform == "win32":
+        try:
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        except AttributeError:
+            pass
     asyncio.run(_main())

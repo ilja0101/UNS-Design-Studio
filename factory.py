@@ -727,7 +727,16 @@ async def main():
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop_event.set)
+        # Windows' Proactor loop has no add_signal_handler; fall back to
+        # signal.signal so the server also runs on a Windows dev box (in the
+        # Linux container the loop-based handler is used).
+        try:
+            loop.add_signal_handler(sig, stop_event.set)
+        except NotImplementedError:
+            try:
+                signal.signal(sig, lambda *_: stop_event.set())
+            except (ValueError, OSError):
+                pass
 
     server = Server()
     await server.init()
