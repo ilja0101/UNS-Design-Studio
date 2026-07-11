@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 
 const LOOK: Record<string, { emoji: string; label: string; cls: string }> = {
@@ -29,8 +30,8 @@ export function ShiftBadge() {
   const when = countdown(data.next_change);
   const verb = data.state === "open" ? "clocks out" : "clocks in";
   return (
-    <a
-      href="/settings"
+    <Link
+      to="/settings"
       title="Production shift schedule — configure in Settings"
       className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-1 text-[12px] text-fg no-underline hover:border-accent"
     >
@@ -41,6 +42,6 @@ export function ShiftBadge() {
         {data.running}/{data.total}
         {when ? ` · ${verb} ${when}` : ""}
       </span>
-    </a>
+    </Link>
   );
 }

@@ -44,9 +44,9 @@ export function Manual() {
             <Link to="/" className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover">
               Open UNS Hub
             </Link>
-            <a href="/uns" className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2">
+            <Link to="/uns" className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2">
               Design UNS
-            </a>
+            </Link>
             <Link to="/live" className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2">
               Live View
             </Link>
