@@ -9,10 +9,12 @@ License: MIT  |  https://github.com/Ilja0101/UNS-Design-Studio
 import asyncio
 import hmac
 import os, sys, time, json, signal, atexit, hashlib
+from datetime import datetime
 from quart import Quart, render_template, jsonify, request, Response
 from json_persistence import load_json, save_json_atomic
 from sim_state_service import get_site_recipes, merge_sim_state_update, sync_sim_state_with_uns
 from uns_tree import enterprise_structure, resolve_enterprise_root
+import shift
 
 # ── Adjust path so recipe.py is importable ────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -66,6 +68,22 @@ def _save_server_cfg(data: dict):
         raise OSError(f"Could not write {SERVER_CONFIG_FILE}")
 
 _scfg = _load_server_cfg()
+
+# ── Shift-hours config (persisted; seeded from UDS_SHIFT_* env on first boot) ──
+SHIFT_CONFIG_FILE = os.path.join(DATA_DIR, 'shift_config.json')
+
+def _load_shift_cfg() -> dict:
+    raw = load_json(SHIFT_CONFIG_FILE, None, logger=_json_log, label='shift_config.json')
+    if not isinstance(raw, dict):
+        seeded = shift.seed_from_env()
+        _save_shift_cfg(seeded)          # first boot: persist the env-seeded config
+        return seeded
+    return shift.normalize(raw)
+
+def _save_shift_cfg(data: dict):
+    if not save_json_atomic(SHIFT_CONFIG_FILE, shift.normalize(data), ensure_ascii=False,
+                            logger=_json_log, label='shift_config.json'):
+        raise OSError(f"Could not write {SHIFT_CONFIG_FILE}")
 
 # ── Enterprise structure (read live from uns_config.json) ──────────────────────
 _ENTERPRISE_FALLBACK = {
@@ -166,6 +184,9 @@ _state = {
         'published': 0, 'errors': 0, 'rate': 0.0,
         'protocol': '—', 'ts': 0.0,
     },
+    # Shift scheduler: last computed status (served by /api/shift) + cached config.
+    'shift_cfg':    {},
+    'shift_status': {},
 }
 
 # asyncio.Lock instances — protect regions that span await points
@@ -174,6 +195,7 @@ _locks = {
     'bridge':      asyncio.Lock(),  # bridge proc start/stop sequence
     'sim_control': asyncio.Lock(),  # plant start/stop with reset delay
     'data':        asyncio.Lock(),  # plant_data / viz_values (written by poll, read by routes)
+    'shift':       asyncio.Lock(),  # shift config read/write vs the scheduler loop
 }
 
 # factory.py reads sim_state.json once per 1.2s simulation tick.  Keep this
@@ -849,14 +871,64 @@ async def _periodic_sync_loop(interval: int = 10):
             pass
         await asyncio.sleep(interval)
 
+# ── Shift-hours scheduler ─────────────────────────────────────────────────────
+SHIFT_POLL_SECONDS = 30
+
+def _plants_running_count() -> tuple[int, int]:
+    """(running, total) across all plants, read from sim_state."""
+    state = _read_sim_state_raw()
+    plants = state.get('plants', {}) if isinstance(state, dict) else {}
+    running = sum(
+        1 for v in plants.values()
+        if (v.get('running', False) if isinstance(v, dict) else bool(v))
+    )
+    return running, len(plants)
+
+async def _shift_loop(interval: int = SHIFT_POLL_SECONDS):
+    """Clock the plants in/out on the persisted schedule. Off-shift parks the
+    plants; the factory server and bridge are left untouched. Idempotent: only
+    acts on a real transition, and reasserts if the state drifts."""
+    _shift_desired = None
+    while True:
+        try:
+            async with _locks['shift']:
+                cfg = dict(_state['shift_cfg']) or _load_shift_cfg()
+                _state['shift_cfg'] = cfg
+            tz, _ = shift.resolve_tz(cfg.get('tz', 'UTC'))
+            now = datetime.now(tz)
+            running, total = _plants_running_count()
+
+            if cfg.get('enabled'):
+                start_min = shift.parse_hhmm(cfg['start'])
+                end_min = shift.parse_hhmm(cfg['end'])
+                days = shift.parse_days(cfg['days'])
+                want_open = shift.shift_open(now, start_min, end_min, days)
+                if want_open and running == 0 and _server_alive():
+                    _log('[shift] 🔔 Shift bell — clocking the plants in.')
+                    await _reset_then_start_all_plants()
+                    running, total = _plants_running_count()
+                elif not want_open and running > 0:
+                    verb = 'day off' if now.weekday() not in days else 'end of shift'
+                    _log(f'[shift] 🌙 {verb} — clocking the plants out.')
+                    _mark_all_plants_stopped('shift schedule: off-hours')
+                    running, total = _plants_running_count()
+                _shift_desired = want_open
+
+            _state['shift_status'] = shift.compute_status(cfg, now, running, total)
+        except Exception as e:
+            _log(f'[shift] loop error: {e}')
+        await asyncio.sleep(interval)
+
 # ── Quart startup hook ────────────────────────────────────────────────────────
 @app.before_serving
 async def startup():
     _ensure_sim_state_synced()
     _mark_all_plants_stopped('dashboard startup')
     _install_shutdown_handlers()
+    _state['shift_cfg'] = _load_shift_cfg()
     asyncio.create_task(_periodic_sync_loop(interval=10))
     asyncio.create_task(_poll_loop())
+    asyncio.create_task(_shift_loop())
     print()
     print("==============================================================")
     print("UNS Design Studio")
@@ -912,6 +984,31 @@ async def api_status():
 async def api_logs():
     logs = list(_state['server_logs'][-150:])
     return jsonify({'logs': logs})
+
+@app.route('/api/shift', methods=['GET'])
+async def api_shift_get():
+    """Current shift status (state, schedule, next change, plants running)."""
+    status = _state.get('shift_status')
+    if not status:
+        cfg = _state.get('shift_cfg') or _load_shift_cfg()
+        tz, _ = shift.resolve_tz(cfg.get('tz', 'UTC'))
+        running, total = _plants_running_count()
+        status = shift.compute_status(cfg, datetime.now(tz), running, total)
+    return jsonify(status)
+
+@app.route('/api/shift', methods=['POST'])
+async def api_shift_save():
+    """Update and persist the shift schedule, then apply it on the next tick."""
+    data = await request.get_json() or {}
+    cfg = shift.normalize(data)
+    async with _locks['shift']:
+        _save_shift_cfg(cfg)
+        _state['shift_cfg'] = cfg
+    tz, _ = shift.resolve_tz(cfg.get('tz', 'UTC'))
+    running, total = _plants_running_count()
+    status = shift.compute_status(cfg, datetime.now(tz), running, total)
+    _state['shift_status'] = status
+    return jsonify({'ok': True, 'status': status})
 
 @app.route('/api/server/start', methods=['POST'])
 async def api_server_start():

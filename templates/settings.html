@@ -73,6 +73,27 @@
                             placeholder="2.0"></label>
                 </div>
             </article>
+
+            <article class="settings-card cc-card">
+                <div class="settings-card-head">
+                    <div>
+                        <h3>Shift Hours</h3>
+                        <p>Run the simulated plants on a production schedule. Off-shift the plants
+                           are parked (the factory server and broker bridge stay up).</p>
+                    </div>
+                    <button class="settings-save" onclick="saveShiftSettings()">Save Shift</button>
+                </div>
+                <div class="settings-form">
+                    <label class="shift-toggle"><input type="checkbox" id="shift-enabled">
+                        Enable shift schedule</label>
+                    <label>Shift start<input id="shift-start" type="time" value="06:00"></label>
+                    <label>Shift end<input id="shift-end" type="time" value="22:00"><span
+                            class="settings-note" style="margin:4px 0 0">End earlier than start = overnight shift.</span></label>
+                    <label>Working days<span id="shift-days" class="shift-days"></span></label>
+                    <label>Timezone<input id="shift-tz" placeholder="Europe/Amsterdam"></label>
+                </div>
+                <p class="settings-note" id="shift-note">Loading shift status…</p>
+            </article>
         </section>
     </main>
 
@@ -141,7 +162,57 @@
             const d = await fetch('/api/bridge/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r => r.json());
             toast(d.ok ? (d.restarted ? 'Broker saved and bridge restarted' : 'Broker settings saved') : `Broker save failed: ${d.msg}`, d.ok ? 'success' : 'error');
         }
+        // ── Shift hours ──────────────────────────────────────────────────────
+        const SHIFT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        function renderShiftDays(active) {
+            const set = new Set((active || '').split(',').map(s => s.trim()));
+            document.getElementById('shift-days').innerHTML = SHIFT_DAYS.map(d =>
+                `<button type="button" class="chip shift-day${set.has(d) ? ' on' : ''}" ` +
+                `data-day="${d}" onclick="this.classList.toggle('on')">${d}</button>`
+            ).join('');
+        }
+        function selectedShiftDays() {
+            return [...document.querySelectorAll('#shift-days .shift-day.on')]
+                .map(b => b.dataset.day).join(',');
+        }
+        function shiftNote(s) {
+            const el = document.getElementById('shift-note');
+            if (!s || !s.enabled) { el.textContent = 'Schedule disabled — plants run under manual control.'; return; }
+            const labels = { open: '🟢 On shift', closed: '🌙 Off shift', dayoff: '🎣 Day off' };
+            let txt = `${labels[s.state] || s.state} · ${s.running}/${s.total} plants running`;
+            if (s.next_change) {
+                const when = new Date(s.next_change);
+                const verb = s.state === 'open' ? 'clocks out' : 'clocks in';
+                txt += ` · ${verb} ${when.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`;
+            }
+            el.textContent = txt;
+        }
+        async function loadShift() {
+            const s = await fetch('/api/shift').then(r => r.json());
+            document.getElementById('shift-enabled').checked = !!s.enabled;
+            document.getElementById('shift-start').value = s.start || '06:00';
+            document.getElementById('shift-end').value = s.end || '22:00';
+            document.getElementById('shift-tz').value = s.tz || 'Europe/Amsterdam';
+            renderShiftDays(s.days || 'Mon,Tue,Wed,Thu,Fri');
+            shiftNote(s);
+        }
+        async function saveShiftSettings() {
+            const days = selectedShiftDays();
+            if (!days) { toast('Pick at least one working day', 'error'); return; }
+            const payload = {
+                enabled: document.getElementById('shift-enabled').checked,
+                start: document.getElementById('shift-start').value || '06:00',
+                end: document.getElementById('shift-end').value || '22:00',
+                days,
+                tz: document.getElementById('shift-tz').value.trim() || 'Europe/Amsterdam',
+            };
+            const d = await fetch('/api/shift', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r => r.json());
+            toast(d.ok ? 'Shift schedule saved' : 'Shift save failed', d.ok ? 'success' : 'error');
+            if (d.ok && d.status) shiftNote(d.status);
+        }
+
         loadSettings().catch(() => toast('Could not load settings', 'error'));
+        loadShift().catch(() => toast('Could not load shift settings', 'error'));
     </script>
 </body>
 

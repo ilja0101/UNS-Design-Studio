@@ -256,3 +256,15 @@ body{display:flex;flex-direction:column;min-height:100vh}
 .btn-theme:hover{border-color:var(--accent);color:var(--accent)}
 .btn-theme::before{content:'Light'}
 [data-theme="light"] .btn-theme::before{content:'Dark'}
+
+/* ── Shift-hours settings controls ─────────────────────────────────────────── */
+.shift-toggle{display:flex;align-items:center;gap:8px;flex-direction:row!important;cursor:pointer;font-weight:600}
+.shift-toggle input{width:auto;margin:0}
+.shift-days{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.shift-day{padding:5px 10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);
+  border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s ease}
+.shift-day:hover{border-color:var(--accent);color:var(--accent)}
+.shift-day.on{background:color-mix(in srgb,var(--green) 18%,transparent);border-color:var(--green);color:var(--green)}
+.shift-badge{text-decoration:none;color:var(--text);display:flex;align-items:center;gap:7px}
+.shift-badge:hover{color:var(--accent)}
+.shift-badge .shift-sub{color:var(--muted);font-size:11px}

@@ -152,10 +152,42 @@ function escHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// ── Shift-hours header badge ───────────────────────────────────────────────────
+const SHIFT_LOOK = {
+  open:   { emoji: '🟢', color: 'var(--green)',  label: 'On shift' },
+  closed: { emoji: '🌙', color: 'var(--muted)',  label: 'Off shift' },
+  dayoff: { emoji: '🎣', color: 'var(--accent)', label: 'Day off' },
+};
+function shiftCountdown(iso) {
+  if (!iso) return '';
+  let ms = new Date(iso).getTime() - Date.now();
+  if (isNaN(ms) || ms <= 0) return 'any moment';
+  const m = Math.round(ms / 60000), h = Math.floor(m / 60);
+  if (h >= 24) return `in ${Math.floor(h / 24)}d ${h % 24}h`;
+  return `in ${h ? h + 'h ' : ''}${m % 60}m`;
+}
+async function pollShift() {
+  const badge = document.getElementById('shiftBadge');
+  if (!badge) return;
+  let s;
+  try { s = await fetch('/api/shift').then(r => r.ok ? r.json() : null); } catch { return; }
+  if (!s || !s.enabled) { badge.style.display = 'none'; return; }
+  const look = SHIFT_LOOK[s.state] || SHIFT_LOOK.closed;
+  document.getElementById('shiftDot').style.background = look.color;
+  document.getElementById('shiftLabel').textContent = `${look.emoji} ${look.label}`;
+  const when = shiftCountdown(s.next_change);
+  const verb = s.state === 'open' ? 'clocks out' : 'clocks in';
+  document.getElementById('shiftSub').textContent =
+    `${s.running}/${s.total} running${when ? ' · ' + verb + ' ' + when : ''}`;
+  badge.style.display = '';
+}
+
 function startPolling() {
   poll();
   setInterval(poll, 2000);
   setInterval(pollLogs, 3000);
+  pollShift();
+  setInterval(pollShift, 15000);
 }
 
 // ── Settings modal ─────────────────────────────────────────────────────────────
