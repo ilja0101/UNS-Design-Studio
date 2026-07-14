@@ -1,7 +1,7 @@
 import app as dashboard
 
 
-def test_status_reports_disconnected_and_stopped_when_server_not_ready(monkeypatch):
+async def test_status_reports_disconnected_and_stopped_when_server_not_ready(monkeypatch):
     monkeypatch.setattr(dashboard, '_reconcile_sim_state_with_process', lambda reason='': None)
     monkeypatch.setattr(dashboard, '_server_alive', lambda: False)
     monkeypatch.setattr(dashboard, '_opc_tcp_port_open', lambda timeout=0.25: True)
@@ -25,8 +25,8 @@ def test_status_reports_disconnected_and_stopped_when_server_not_ready(monkeypat
         }
     }
 
-    with dashboard.app.test_client() as client:
-        data = client.get('/api/status').get_json()
+    client = dashboard.app.test_client()
+    data = await (await client.get('/api/status')).get_json()
 
     assert data['server_running'] is False
     assert data['server_ready'] is False
@@ -36,13 +36,13 @@ def test_status_reports_disconnected_and_stopped_when_server_not_ready(monkeypat
     assert data['plants']['BU|Site']['opc_ready'] is False
 
 
-def test_stop_all_is_idempotent_and_returns_plants_stopped(monkeypatch):
+async def test_stop_all_is_idempotent_and_returns_plants_stopped(monkeypatch):
     monkeypatch.setattr(dashboard, '_ensure_sim_state_synced', lambda: None)
     monkeypatch.setattr(dashboard, '_mark_all_plants_stopped', lambda reason='': False)
 
-    with dashboard.app.test_client() as client:
-        response = client.post('/api/plants/stop-all')
-        data = response.get_json()
+    client = dashboard.app.test_client()
+    response = await client.post('/api/plants/stop-all')
+    data = await response.get_json()
 
     assert response.status_code == 200
     assert data == {'ok': True, 'msg': 'Plants stopped'}
