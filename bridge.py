@@ -32,7 +32,7 @@ logging.getLogger('asyncua').setLevel(logging.ERROR)
 logging.basicConfig(level=logging.WARNING)
 
 BASE_DIR         = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR         = os.environ.get("UNS_DATA_DIR") or ("/data" if os.path.isdir("/data") else BASE_DIR)
+DATA_DIR         = os.environ.get("UNS_DATA_DIR") or ("/data" if os.name != 'nt' and os.path.isdir("/data") else BASE_DIR)
 CONFIG_FILE      = os.path.join(DATA_DIR, 'bridge_config.json')
 UNS_CONFIG_FILE  = os.path.join(DATA_DIR, 'uns_config.json')
 SCHEMAS_FILE     = os.path.join(DATA_DIR, 'payload_schemas.json')

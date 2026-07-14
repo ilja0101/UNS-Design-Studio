@@ -25,7 +25,7 @@ logging.getLogger('asyncua').setLevel(logging.ERROR)
 logging.basicConfig(level=logging.WARN)
 
 BASE_DIR = _os.path.dirname(_os.path.abspath(__file__))
-DATA_DIR = _os.environ.get('UNS_DATA_DIR') or ('/data' if _os.path.isdir('/data') else BASE_DIR)
+DATA_DIR = _os.environ.get('UNS_DATA_DIR') or ('/data' if _os.name != 'nt' and _os.path.isdir('/data') else BASE_DIR)
 
 def _json_log(msg: str):
     print(msg, flush=True)

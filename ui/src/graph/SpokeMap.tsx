@@ -45,6 +45,7 @@ const NODE_R: Record<NodeType, number> = {
   area: 23,
   workCenter: 20,
   workUnit: 18,
+  device: 16,
   system: 26,
 };
 
@@ -55,6 +56,7 @@ const ICON: Record<NodeType, typeof Network> = {
   area: LayoutGrid,
   workCenter: Cog,
   workUnit: Package,
+  device: Cpu,
   system: Server,
 };
 

@@ -5,6 +5,7 @@ export type NodeType =
   | "area"
   | "workCenter"
   | "workUnit"
+  | "device"
   | "system";
 
 export interface GraphNode {

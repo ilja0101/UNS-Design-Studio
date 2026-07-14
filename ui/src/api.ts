@@ -30,7 +30,8 @@ export const api = {
   serverStop: () => req<{ ok: boolean; msg: string }>("/api/server/stop", { method: "POST", body: "{}" }),
   bridgeStart: () => req<{ ok: boolean; msg: string }>("/api/bridge/start", { method: "POST", body: "{}" }),
   bridgeStop: () => req<{ ok: boolean; msg: string }>("/api/bridge/stop", { method: "POST", body: "{}" }),
-  assetLibrary: () => req<AssetTemplate[]>("/api/asset-library"),
+  assetLibrary: () =>
+    req<{ assets: AssetTemplate[] }>("/api/asset-library").then((r) => r.assets),
   uns: () => req<any>("/api/uns"),
   unsSave: (cfg: unknown) =>
     req<{ ok: boolean }>("/api/uns", { method: "POST", body: JSON.stringify(cfg) }),

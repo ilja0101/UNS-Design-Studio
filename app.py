@@ -22,7 +22,7 @@ import shift
 
 # ── Adjust path so recipe.py is importable ────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.environ.get('UNS_DATA_DIR') or ('/data' if os.path.isdir('/data') else BASE_DIR)
+DATA_DIR = os.environ.get('UNS_DATA_DIR') or ('/data' if os.name != 'nt' and os.path.isdir('/data') else BASE_DIR)
 
 # ── Quart app ──────────────────────────────────────────────────────────────────
 app = Quart(__name__)
