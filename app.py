@@ -923,6 +923,38 @@ async def _shift_loop(interval: int = SHIFT_POLL_SECONDS):
             _log(f'[shift] loop error: {e}')
         await asyncio.sleep(interval)
 
+# ── Boot auto-start ───────────────────────────────────────────────────────────
+async def _autostart_pipeline():
+    """Bring the sim pipeline up on boot so the demo publishes without a manual
+    click after a container (re)start — the piece that was missing when the whole
+    fleet is started from the portal. Gated by UDS_AUTOSTART. Starts the factory
+    server and the NATS bridge, then clocks the plants in unless a shift schedule
+    is enabled and currently off-hours (then the plants are parked and the shift
+    loop clocks them in at the bell)."""
+    await asyncio.sleep(2)  # let the app settle before spawning subprocesses
+    ok, msg = await start_factory_server()
+    _log(f'[autostart] factory server: {msg}')
+    if not ok:
+        return
+    bok, bmsg = await start_bridge()
+    _log(f'[autostart] bridge: {bmsg}')
+    open_now = True
+    cfg = _state.get('shift_cfg') or _load_shift_cfg()
+    if cfg.get('enabled'):
+        try:
+            tz, _ = shift.resolve_tz(cfg.get('tz', 'UTC'))
+            now = datetime.now(tz)
+            open_now = shift.shift_open(now, shift.parse_hhmm(cfg['start']),
+                                        shift.parse_hhmm(cfg['end']), shift.parse_days(cfg['days']))
+        except Exception as e:
+            _log(f'[autostart] shift check failed ({e}); starting plants anyway')
+            open_now = True
+    if open_now:
+        pok, pmsg = await _reset_then_start_all_plants()
+        _log(f'[autostart] plants: {pmsg}')
+    else:
+        _log('[autostart] shift closed — server + bridge up, plants parked until the shift bell')
+
 # ── Quart startup hook ────────────────────────────────────────────────────────
 @app.before_serving
 async def startup():
@@ -933,6 +965,9 @@ async def startup():
     asyncio.create_task(_periodic_sync_loop(interval=10))
     asyncio.create_task(_poll_loop())
     asyncio.create_task(_shift_loop())
+    if os.environ.get('UDS_AUTOSTART', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        _log('[autostart] enabled — bringing the sim pipeline up on boot')
+        asyncio.create_task(_autostart_pipeline())
     print()
     print("==============================================================")
     print("UNS Design Studio")
