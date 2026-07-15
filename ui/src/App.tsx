@@ -14,13 +14,21 @@ import { isOnboarded } from "./onboarding";
 // mqtt.js is heavy; keep it out of the main bundle — only load it on /live.
 const LiveView = lazy(() => import("./pages/LiveView").then((m) => ({ default: m.LiveView })));
 
+// First-visit gate for "/". A component (not an inline ternary in the route
+// element) so isOnboarded() is re-read every time the route mounts — an inline
+// ternary is evaluated once at App render and froze "/" to a redirect, breaking
+// the UNS Hub menu entry after finishing the wizard.
+function HomeGate() {
+  return isOnboarded() ? <SpokeMap /> : <Navigate to="/start" replace />;
+}
+
 export default function App() {
   const location = useLocation();
   return (
     <Shell>
       <ErrorBoundary resetKey={location.pathname}>
         <Routes>
-          <Route path="/" element={isOnboarded() ? <SpokeMap /> : <Navigate to="/start" replace />} />
+          <Route path="/" element={<HomeGate />} />
           <Route path="/start" element={<Start />} />
           <Route path="/uns" element={<Designer />} />
           <Route path="/viz" element={<Visualization />} />
