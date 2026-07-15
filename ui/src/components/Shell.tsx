@@ -12,6 +12,7 @@ import {
   Github,
   User,
   Tag,
+  Sparkles,
 } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { ShiftBadge } from "./ShiftBadge";
@@ -80,6 +81,7 @@ function InfoButton() {
 
 // Internal SPA routes vs. legacy Jinja pages (linked out during migration).
 const internal = [
+  { to: "/start", label: "Quick start", icon: Sparkles },
   { to: "/", label: "UNS Hub", icon: Network },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

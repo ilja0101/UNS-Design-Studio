@@ -8,6 +8,8 @@ import { Manual } from "./pages/Manual";
 import { PayloadSchemas } from "./pages/PayloadSchemas";
 import { Designer } from "./pages/designer/Designer";
 import { Visualization } from "./pages/Visualization";
+import { Start } from "./pages/Start";
+import { isOnboarded } from "./onboarding";
 
 // mqtt.js is heavy; keep it out of the main bundle — only load it on /live.
 const LiveView = lazy(() => import("./pages/LiveView").then((m) => ({ default: m.LiveView })));
@@ -18,7 +20,8 @@ export default function App() {
     <Shell>
       <ErrorBoundary resetKey={location.pathname}>
         <Routes>
-          <Route path="/" element={<SpokeMap />} />
+          <Route path="/" element={isOnboarded() ? <SpokeMap /> : <Navigate to="/start" replace />} />
+          <Route path="/start" element={<Start />} />
           <Route path="/uns" element={<Designer />} />
           <Route path="/viz" element={<Visualization />} />
           <Route path="/settings" element={<Settings />} />
