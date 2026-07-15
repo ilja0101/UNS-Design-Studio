@@ -527,10 +527,25 @@ async def run_nats(cfg, stop_event: asyncio.Event):
 
     print(f"[bridge] NATS mode -> {url}", flush=True)
 
-    try:
-        nc = await nats_lib.connect(url)
-    except Exception as e:
-        print(f"[bridge] NATS connect error: {e}", flush=True)
+    # Retry the initial connect until the broker is reachable, and enable
+    # infinite reconnect so the bridge survives the broker starting later or
+    # restarting — e.g. when the whole fleet is started together and NATS is
+    # still booting, or on a fleet stop/start. Without this the bridge would
+    # give up on the first failure and stay off until manually restarted.
+    nc = None
+    while not stop_event.is_set():
+        try:
+            nc = await nats_lib.connect(
+                url,
+                max_reconnect_attempts=-1,   # never stop trying to reconnect
+                reconnect_time_wait=2,
+                connect_timeout=5,
+            )
+            break
+        except Exception as e:
+            print(f"[bridge] NATS connect error: {e}; retrying in 3s", flush=True)
+            await _sleep_or_stop(stop_event, 3)
+    if nc is None:
         return
 
     _stats["connected"] = True
