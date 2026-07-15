@@ -18,8 +18,18 @@ const LiveView = lazy(() => import("./pages/LiveView").then((m) => ({ default: m
 // element) so isOnboarded() is re-read every time the route mounts — an inline
 // ternary is evaluated once at App render and froze "/" to a redirect, breaking
 // the UNS Hub menu entry after finishing the wizard.
+let autoStarted = false;
 function HomeGate() {
-  return isOnboarded() ? <SpokeMap /> : <Navigate to="/start" replace />;
+  // Open the Quick-start once for a brand-new visitor (no onboarded flag yet),
+  // on the first navigation of this page load. NOT a hard gate: autoStarted
+  // latches immediately, so "/" then always renders home and other menu items
+  // are never bounced back to the wizard. Skip/Finish (markOnboarded) stops it
+  // re-opening on later loads.
+  if (!autoStarted) {
+    autoStarted = true;
+    if (!isOnboarded()) return <Navigate to="/start" replace />;
+  }
+  return <SpokeMap />;
 }
 
 export default function App() {
