@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
@@ -40,6 +40,7 @@ import {
 } from "./tree";
 import { SimModal } from "./SimModal";
 import { AssetModal } from "./AssetModal";
+import { ImportModal } from "./ImportModal";
 
 type Tab = "props" | "tags" | "paths" | "recipes";
 
@@ -54,7 +55,7 @@ export function Designer() {
   const [toast, setToast] = useState<{ text: string; tone: "ok" | "err" } | null>(null);
   const [simTagIdx, setSimTagIdx] = useState<number | null>(null);
   const [assetOpen, setAssetOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: loaded } = useQuery({ queryKey: ["uns-config"], queryFn: api.unsConfig });
   const { data: profiles } = useQuery({ queryKey: ["sim-profiles"], queryFn: api.simulationProfiles });
@@ -86,33 +87,44 @@ export function Designer() {
     flash("Exported uns_config.json");
   };
 
-  const pickImport = () => {
-    if (dirty && !confirm("Replace the current UNS with an imported file? Unsaved changes will be lost.")) return;
-    fileInputRef.current?.click();
-  };
-
-  const onImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-importing the same file
-    if (!file) return;
+  // Import from the modal. merge=true appends the imported tree's top-level
+  // nodes into the current enterprise (its wrapper is ignored); merge=false
+  // replaces the whole UNS. Every imported node/tag is re-keyed (reId) so a
+  // null/duplicate id can't break node selection.
+  const applyImport = (parsed: unknown, merge: boolean) => {
     try {
-      const parsed = JSON.parse(await file.text());
-      const rawTree = parsed?.tree ?? parsed; // accept {tree,…} or a bare tree node
+      const p = parsed as Partial<UnsConfig> & { name?: string };
+      const rawTree = (p.tree ?? (parsed as UnsTreeNode)) as UnsTreeNode;
       if (!rawTree || typeof rawTree !== "object" || !rawTree.name)
         throw new Error("no UNS tree (missing a named root node)");
-      // Re-key every node/tag so ids are always present and unique — a null or
-      // duplicate id breaks node selection.
-      const next: UnsConfig = {
-        version: parsed.version,
-        namespaceUri: parsed.namespaceUri,
-        description: parsed.description,
-        tree: reId(rawTree as UnsTreeNode),
-      };
-      setCfg(next);
+
+      if (merge && cfg?.tree) {
+        const incoming = (rawTree.children ?? []).map((c) => reId(c));
+        if (!incoming.length) throw new Error("nothing to append — imported tree has no child nodes");
+        const existing = new Set((cfg.tree.children ?? []).map((c) => c.name));
+        const clash = incoming.map((c) => c.name).filter((n) => existing.has(n));
+        if (clash.length && !confirm(`Duplicate top-level node name(s) will be created: ${clash.join(", ")}.\nAppend anyway?`))
+          return;
+        const rootId = cfg.tree.id;
+        mutate((d) => {
+          d.tree.children = [...(d.tree.children ?? []), ...incoming];
+        });
+        setExpanded((prev) => new Set(prev).add(rootId));
+        flash(`Appended ${incoming.length} node(s) — review and Save`);
+      } else {
+        const next: UnsConfig = {
+          version: p.version,
+          namespaceUri: p.namespaceUri,
+          description: p.description,
+          tree: reId(rawTree),
+        };
+        setCfg(next);
+        setExpanded(new Set([next.tree.id]));
+        setDirty(true);
+        flash(`Imported "${next.tree.name}" — review and Save`);
+      }
       setSelId(null);
-      setExpanded(new Set([next.tree.id]));
-      setDirty(true);
-      flash(`Imported "${next.tree.name}" — review and Save`);
+      setImportOpen(false);
     } catch (err) {
       flash("Import failed: " + (err as Error).message, "err");
     }
@@ -260,16 +272,9 @@ export function Designer() {
           {countNodes(tree)} nodes · {countTags(tree)} tags · depth {maxDepth(tree)}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={onImportFile}
-          />
           <button
-            onClick={pickImport}
-            title="Import a UNS from a .json file (replaces the current tree; Save to persist)"
+            onClick={() => setImportOpen(true)}
+            title="Import a UNS from a .json file — replace or append (Save to persist)"
             className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12px] text-fg-muted hover:border-accent hover:text-accent"
           >
             <Upload size={14} /> Import
@@ -496,6 +501,8 @@ export function Designer() {
           }}
         />
       )}
+
+      {importOpen && <ImportModal onClose={() => setImportOpen(false)} onImport={applyImport} />}
 
       {toast && (
         <div
