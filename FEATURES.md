@@ -470,6 +470,18 @@ UNS-Design-Studio/
 
 ## Release Notes
 
+See [CHANGELOG.md](CHANGELOG.md) for the full history. Highlights:
+
+### Unreleased — Closed-loop setpoints, motors, and a Designer regression fix
+- **Fixed (regression):** Import / Export / Clear were dropped from the UNS
+  Designer when the UI was rebuilt on React (`ac754da`); they existed only in the
+  legacy `/classic` editor. Restored in the React Designer (`bd29d37`) — see
+  [CHANGELOG.md](CHANGELOG.md).
+- **Fixed:** designer crash selecting generator-produced nodes with `id: null`.
+- **Added:** per-equipment closed-loop setpoints + PLC-HMI handshake, NATS/MQTT
+  command write-back + request-reply, optical sorters & rejects, motor (M01)
+  devices under VFDs, and a `folder` node type. Default UNS stays Vault-Tec.
+
 ### V2.0 — Repository cleanup and release preparation *(current)*
 - App-visible release metadata updated to V2.0 / 2.0
 - README refreshed for GitHub release use, including local, Docker, Portainer, GHCR, state, and validation notes
