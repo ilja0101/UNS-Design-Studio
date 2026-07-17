@@ -16,19 +16,33 @@ valve …) exposes three kinds of tag, organised as UNS subtopics under the
 equipment leaf:
 
 ```
-…/wash-pump-01/
+…/wash-pump-01/                         (workUnit — the pump)
     running, fault                      (equipment status)
-    cmd/                                ← writable command subtopic
+    cmd/                     (folder)   ← writable command subtopic
         speed-sp-request     RW   the optimizer publishes the optimal value here
-    setpoint/                           ← controller-owned
+    setpoint/                (folder)   ← controller-owned
         speed-sp             R    the committed setpoint the controller actually applies
-    vfd/                                ← process values (all track the setpoint)
-        speed                R    measured RPM
-        motor-current        R    A     (∝ load²)
-        power                R    kW    (VFD affinity law ∝ speed³)
+    vfd/                     (device)   ← the drive
         output-frequency     R    Hz
+        output-current       R    A     drive output current
+        power                R    kW    (VFD affinity law ∝ speed³)
+        dc-bus-voltage       R    V
+        drive-temperature    R    °C
+        drive-ready/-fault   R
         flow                 R    m³/h  (∝ speed)
+        motor-01/            (device)   ← the driven motor M01
+            run-state        R    on/off
+            shaft-speed      R    RPM   the loop PV (tracks the setpoint)
+            voltage-l1/l2/l3 R    V     3-phase
+            current-l1/l2/l3 R    A     3-phase (∝ load²)
+            winding-temperature, bearing-temperature, power-factor,
+            insulation-resistance, run-hours
 ```
+
+`cmd`/`setpoint` are **tag folders**; `vfd` and `motor-01` are **devices** (the
+drive and the motor it drives). Nodes must have unique ids and one of the
+supported types (`…/workUnit/device/folder`) or the UNS Designer can't render
+them.
 
 Flow of control every simulation tick:
 
@@ -38,8 +52,8 @@ Flow of control every simulation tick:
 3. The **controller** (the simulation engine) reads the request, clamps it to
    `[min, max]`, and ramps the **committed setpoint** `…/setpoint/<var>-sp`
    toward it at a bounded rate (no instantaneous jumps).
-4. The **process value** `…/vfd/speed` (or `…/level`, `…/flow`, …) tracks the
-   committed setpoint with first-order lag, and the electrical/flow PVs are
+4. The **process value** `…/vfd/motor-01/shaft-speed` (or `…/level`, `…/flow`, …)
+   tracks the committed setpoint with first-order lag, and the electrical/flow PVs are
    derived from it via VFD affinity laws.
 5. The bridge publishes every tag (request, setpoint and all PVs) back out as
    telemetry, so the optimizer can observe the effect of its move.

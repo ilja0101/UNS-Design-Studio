@@ -256,3 +256,23 @@ def test_faceplate_outputs_have_correct_python_types():
     assert isinstance(loop.output("ctrl_watchdog"), bool)
     assert isinstance(loop.output("ctrl_status"), str)
     assert isinstance(loop.output("ctrl_source"), str)
+
+
+# ── default profile centres on an optional nominal "base" ──────────────────────
+
+def test_default_profile_centres_on_base():
+    ps = factory.PlantState("p", "")
+    ps.state = factory.PlantState.RUNNING
+    sim = {"base": 400, "min": 390, "max": 410, "std": 1.0}   # e.g. a 400 V line
+    vals = [factory._profile_value("default", ps, sim, 0.0) for _ in range(300)]
+    avg = sum(vals) / len(vals)
+    assert 397 < avg < 403               # centred near 400, not the 0 default
+    assert all(390 <= v <= 410 for v in vals)
+
+
+def test_default_profile_without_base_is_unchanged():
+    ps = factory.PlantState("p", "")
+    ps.state = factory.PlantState.RUNNING
+    sim = {"min": 0, "max": 100, "std": 1.0}                  # no base
+    vals = [factory._profile_value("default", ps, sim, 50.0) for _ in range(300)]
+    assert 47 < sum(vals) / len(vals) < 53                    # centres on current_value (50)

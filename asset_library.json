@@ -479,6 +479,30 @@
     },
 
     {
+      "id": "electric_motor",
+      "label": "Electric Motor (M01)",
+      "icon": "🌀",
+      "category": "Control Modules",
+      "description": "3-phase induction motor driven by a VFD — the driven asset beneath a drive. Per-phase voltages & currents, winding/bearing thermals, power factor, insulation and run-hours. Drop under a VFD device node.",
+      "tags": [
+        {"name": "RunState",              "dataType": "Bool",  "unit": "",   "access": "R", "qualifier": "data", "simulation": {"profile": "boolean_running"}, "description": "M01 running (on/off)"},
+        {"name": "Fault",                 "dataType": "Bool",  "unit": "",   "access": "R", "qualifier": "data", "simulation": {"profile": "boolean_fault"},   "description": "M01 fault / trip"},
+        {"name": "ShaftSpeed",            "dataType": "Float", "unit": "RPM","access": "R", "qualifier": "data", "simulation": {"profile": "speed_rpm"},       "description": "SI — motor shaft speed"},
+        {"name": "VoltageL1",             "dataType": "Float", "unit": "V",  "access": "R", "qualifier": "data", "simulation": {"profile": "default", "base": 400, "min": 390, "max": 410, "std": 1.5, "default": 400}, "description": "EI — phase L1 voltage"},
+        {"name": "VoltageL2",             "dataType": "Float", "unit": "V",  "access": "R", "qualifier": "data", "simulation": {"profile": "default", "base": 400, "min": 390, "max": 410, "std": 1.5, "default": 400}, "description": "EI — phase L2 voltage"},
+        {"name": "VoltageL3",             "dataType": "Float", "unit": "V",  "access": "R", "qualifier": "data", "simulation": {"profile": "default", "base": 400, "min": 390, "max": 410, "std": 1.5, "default": 400}, "description": "EI — phase L3 voltage"},
+        {"name": "CurrentL1",             "dataType": "Float", "unit": "A",  "access": "R", "qualifier": "data", "simulation": {"profile": "motor_current"},    "description": "II — phase L1 current"},
+        {"name": "CurrentL2",             "dataType": "Float", "unit": "A",  "access": "R", "qualifier": "data", "simulation": {"profile": "motor_current"},    "description": "II — phase L2 current"},
+        {"name": "CurrentL3",             "dataType": "Float", "unit": "A",  "access": "R", "qualifier": "data", "simulation": {"profile": "motor_current"},    "description": "II — phase L3 current"},
+        {"name": "WindingTemperature",    "dataType": "Float", "unit": "°C", "access": "R", "qualifier": "data", "simulation": {"profile": "default", "base": 68, "min": 35, "max": 145, "std": 1.5, "default": 68}, "description": "TI — stator winding temperature"},
+        {"name": "BearingTemperature",    "dataType": "Float", "unit": "°C", "access": "R", "qualifier": "data", "simulation": {"profile": "default", "base": 52, "min": 25, "max": 110, "std": 1.0, "default": 52}, "description": "TI — bearing temperature"},
+        {"name": "PowerFactor",           "dataType": "Float", "unit": "",   "access": "R", "qualifier": "data", "simulation": {"profile": "default", "base": 0.86, "min": 0.72, "max": 0.97, "std": 0.01, "default": 0.86}, "description": "JI — power factor"},
+        {"name": "InsulationResistance",  "dataType": "Float", "unit": "MΩ", "access": "R", "qualifier": "data", "simulation": {"profile": "default", "base": 480, "min": 50, "max": 800, "std": 8, "default": 480}, "description": "EI — winding insulation resistance"},
+        {"name": "RunHours",              "dataType": "Float", "unit": "h",  "access": "R", "qualifier": "data", "simulation": {"profile": "accumulator_generic"}, "description": "Cumulative run hours"}
+      ]
+    },
+
+    {
       "id": "optical_sorter",
       "label": "Optical Sorter (sensitivity loop + reject)",
       "icon": "🎥",

@@ -74,6 +74,52 @@ def ctag(name, dtype, unit, access, qualifier, profile, opcpath, desc, extra=Non
             "qualifier": qualifier, "opcPath": opcpath, "payloadSchema": "standard",
             "simulation": sim, "description": desc}
 
+def _nominal(base, lo, hi, std, default=None):
+    """Simulation block for a nominal analog value that jitters around `base`."""
+    return {"base": base, "min": lo, "max": hi, "std": std, "default": default if default is not None else base}
+
+def build_motor(vfd_base, loop_id, p, name="motor-01"):
+    """Electric motor (M01) as a device under the VFD. The loop's process value
+    (shaft speed) lives here; the drive keeps its drive-side telemetry. Three-phase
+    voltages/currents + winding/bearing thermals are realistic per-motor tags."""
+    mb = vfd_base + "/Motor01"
+    pv_unit = p.get("pv_unit", "RPM")
+    return make_child(name, "device",
+                      desc="Electric motor M01 driven by the VFD — 3-phase electricals + thermals.",
+                      tags=[
+        ctag("run-state", "Bool", "", "R", "data", "boolean_running", mb + "/RunState", "M01 running (on/off)."),
+        ctag("fault", "Bool", "", "R", "data", "boolean_fault", mb + "/Fault", "M01 fault / trip."),
+        ctag("shaft-speed", "Float", pv_unit, "R", "data", "ctrl_pv", mb + "/ShaftSpeed",
+             "SI — motor shaft speed (tracks the committed setpoint).", {"loop": loop_id}),
+        ctag("voltage-l1", "Float", "V", "R", "data", "default", mb + "/VoltageL1", "EI — phase L1 voltage.", _nominal(400, 390, 410, 1.5)),
+        ctag("voltage-l2", "Float", "V", "R", "data", "default", mb + "/VoltageL2", "EI — phase L2 voltage.", _nominal(400, 390, 410, 1.5)),
+        ctag("voltage-l3", "Float", "V", "R", "data", "default", mb + "/VoltageL3", "EI — phase L3 voltage.", _nominal(400, 390, 410, 1.5)),
+        ctag("current-l1", "Float", "A", "R", "data", "ctrl_current", mb + "/CurrentL1", "II — phase L1 current (∝ load²).", {"loop": loop_id}),
+        ctag("current-l2", "Float", "A", "R", "data", "ctrl_current", mb + "/CurrentL2", "II — phase L2 current (∝ load²).", {"loop": loop_id}),
+        ctag("current-l3", "Float", "A", "R", "data", "ctrl_current", mb + "/CurrentL3", "II — phase L3 current (∝ load²).", {"loop": loop_id}),
+        ctag("winding-temperature", "Float", "°C", "R", "data", "default", mb + "/WindingTemperature", "TI — stator winding temperature.", _nominal(68, 35, 145, 1.5)),
+        ctag("bearing-temperature", "Float", "°C", "R", "data", "default", mb + "/BearingTemperature", "TI — bearing temperature.", _nominal(52, 25, 110, 1.0)),
+        ctag("power-factor", "Float", "", "R", "data", "default", mb + "/PowerFactor", "JI — power factor.", _nominal(0.86, 0.72, 0.97, 0.01)),
+        ctag("insulation-resistance", "Float", "MΩ", "R", "data", "default", mb + "/InsulationResistance", "EI — winding insulation resistance.", _nominal(480, 50, 800, 8)),
+        ctag("run-hours", "Float", "h", "R", "data", "accumulator_generic", mb + "/RunHours", "Cumulative run hours."),
+    ])
+
+def vfd_drive_tags(vfd_base, loop_id, p, flow_name=None, flow_unit=None):
+    """Drive-side telemetry for a VFD device (the motor's PV lives on the motor)."""
+    tags = [
+        ctag("output-frequency", "Float", "Hz", "R", "data", "ctrl_frequency", vfd_base + "/OutputFrequency", "SI — drive output frequency.", {"loop": loop_id}),
+        ctag("output-current", "Float", "A", "R", "data", "ctrl_current", vfd_base + "/OutputCurrent", "II — drive output current.", {"loop": loop_id}),
+        ctag("power", "Float", "kW", "R", "data", "ctrl_power", vfd_base + "/Power", "JI — active power (VFD affinity law ∝ speed³).", {"loop": loop_id}),
+        ctag("dc-bus-voltage", "Float", "V", "R", "data", "default", vfd_base + "/DcBusVoltage", "EI — DC-bus voltage.", _nominal(650, 560, 720, 3)),
+        ctag("drive-temperature", "Float", "°C", "R", "data", "default", vfd_base + "/DriveTemperature", "TI — drive heatsink temperature.", _nominal(46, 25, 90, 1.5)),
+        ctag("drive-ready", "Bool", "", "R", "data", "boolean_running", vfd_base + "/DriveReady", "Drive ready / run confirm."),
+        ctag("drive-fault", "Bool", "", "R", "data", "boolean_fault", vfd_base + "/DriveFault", "Drive trip / fault."),
+    ]
+    if flow_name and p.get("rated_flow"):
+        tags.append(ctag(flow_name, "Float", flow_unit or p.get("flow_unit", "m³/h"), "R", "data", "ctrl_flow",
+                         vfd_base + "/" + pascal(flow_name), "FI/WI — delivered flow (tracks speed).", {"loop": loop_id}))
+    return tags
+
 stats = {"speed_loops": 0, "valve_loops": 0, "new_equipment": 0}
 
 def upgrade_speed_unit(unit, loop_id, base_opc):
@@ -86,7 +132,7 @@ def upgrade_speed_unit(unit, loop_id, base_opc):
                     if t.get("name") not in ("speed", "motor-current", "power", "output-frequency")]
     cmd = make_child("cmd", desc="Command subtopic — optimizer setpoint requests (writable).")
     sp  = make_child("setpoint", desc="Committed setpoints published by the controller.")
-    vfd = make_child("vfd", desc="VFD drive — speed, current, power, frequency (track the setpoint).")
+    vfd = make_child("vfd", "device", desc="VFD drive — output frequency/current, power, DC-bus, drive thermals.")
     cmd["tags"] = [ctag("speed-sp-request", "Float", p["pv_unit"], "RW", "command",
                         "ctrl_request", base_opc + "/Cmd/SpeedSpRequest",
                         "SIC — motor speed request (optimizer publishes optimal RPM here).",
@@ -97,19 +143,8 @@ def upgrade_speed_unit(unit, loop_id, base_opc):
     sp["tags"]  = [ctag("speed-sp", "Float", p["pv_unit"], "R", "setpoint",
                         "ctrl_setpoint", base_opc + "/Setpoint/SpeedSp",
                         "SIC — committed speed setpoint (controller output).", {"loop": loop_id})]
-    vfd["tags"] = [
-        ctag("speed", "Float", p["pv_unit"], "R", "data", "ctrl_pv",
-             base_opc + "/Vfd/Speed", "SI — measured motor speed (tracks setpoint).", {"loop": loop_id}),
-        ctag("motor-current", "Float", "A", "R", "data", "ctrl_current",
-             base_opc + "/Vfd/MotorCurrent", "II — motor current (∝ load²).", {"loop": loop_id}),
-        ctag("power", "Float", "kW", "R", "data", "ctrl_power",
-             base_opc + "/Vfd/Power", "JI — active power (VFD affinity law ∝ speed³).", {"loop": loop_id}),
-        ctag("output-frequency", "Float", "Hz", "R", "data", "ctrl_frequency",
-             base_opc + "/Vfd/OutputFrequency", "SI — drive output frequency.", {"loop": loop_id}),
-    ]
-    if p["rated_flow"]:
-        vfd["tags"].append(ctag("flow", "Float", p["flow_unit"], "R", "data", "ctrl_flow",
-             base_opc + "/Vfd/Flow", "FI — delivered flow (tracks speed).", {"loop": loop_id}))
+    vfd["tags"] = vfd_drive_tags(base_opc + "/Vfd", loop_id, p, flow_name="flow")
+    vfd["children"] = [build_motor(base_opc + "/Vfd", loop_id, p)]
     unit.setdefault("children", []).extend([cmd, sp, vfd])
     stats["speed_loops"] += 1
 
@@ -125,10 +160,6 @@ def upgrade_vfd_unit(unit, loop_id, base_opc):
             prof, _u = retag[t["name"]]
             t.setdefault("simulation", {})["profile"] = prof
             t["simulation"]["loop"] = loop_id
-    # add a measured speed PV on the drive itself
-    unit.setdefault("tags", []).append(
-        ctag("motor-speed", "Float", "RPM", "R", "data", "ctrl_pv",
-             base_opc + "/MotorSpeed", "SI — measured motor speed (tracks setpoint).", {"loop": loop_id}))
     cmd = make_child("cmd", desc="Command subtopic — optimizer setpoint requests (writable).")
     sp  = make_child("setpoint", desc="Committed setpoints published by the controller.")
     cmd["tags"] = [ctag("speed-sp-request", "Float", "RPM", "RW", "command",
@@ -141,7 +172,9 @@ def upgrade_vfd_unit(unit, loop_id, base_opc):
     sp["tags"]  = [ctag("speed-sp", "Float", "RPM", "R", "setpoint",
                         "ctrl_setpoint", base_opc + "/Setpoint/SpeedSp",
                         "SIC — committed speed setpoint (controller output).", {"loop": loop_id})]
-    unit.setdefault("children", []).extend([cmd, sp])
+    # The unit is the drive; the motor (with the shaft-speed PV) hangs beneath it.
+    motor = build_motor(base_opc, loop_id, p)
+    unit.setdefault("children", []).extend([cmd, sp, motor])
     stats["speed_loops"] += 1
 
 def upgrade_valve_unit(unit):
@@ -185,7 +218,8 @@ def add_new_equipment(wc, path_names):
     ]
     slc = make_child("cmd", desc="Command subtopic — optimizer setpoint requests (writable).")
     sls = make_child("setpoint", desc="Committed setpoints published by the controller.")
-    slv = make_child("vfd", desc="VFD drive — speed, current, power, mass flow.")
+    slv = make_child("vfd", "device", desc="VFD drive — output frequency/current, power, mass flow.")
+    slp = {"pv_unit": "RPM", "rated_current": 45, "rated_flow": 18, "flow_unit": "t/h"}
     slc["tags"] = [ctag("speed-sp-request", "Float", "RPM", "RW", "command", "ctrl_request",
                         base + "/Cmd/SpeedSpRequest", "SIC — screw speed request (optimizer writes RPM).",
                         {"loop": lid, "kind": "vfd_speed", "min": 10, "max": 120, "rated": 120,
@@ -193,12 +227,8 @@ def add_new_equipment(wc, path_names):
                          "rated_flow": 18, "default": 80})]
     sls["tags"] = [ctag("speed-sp", "Float", "RPM", "R", "setpoint", "ctrl_setpoint",
                         base + "/Setpoint/SpeedSp", "SIC — committed screw speed.", {"loop": lid})]
-    slv["tags"] = [
-        ctag("speed", "Float", "RPM", "R", "data", "ctrl_pv", base + "/Vfd/Speed", "SI — screw speed.", {"loop": lid}),
-        ctag("mass-flow", "Float", "t/h", "R", "data", "ctrl_flow", base + "/Vfd/MassFlow", "WI — mass throughput.", {"loop": lid}),
-        ctag("motor-current", "Float", "A", "R", "data", "ctrl_current", base + "/Vfd/MotorCurrent", "II — motor current.", {"loop": lid}),
-        ctag("power", "Float", "kW", "R", "data", "ctrl_power", base + "/Vfd/Power", "JI — active power.", {"loop": lid}),
-    ]
+    slv["tags"] = vfd_drive_tags(base + "/Vfd", lid, slp, flow_name="mass-flow", flow_unit="t/h")
+    slv["children"] = [build_motor(base + "/Vfd", lid, slp)]
     sl["children"] = [slc, sls, slv]
     added.append(sl)
 
@@ -216,7 +246,8 @@ def add_new_equipment(wc, path_names):
     ]
     dcc = make_child("cmd", desc="Command subtopic — optimizer setpoint requests (writable).")
     dcs = make_child("setpoint", desc="Committed setpoints published by the controller.")
-    dcv = make_child("vfd", desc="Main-drive VFD — bowl speed, current, power.")
+    dcv = make_child("vfd", "device", desc="Main-drive VFD — output frequency/current, power.")
+    dcp = {"pv_unit": "RPM", "rated_current": 230, "rated_flow": 0}
     dcc["tags"] = [ctag("bowl-speed-sp-request", "Float", "RPM", "RW", "command", "ctrl_request",
                         base + "/Cmd/BowlSpeedSpRequest", "SIC — bowl speed request (optimizer writes RPM).",
                         {"loop": lid, "kind": "vfd_speed", "min": 1500, "max": 3600, "rated": 3600,
@@ -224,11 +255,8 @@ def add_new_equipment(wc, path_names):
                          "rated_flow": 0, "default": 3000})]
     dcs["tags"] = [ctag("bowl-speed-sp", "Float", "RPM", "R", "setpoint", "ctrl_setpoint",
                         base + "/Setpoint/BowlSpeedSp", "SIC — committed bowl speed.", {"loop": lid})]
-    dcv["tags"] = [
-        ctag("bowl-speed", "Float", "RPM", "R", "data", "ctrl_pv", base + "/Vfd/BowlSpeed", "SI — measured bowl speed.", {"loop": lid}),
-        ctag("main-drive-current", "Float", "A", "R", "data", "ctrl_current", base + "/Vfd/MainDriveCurrent", "II — main drive current.", {"loop": lid}),
-        ctag("power", "Float", "kW", "R", "data", "ctrl_power", base + "/Vfd/Power", "JI — active power.", {"loop": lid}),
-    ]
+    dcv["tags"] = vfd_drive_tags(base + "/Vfd", lid, dcp)
+    dcv["children"] = [build_motor(base + "/Vfd", lid, dcp)]  # motor shaft-speed = bowl speed (direct drive)
     dc["children"] = [dcc, dcs, dcv]
     added.append(dc)
 

@@ -212,7 +212,7 @@ Real-time view of all MQTT/NATS messages flowing from the bridge.
 | Control / Setpoints | `ctrl_request`, `ctrl_setpoint`, `ctrl_pv`, `ctrl_power`, `ctrl_current`, `ctrl_frequency`, `ctrl_flow`, `ctrl_valve`, `hold` |
 | Control / Handshake | `ctrl_mode`, `ctrl_enable`, `ctrl_sp_operator`, `ctrl_sp_lo`, `ctrl_sp_hi`, `ctrl_heartbeat`, `ctrl_watchdog`, `ctrl_status`, `ctrl_source` |
 | Control / Sorter | `ctrl_reject_rate`, `ctrl_escape`, `ctrl_yield`, `ctrl_reject_acc`, `ctrl_ejector` |
-| Other | `default` — generic Gaussian walk with configurable min/max/std |
+| Other | `default` — Gaussian walk with configurable min/max/std, optionally centred on a nominal `base` (e.g. 400 V line, 68 °C winding) |
 
 All profiles are plant-state-aware. Values change coherently when a plant faults, recovers or stops.
 
@@ -275,6 +275,7 @@ Predefined asset bundles insertable from the UNS designer in one click. Each bun
 | Flow Control Loop (FIC + FCV) | 5 | Control Modules |
 | Temperature Control Loop (TIC + steam valve) | 5 | Control Modules |
 | Optical Sorter (sensitivity loop + reject) | 22 | Control Modules |
+| Electric Motor (M01) | 14 | Control Modules |
 
 To add a custom asset: add an entry to `asset_library.json` — it appears in the picker immediately on next page load.
 

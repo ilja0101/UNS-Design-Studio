@@ -761,9 +761,13 @@ def _profile_value(profile: str, ps: PlantState, sim: dict, current_value):
 
     std     = sim.get("std", 2.0)
     lo, hi  = sim.get("min", 0.0), sim.get("max", 100.0)
+    # Jitter around a configured nominal ("base") when given — e.g. a 400 V line
+    # voltage or a 65 °C winding temperature. Without "base" this stays centred on
+    # the tag's default (unchanged behaviour for existing configs).
+    center  = sim.get("base", current_value)
     if ps.state == PlantState.FAULT:    std *= 0.2
     elif ps.state == PlantState.RECOVERY: std *= 0.5
-    return float(max(lo, min(hi, current_value + random.gauss(0, std))))
+    return float(max(lo, min(hi, center + random.gauss(0, std))))
 
 
 # ================================================================
