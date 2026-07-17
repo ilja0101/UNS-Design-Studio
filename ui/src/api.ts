@@ -87,7 +87,8 @@ export type UnsNodeType =
   | "area"
   | "workCenter"
   | "workUnit"
-  | "device";
+  | "device"
+  | "folder";
 
 export interface Sim {
   profile: string;

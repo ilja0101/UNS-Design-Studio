@@ -15,7 +15,9 @@ export const NT: Record<UnsNodeType, NodeMeta> = {
   area: { label: "Area", color: "#f59e0b", next: "workCenter" },
   workCenter: { label: "Work Center", color: "#eab308", next: "workUnit" },
   workUnit: { label: "Work Unit", color: "#ef4444", next: "device" },
-  device: { label: "Device", color: "#64748b", next: "device" },
+  device: { label: "Device", color: "#64748b", next: "folder" },
+  // Organisational tag folder (e.g. cmd / setpoint) — groups tags, not a device.
+  folder: { label: "Folder", color: "#94a3b8", next: "folder" },
 };
 
 export const NODE_ORDER: UnsNodeType[] = [
@@ -26,6 +28,7 @@ export const NODE_ORDER: UnsNodeType[] = [
   "workCenter",
   "workUnit",
   "device",
+  "folder",
 ];
 
 export const uid = () =>

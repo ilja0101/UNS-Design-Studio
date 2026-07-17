@@ -11,7 +11,7 @@ Topology added per controlled unit (child nodes, so they become UNS subtopics):
 
 Valve units are converted in place to analog position loops (auto-grouped).
 """
-import json, sys, copy
+import json, sys, copy, re
 
 USAGE = "Usage: python tools/enhance_uns_control_loops.py <input_uns.json> <output_uns.json>"
 if len(sys.argv) != 3:
@@ -356,9 +356,59 @@ def add_equipment_walk(node, path_names):
         add_equipment_walk(c, names)
 add_equipment_walk(cfg["tree"], [])
 
+# ── Post-pass 1: node semantics ────────────────────────────────────────────────
+# The UNS Designer requires a real id on every node and tag (used as React keys /
+# selection lookup) and renders each node by its type. Set the correct types for
+# the generated sub-nodes: a VFD is a *control module* (device with tags), while
+# cmd/setpoint are *tag folders* (organisational groupings, not devices).
+def fix_node_types(node):
+    for c in node.get("children", []):
+        nm = c.get("name")
+        if nm == "vfd":
+            c["type"] = "device"
+        elif nm in ("cmd", "setpoint"):
+            c["type"] = "folder"
+        fix_node_types(c)
+fix_node_types(cfg["tree"])
+
+# ── Post-pass 2: fill missing ids (nodes + tags), guaranteeing uniqueness ───────
+def _slug(s):
+    return re.sub(r"[^a-z0-9]+", "-", str(s).lower()).strip("-") or "x"
+
+_seen = set()
+def _unique(base):
+    cand, i = base, 1
+    while cand in _seen:
+        i += 1
+        cand = f"{base}-{i}"
+    _seen.add(cand)
+    return cand
+
+def ensure_ids(node, path):
+    if node.get("id"):
+        _seen.add(node["id"])
+    for t in node.get("tags", []):
+        if t.get("id"):
+            _seen.add(t["id"])
+for _n in walk(cfg["tree"]):        # first register all existing ids
+    ensure_ids(_n, "")
+
+def assign_ids(node, path):
+    npath = f"{path}-{node.get('name','')}" if path else node.get("name", "")
+    if not node.get("id"):
+        node["id"] = _unique("nd-" + _slug(npath))
+    for t in node.get("tags", []):
+        if not t.get("id"):
+            src = t.get("opcPath") or f"{npath}-{t.get('name','')}"
+            t["id"] = _unique("tg-" + _slug(src))
+    for c in node.get("children", []):
+        assign_ids(c, npath)
+assign_ids(cfg["tree"], "")
+
 cfg["description"] = (cfg.get("description", "") +
     " | Control-enhanced: per-equipment closed loops (request→controller→setpoint→PV) "
-    "with cmd/setpoint subtopics for Industrial-AI setpoint optimization.")
+    "with cmd/setpoint tag folders + VFD control modules for Industrial-AI setpoint optimization.")
 
 json.dump(cfg, open(OUT, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
-print("stats:", stats)
+n_nodes = sum(1 for _ in walk(cfg["tree"]))
+print("stats:", stats, "| nodes:", n_nodes)
