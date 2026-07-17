@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
@@ -15,6 +15,9 @@ import {
   Search,
   ChevronsDownUp,
   ChevronsUpDown,
+  Download,
+  Upload,
+  Eraser,
 } from "lucide-react";
 import { api, type UnsConfig, type UnsTreeNode, type UnsTag, type AssetDef } from "../../api";
 import { Button, inputCls, cx } from "../../components/ui";
@@ -32,6 +35,7 @@ import {
   newTag,
   newNode,
   reId,
+  uid,
   plantKey,
 } from "./tree";
 import { SimModal } from "./SimModal";
@@ -50,6 +54,7 @@ export function Designer() {
   const [toast, setToast] = useState<{ text: string; tone: "ok" | "err" } | null>(null);
   const [simTagIdx, setSimTagIdx] = useState<number | null>(null);
   const [assetOpen, setAssetOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: loaded } = useQuery({ queryKey: ["uns-config"], queryFn: api.unsConfig });
   const { data: profiles } = useQuery({ queryKey: ["sim-profiles"], queryFn: api.simulationProfiles });
@@ -66,6 +71,68 @@ export function Designer() {
   const flash = (text: string, tone: "ok" | "err" = "ok") => {
     setToast({ text, tone });
     setTimeout(() => setToast(null), 2400);
+  };
+
+  // ── Import / Export / Clear ──
+  const exportJson = () => {
+    if (!cfg) return;
+    const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${cfg.tree?.name || "uns"}_uns_config.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    flash("Exported uns_config.json");
+  };
+
+  const pickImport = () => {
+    if (dirty && !confirm("Replace the current UNS with an imported file? Unsaved changes will be lost.")) return;
+    fileInputRef.current?.click();
+  };
+
+  const onImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-importing the same file
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const rawTree = parsed?.tree ?? parsed; // accept {tree,…} or a bare tree node
+      if (!rawTree || typeof rawTree !== "object" || !rawTree.name)
+        throw new Error("no UNS tree (missing a named root node)");
+      // Re-key every node/tag so ids are always present and unique — a null or
+      // duplicate id breaks node selection.
+      const next: UnsConfig = {
+        version: parsed.version,
+        namespaceUri: parsed.namespaceUri,
+        description: parsed.description,
+        tree: reId(rawTree as UnsTreeNode),
+      };
+      setCfg(next);
+      setSelId(null);
+      setExpanded(new Set([next.tree.id]));
+      setDirty(true);
+      flash(`Imported "${next.tree.name}" — review and Save`);
+    } catch (err) {
+      flash("Import failed: " + (err as Error).message, "err");
+    }
+  };
+
+  const clearTree = () => {
+    if (!confirm("Clear the entire UNS tree? All nodes and tags will be removed.\nSave to make it permanent.")) return;
+    mutate((d) => {
+      d.tree = {
+        id: uid(),
+        name: d.tree?.name || "Enterprise",
+        type: "enterprise",
+        description: d.tree?.description ?? "",
+        tags: [],
+        children: [],
+      };
+    });
+    setSelId(null);
+    setExpanded(new Set());
+    flash("UNS tree cleared — Save to persist");
   };
 
   const tree = cfg?.tree;
@@ -193,7 +260,35 @@ export function Designer() {
           {countNodes(tree)} nodes · {countTags(tree)} tags · depth {maxDepth(tree)}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <span className={cx("text-[12px] font-medium", dirty ? "text-warn" : "text-ok")}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={onImportFile}
+          />
+          <button
+            onClick={pickImport}
+            title="Import a UNS from a .json file (replaces the current tree; Save to persist)"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12px] text-fg-muted hover:border-accent hover:text-accent"
+          >
+            <Upload size={14} /> Import
+          </button>
+          <button
+            onClick={exportJson}
+            title="Export the current UNS as uns_config.json"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12px] text-fg-muted hover:border-accent hover:text-accent"
+          >
+            <Download size={14} /> Export
+          </button>
+          <button
+            onClick={clearTree}
+            title="Clear the entire UNS tree (Save to persist)"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12px] text-fg-muted hover:border-err hover:text-err"
+          >
+            <Eraser size={14} /> Clear
+          </button>
+          <span className={cx("ml-1 text-[12px] font-medium", dirty ? "text-warn" : "text-ok")}>
             {dirty ? "● Unsaved" : "● Saved"}
           </span>
           <Button onClick={save} disabled={saving || !dirty}>
