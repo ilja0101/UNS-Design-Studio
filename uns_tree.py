@@ -104,6 +104,47 @@ def build_bridge_entries(tree: dict, sep: str, prefix: str) -> list:
     return entries
 
 
+def build_command_entries(tree: dict, sep: str) -> list:
+    """Walk the UNS config and return write-back entries for command tags.
+
+    A command tag is a writable tag (access == "RW") whose qualifier is
+    "command" — i.e. a …/cmd/*-request the optimizer publishes to. Returns
+    (bare_topic, opc_parts, data_type) with no topic prefix; the bridge maps an
+    incoming command subject (command_prefix + sep + bare_topic) back to the OPC
+    node addressed by opc_parts. OPC path rules match build_bridge_entries().
+    """
+    entries = []
+    _, enterprise_node = resolve_enterprise_root(tree)
+
+    def _walk(node, uns_parts, opc_parts, area_opc_parts):
+        ntype = node.get('type', '')
+        name = node.get('name', '')
+        opc_name = ('Factory' + name) if ntype == 'site' else name
+        new_uns = uns_parts + [name]
+        new_opc = opc_parts + [opc_name]
+        new_area_opc = new_opc if ntype == 'area' else area_opc_parts
+
+        for tag in node.get('tags', []):
+            access    = str(tag.get('access', 'R')).upper()
+            qualifier = str(tag.get('qualifier', 'data')).lower()
+            if access != 'RW' or qualifier != 'command':
+                continue
+            tag_uns = tag['name']
+            if 'opcPath' in tag:
+                tag_opc_parts = new_area_opc + tag['opcPath'].split('/')
+            else:
+                tag_opc_parts = new_opc + [tag.get('opcNodeName', tag_uns)]
+            safe_uns_parts = [sanitize_topic_part(p) for p in new_uns]
+            bare_topic = sep.join(safe_uns_parts + [sanitize_topic_part(tag_uns)])
+            entries.append((bare_topic, tag_opc_parts, tag.get('dataType', 'Float')))
+
+        for child in node.get('children', []):
+            _walk(child, new_uns, new_opc, new_area_opc)
+
+    _walk(enterprise_node, [], [], [])
+    return entries
+
+
 # ── Live-UNS membership (per-node publish gating) ──────────────────────────────
 # Membership is expressed as a set of inclusion *prefixes* over "|"-joined node
 # paths. A node publishes iff its path equals, or is a descendant of, one of the

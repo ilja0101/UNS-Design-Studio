@@ -7,5 +7,7 @@
   "topic_prefix": "",
   "interval": 1,
   "username": "",
-  "password": ""
+  "password": "",
+  "command_write": true,
+  "command_prefix": "cmd"
 }

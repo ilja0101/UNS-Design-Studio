@@ -341,6 +341,177 @@
         {"name": "SteamFlowKgH",      "dataType": "Float",  "unit": "kg/h",  "simulation": {"profile": "steam_flow"},          "description": "Heating steam consumption"},
         {"name": "PowerKW",           "dataType": "Float",  "unit": "kW",    "simulation": {"profile": "power_kw"},            "description": "Electrical power draw"}
       ]
+    },
+
+    {
+      "id": "vfd_drive",
+      "label": "VFD / Variable Speed Drive",
+      "icon": "🎚️",
+      "category": "Control Modules",
+      "description": "Motor VFD control module with a closed speed loop. An optimizer publishes SpeedSetpointRequest (RW command); the controller ramps SpeedSetpoint and the drive PVs (speed, current, power, frequency) follow. Drop on its own drive node.",
+      "tags": [
+        {"name": "DriveReady",           "dataType": "Bool",  "unit": "",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_running"}, "description": "Drive ready / run confirmation"},
+        {"name": "DriveFault",           "dataType": "Bool",  "unit": "",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_fault"},   "description": "Drive trip / fault"},
+        {"name": "SpeedSetpointRequest", "dataType": "Float", "unit": "RPM", "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_request", "kind": "vfd_speed", "min": 0, "max": 1500, "rated": 1500, "ramp": 40, "rated_power": 110, "rated_current": 200, "no_load_current": 0.18, "rated_flow": 0, "default": 1200}, "description": "SIC — motor speed request (optimizer writes this)"},
+        {"name": "SpeedSetpoint",        "dataType": "Float", "unit": "RPM", "access": "R",  "qualifier": "setpoint", "simulation": {"profile": "ctrl_setpoint"},   "description": "SIC — committed speed setpoint (controller output)"},
+        {"name": "SpeedActual",          "dataType": "Float", "unit": "RPM", "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_pv"},         "description": "SI — measured motor speed (tracks setpoint)"},
+        {"name": "OutputFrequency",      "dataType": "Float", "unit": "Hz",  "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_frequency"},  "description": "SI — drive output frequency"},
+        {"name": "MotorCurrent",         "dataType": "Float", "unit": "A",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_current"},    "description": "II — motor current (∝ load²)"},
+        {"name": "ActivePower",          "dataType": "Float", "unit": "kW",  "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_power"},      "description": "JI — active power (VFD affinity law ∝ speed³)"},
+        {"name": "DcBusVoltage",         "dataType": "Float", "unit": "V",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "default", "min": 560, "max": 720, "std": 3}, "description": "EI — DC bus voltage"},
+        {"name": "DriveTemp",            "dataType": "Float", "unit": "°C",  "access": "R",  "qualifier": "data",     "simulation": {"profile": "temperature_process"}, "description": "TI — heatsink temperature"}
+      ]
+    },
+
+    {
+      "id": "vfd_pump",
+      "label": "VFD-Driven Pump (closed loop)",
+      "icon": "⚙️",
+      "category": "Control Modules",
+      "description": "Centrifugal pump on a VFD with a full speed control loop. Optimizer → SpeedSetpointRequest; PVs (speed, flow, current, power, frequency) track the committed setpoint. Includes hydraulic + condition-monitoring instruments.",
+      "tags": [
+        {"name": "Running",              "dataType": "Bool",  "unit": "",     "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_running"}, "description": "Pump running"},
+        {"name": "Fault",                "dataType": "Bool",  "unit": "",     "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_fault"},   "description": "Pump/drive fault"},
+        {"name": "SpeedSetpointRequest", "dataType": "Float", "unit": "RPM",  "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_request", "kind": "vfd_speed", "min": 600, "max": 1480, "rated": 1480, "ramp": 30, "rated_power": 90, "rated_current": 160, "no_load_current": 0.18, "rated_flow": 220, "default": 1100}, "description": "SIC — pump speed request (optimizer writes this)"},
+        {"name": "SpeedSetpoint",        "dataType": "Float", "unit": "RPM",  "access": "R",  "qualifier": "setpoint", "simulation": {"profile": "ctrl_setpoint"},   "description": "SIC — committed speed setpoint"},
+        {"name": "SpeedActual",          "dataType": "Float", "unit": "RPM",  "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_pv"},         "description": "SI — measured pump speed"},
+        {"name": "FlowActual",           "dataType": "Float", "unit": "m³/h", "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_flow"},       "description": "FI — delivered flow (tracks speed)"},
+        {"name": "MotorCurrent",         "dataType": "Float", "unit": "A",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_current"},    "description": "II — motor current"},
+        {"name": "ActivePower",          "dataType": "Float", "unit": "kW",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_power"},      "description": "JI — active power (∝ speed³)"},
+        {"name": "OutputFrequency",      "dataType": "Float", "unit": "Hz",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_frequency"},  "description": "SI — drive output frequency"},
+        {"name": "InletPressure",        "dataType": "Float", "unit": "bar",  "access": "R",  "qualifier": "data",     "simulation": {"profile": "pressure"},        "description": "PI — suction pressure"},
+        {"name": "OutletPressure",       "dataType": "Float", "unit": "bar",  "access": "R",  "qualifier": "data",     "simulation": {"profile": "pressure"},        "description": "PI — discharge pressure"},
+        {"name": "Vibration",            "dataType": "Float", "unit": "mm/s", "access": "R",  "qualifier": "data",     "simulation": {"profile": "vibration"},       "description": "VI — bearing vibration"},
+        {"name": "BearingTemp",          "dataType": "Float", "unit": "°C",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "temperature_process"}, "description": "TI — bearing temperature"},
+        {"name": "RemainingLifeH",       "dataType": "Float", "unit": "h",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "remaining_useful_life"}, "description": "Estimated RUL"},
+        {"name": "RunHoursAcc",          "dataType": "Float", "unit": "h",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "accumulator_generic"}, "description": "Cumulative run hours"}
+      ]
+    },
+
+    {
+      "id": "decanter_centrifuge",
+      "label": "Decanter Centrifuge (VFD)",
+      "icon": "🌀",
+      "category": "Control Modules",
+      "description": "High-speed solid-bowl decanter on a main-drive VFD. Bowl-speed control loop drives torque, current and power; feed, cake dryness and centrate turbidity are monitored. Energy-intensive — a prime optimizer target.",
+      "tags": [
+        {"name": "Running",               "dataType": "Bool",  "unit": "",     "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_running"}, "description": "Decanter running"},
+        {"name": "Fault",                 "dataType": "Bool",  "unit": "",     "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_fault"},   "description": "Drive/vibration trip"},
+        {"name": "BowlSpeedSetpointRequest","dataType":"Float","unit": "RPM",  "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_request", "kind": "vfd_speed", "min": 1500, "max": 3600, "rated": 3600, "ramp": 25, "rated_power": 132, "rated_current": 230, "no_load_current": 0.22, "rated_flow": 0, "default": 3000}, "description": "SIC — bowl speed request (optimizer writes this)"},
+        {"name": "BowlSpeedSetpoint",     "dataType": "Float", "unit": "RPM",  "access": "R",  "qualifier": "setpoint", "simulation": {"profile": "ctrl_setpoint"},   "description": "SIC — committed bowl speed"},
+        {"name": "BowlSpeedActual",       "dataType": "Float", "unit": "RPM",  "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_pv"},         "description": "SI — measured bowl speed"},
+        {"name": "MainDriveCurrent",      "dataType": "Float", "unit": "A",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_current"},    "description": "II — main drive current"},
+        {"name": "ActivePower",           "dataType": "Float", "unit": "kW",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_power"},      "description": "JI — active power (∝ speed³)"},
+        {"name": "ScrollTorque",          "dataType": "Float", "unit": "%",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "valve_position"},  "description": "Differential scroll torque"},
+        {"name": "FeedFlow",              "dataType": "Float", "unit": "m³/h", "access": "R",  "qualifier": "data",     "simulation": {"profile": "flow_rate"},       "description": "FI — feed flow"},
+        {"name": "CakeDryness",           "dataType": "Float", "unit": "%",    "access": "R",  "qualifier": "quality",  "simulation": {"profile": "quality_metric_cont"}, "description": "AI — cake dry-solids"},
+        {"name": "CentrateTurbidity",     "dataType": "Float", "unit": "NTU",  "access": "R",  "qualifier": "quality",  "simulation": {"profile": "quality_metric_cont"}, "description": "AI — centrate turbidity"},
+        {"name": "Vibration",             "dataType": "Float", "unit": "mm/s", "access": "R",  "qualifier": "data",     "simulation": {"profile": "vibration"},       "description": "VI — bowl vibration"}
+      ]
+    },
+
+    {
+      "id": "screw_loader",
+      "label": "Screw Loader / Feeder (VFD)",
+      "icon": "🔩",
+      "category": "Control Modules",
+      "description": "VFD-driven screw conveyor / feeder with a speed loop that sets mass throughput. Optimizer trims feed rate to balance the line; current, power and mass flow follow the committed setpoint.",
+      "tags": [
+        {"name": "Running",                "dataType": "Bool",  "unit": "",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_running"}, "description": "Screw running"},
+        {"name": "Fault",                  "dataType": "Bool",  "unit": "",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_fault"},   "description": "Jam / overload trip"},
+        {"name": "SpeedSetpointRequest",   "dataType": "Float", "unit": "RPM", "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_request", "kind": "vfd_speed", "min": 10, "max": 120, "rated": 120, "ramp": 4, "rated_power": 22, "rated_current": 45, "no_load_current": 0.25, "rated_flow": 18, "default": 80}, "description": "SIC — screw speed request (optimizer writes this)"},
+        {"name": "SpeedSetpoint",          "dataType": "Float", "unit": "RPM", "access": "R",  "qualifier": "setpoint", "simulation": {"profile": "ctrl_setpoint"},   "description": "SIC — committed screw speed"},
+        {"name": "SpeedActual",            "dataType": "Float", "unit": "RPM", "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_pv"},         "description": "SI — measured screw speed"},
+        {"name": "MassFlow",               "dataType": "Float", "unit": "t/h", "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_flow"},       "description": "WI/FI — mass throughput (tracks speed)"},
+        {"name": "MotorCurrent",           "dataType": "Float", "unit": "A",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_current"},    "description": "II — motor current"},
+        {"name": "ActivePower",            "dataType": "Float", "unit": "kW",  "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_power"},      "description": "JI — active power"},
+        {"name": "Torque",                 "dataType": "Float", "unit": "%",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "valve_position"},  "description": "Drive torque utilisation"}
+      ]
+    },
+
+    {
+      "id": "silo_level_control",
+      "label": "Silo with Level Control",
+      "icon": "🏙️",
+      "category": "Control Modules",
+      "description": "Storage silo with a level control loop on the outfeed. Optimizer sets a target level; the controller modulates the outfeed and the level tracks it. Includes weight, hi/lo switches and product-condition instruments.",
+      "tags": [
+        {"name": "LevelSetpointRequest",  "dataType": "Float", "unit": "%",   "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_request", "kind": "level", "min": 20, "max": 95, "rated": 100, "ramp": 0.6, "lag": 0.05, "default": 70}, "description": "LIC — target level request (optimizer writes this)"},
+        {"name": "LevelSetpoint",         "dataType": "Float", "unit": "%",   "access": "R",  "qualifier": "setpoint", "simulation": {"profile": "ctrl_setpoint"},   "description": "LIC — committed level setpoint"},
+        {"name": "Level",                 "dataType": "Float", "unit": "%",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_pv"},         "description": "LI/LT — measured level"},
+        {"name": "OutfeedValveOutput",    "dataType": "Float", "unit": "%",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_valve"},      "description": "LV — controller output to outfeed"},
+        {"name": "WeightTons",            "dataType": "Float", "unit": "t",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "silo_level"},      "description": "WI — silo load cells"},
+        {"name": "HighLevelSwitch",       "dataType": "Bool",  "unit": "",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_alarm"},   "description": "LSH — high level switch"},
+        {"name": "LowLevelSwitch",        "dataType": "Bool",  "unit": "",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_fault"},   "description": "LSL — low level switch"},
+        {"name": "ProductTemp",           "dataType": "Float", "unit": "°C",  "access": "R",  "qualifier": "data",     "simulation": {"profile": "temperature_ambient"}, "description": "TI — product temperature"},
+        {"name": "Humidity",              "dataType": "Float", "unit": "%",   "access": "R",  "qualifier": "quality",  "simulation": {"profile": "quality_metric_cont"}, "description": "MI — product moisture"}
+      ]
+    },
+
+    {
+      "id": "flow_control_loop",
+      "label": "Flow Control Loop (FIC + FCV)",
+      "icon": "🚰",
+      "category": "Control Modules",
+      "description": "ISA flow control loop: flow transmitter + controller + control valve. Optimizer sets FlowSetpointRequest; the controller drives the valve and measured flow tracks the committed setpoint. Drop on a control-loop node.",
+      "tags": [
+        {"name": "FlowSetpointRequest",   "dataType": "Float", "unit": "m³/h", "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_request", "kind": "flow", "min": 0, "max": 200, "rated": 200, "ramp": 6, "lag": 0.2, "default": 120}, "description": "FIC — flow setpoint request (optimizer writes this)"},
+        {"name": "FlowSetpoint",          "dataType": "Float", "unit": "m³/h", "access": "R",  "qualifier": "setpoint", "simulation": {"profile": "ctrl_setpoint"},   "description": "FIC — committed flow setpoint"},
+        {"name": "Flow",                  "dataType": "Float", "unit": "m³/h", "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_pv"},         "description": "FT/FI — measured flow"},
+        {"name": "ValvePosition",         "dataType": "Float", "unit": "%",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_valve"},      "description": "FCV — control valve position"},
+        {"name": "Pressure",              "dataType": "Float", "unit": "bar",  "access": "R",  "qualifier": "data",     "simulation": {"profile": "pressure"},        "description": "PI — line pressure"}
+      ]
+    },
+
+    {
+      "id": "temperature_control_loop",
+      "label": "Temperature Control Loop (TIC + steam valve)",
+      "icon": "🌡️",
+      "category": "Control Modules",
+      "description": "ISA temperature control loop: temperature transmitter + controller + steam control valve. Optimizer sets TempSetpointRequest; measured temperature tracks the committed setpoint while the steam valve modulates.",
+      "tags": [
+        {"name": "TempSetpointRequest",   "dataType": "Float", "unit": "°C",   "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_request", "kind": "temp", "min": 60, "max": 190, "rated": 190, "ramp": 1.5, "lag": 0.08, "default": 175}, "description": "TIC — temperature setpoint request (optimizer writes this)"},
+        {"name": "TempSetpoint",          "dataType": "Float", "unit": "°C",   "access": "R",  "qualifier": "setpoint", "simulation": {"profile": "ctrl_setpoint"},   "description": "TIC — committed temperature setpoint"},
+        {"name": "Temperature",           "dataType": "Float", "unit": "°C",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_pv"},         "description": "TT/TI — measured temperature"},
+        {"name": "SteamValveOutput",      "dataType": "Float", "unit": "%",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_valve"},      "description": "TCV — steam valve position"},
+        {"name": "SteamFlow",             "dataType": "Float", "unit": "kg/h", "access": "R",  "qualifier": "data",     "simulation": {"profile": "steam_flow"},      "description": "FI — steam flow"}
+      ]
+    },
+
+    {
+      "id": "optical_sorter",
+      "label": "Optical Sorter (sensitivity loop + reject)",
+      "icon": "🎥",
+      "category": "Control Modules",
+      "description": "NIR/laser optical sorter with air-jet ejectors (TOMRA/Key-style). The optimizer tunes detection SENSITIVITY, trading reject rate / yield loss against foreign-material escape. Includes the full realistic PLC-HMI command faceplate: operator mode, accept-optimizer permissive, operator fallback setpoint, EU limits, optimizer heartbeat + watchdog, and a command-status writeback.",
+      "tags": [
+        {"name": "Running",                "dataType": "Bool",   "unit": "",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_running"}, "description": "Sorter running"},
+        {"name": "Fault",                  "dataType": "Bool",   "unit": "",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "boolean_fault"},   "description": "Sorter fault"},
+        {"name": "ThroughputTph",          "dataType": "Float",  "unit": "t/h", "access": "R",  "qualifier": "data",     "simulation": {"profile": "flow_rate"},       "description": "WI — infeed throughput"},
+        {"name": "InfeedDefectRate",       "dataType": "Float",  "unit": "%",   "access": "R",  "qualifier": "quality",  "simulation": {"profile": "quality_metric_cont"}, "description": "AI — infeed defect / foreign-material load"},
+        {"name": "EjectorAirPressure",     "dataType": "Float",  "unit": "bar", "access": "R",  "qualifier": "data",     "simulation": {"profile": "pressure"},        "description": "PI — ejector air-manifold pressure"},
+
+        {"name": "SensitivitySpRequest",   "dataType": "Float",  "unit": "%",   "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_request", "kind": "sensitivity", "min": 20, "max": 95, "rated": 100, "ramp": 4, "lag": 0.2, "infeed_defect": 8, "rated_throughput": 12, "hb_timeout": 5, "default": 60}, "description": "AIC — detection sensitivity request (optimizer publishes optimal %)"},
+        {"name": "SensitivitySp",          "dataType": "Float",  "unit": "%",   "access": "R",  "qualifier": "setpoint", "simulation": {"profile": "ctrl_setpoint"},   "description": "AIC — committed sensitivity setpoint"},
+        {"name": "SensitivityActual",      "dataType": "Float",  "unit": "%",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_pv"},         "description": "AI — measured detection sensitivity (tracks setpoint)"},
+
+        {"name": "LoopMode",               "dataType": "Int",    "unit": "",    "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_mode", "default": 1},    "description": "Operator mode: 0=Local (HMI setpoint), 1=Remote (optimizer)"},
+        {"name": "AcceptOptimizer",        "dataType": "Bool",   "unit": "",    "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_enable", "default": true}, "description": "Operator permissive — accept optimizer setpoints"},
+        {"name": "OperatorSensitivitySp",  "dataType": "Float",  "unit": "%",   "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_sp_operator", "default": 55}, "description": "Operator/local sensitivity setpoint (safe fallback)"},
+        {"name": "SensitivityLoLimit",     "dataType": "Float",  "unit": "%",   "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_sp_lo", "default": 25},  "description": "Operator EU low limit"},
+        {"name": "SensitivityHiLimit",     "dataType": "Float",  "unit": "%",   "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_sp_hi", "default": 90},  "description": "Operator EU high limit"},
+        {"name": "OptimizerHeartbeat",     "dataType": "Int",    "unit": "",    "access": "RW", "qualifier": "command",  "simulation": {"profile": "ctrl_heartbeat", "default": 0}, "description": "Optimizer heartbeat counter — increment every cycle to keep the watchdog alive"},
+
+        {"name": "WatchdogOk",             "dataType": "Bool",   "unit": "",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_watchdog"},   "description": "Heartbeat fresh — optimizer setpoint trusted"},
+        {"name": "CommandStatus",          "dataType": "String", "unit": "",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_status"},     "description": "Writeback: Accepted / Clamped / Local(HMI) / OptimizerDisabled / StaleWatchdog"},
+        {"name": "SetpointSource",         "dataType": "String", "unit": "",    "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_source"},     "description": "Which setpoint is driving the loop: Optimizer / Operator"},
+
+        {"name": "RejectRate",             "dataType": "Float",  "unit": "%",   "access": "R",  "qualifier": "quality",  "simulation": {"profile": "ctrl_reject_rate"}, "description": "Fraction of stream ejected (rises with sensitivity)"},
+        {"name": "ForeignMaterialEscape",  "dataType": "Float",  "unit": "%",   "access": "R",  "qualifier": "quality",  "simulation": {"profile": "ctrl_escape"},     "description": "Foreign material passing to accept (falls with sensitivity)"},
+        {"name": "Yield",                  "dataType": "Float",  "unit": "%",   "access": "R",  "qualifier": "quality",  "simulation": {"profile": "ctrl_yield"},      "description": "Accept yield = 100 − reject rate"},
+        {"name": "RejectMassAcc",          "dataType": "Float",  "unit": "t",   "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_reject_acc"}, "description": "Accumulated ejected/reject mass"},
+        {"name": "EjectorFirings",         "dataType": "Float",  "unit": "1/s", "access": "R",  "qualifier": "data",     "simulation": {"profile": "ctrl_ejector"},    "description": "Air-jet ejector firing rate"}
+      ]
     }
 
   ]

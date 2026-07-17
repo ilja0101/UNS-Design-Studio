@@ -18,7 +18,7 @@ import time
 import signal
 import logging
 from json_persistence import load_json, load_json_or_raise, load_json_async
-from uns_tree import build_bridge_entries, path_covered as _path_covered
+from uns_tree import build_bridge_entries, build_command_entries, path_covered as _path_covered
 
 
 def _live_config(sim_state: dict) -> dict:
@@ -50,7 +50,62 @@ _stats = {
     "published": 0, "errors": 0, "rate": 0.0,
     "protocol": "-", "ts": 0.0,
     "per_plant": {},   # plant_key -> published count (feeds the hub-spoke edge pulse)
+    "commands": 0,     # write-back commands applied to OPC (optimizer setpoints)
 }
+
+
+# ── Command write-back helpers ────────────────────────────────────────────────
+
+def _normalize_cmd_prefix(raw: str, sep: str) -> str:
+    """Normalize a configured command prefix to the active subject separator."""
+    p = (raw or "cmd").strip().replace("/", sep).replace(".", sep)
+    while p.startswith(sep):
+        p = p[len(sep):]
+    while p.endswith(sep):
+        p = p[:-len(sep)]
+    return p or "cmd"
+
+
+def _parse_command_payload(payload):
+    """Extract a scalar from a command message. Accepts JSON {"value": X} (the
+    standard telemetry schema), a bare JSON scalar, or a raw string/number."""
+    if isinstance(payload, (bytes, bytearray)):
+        payload = payload.decode("utf-8", errors="replace")
+    payload = payload.strip() if isinstance(payload, str) else payload
+    try:
+        obj = json.loads(payload)
+        if isinstance(obj, dict):
+            for k in ("value", "v", "setpoint", "sp"):
+                if k in obj:
+                    return obj[k]
+            return None
+        return obj
+    except Exception:
+        try:
+            return float(payload)
+        except Exception:
+            return payload
+
+
+def _coerce_command(data_type: str, raw):
+    """Coerce a parsed value to (python_value, ua.VariantType) for the tag type."""
+    from asyncua import ua as _ua
+    dt = (data_type or "Float").strip()
+    try:
+        if dt in ("Bool", "Boolean"):
+            if isinstance(raw, str):
+                v = raw.strip().lower() in ("1", "true", "on", "yes")
+            else:
+                v = bool(raw)
+            return v, _ua.VariantType.Boolean
+        if dt in ("Int", "Int16", "Int32", "Int64", "Integer",
+                  "UInt16", "UInt32", "UInt64"):
+            return int(round(float(raw))), _ua.VariantType.Int64
+        if dt in ("String", "Str"):
+            return str(raw), _ua.VariantType.String
+        return float(raw), _ua.VariantType.Double
+    except (TypeError, ValueError):
+        return None, None
 
 
 def _load_cfg():
@@ -189,9 +244,11 @@ class AsyncOpcPoller:
         self._opc     = None
         self._batch_read_supported = True
         self._cache   = {}   # topic → (node_ref, unit_str, ...)
+        self._cmd_nodes = {} # bare_topic → (node_ref, data_type)  for write-back
         uns = _load_uns()
         self._namespace_uri = uns.get('namespaceUri', 'http://royalfarmerscollective.com/uns')
         self._entries = _build_entries(uns['tree'], sep, prefix)
+        self._cmd_entries = build_command_entries(uns['tree'], sep)
 
     async def connect(self):
         from asyncua import Client
@@ -212,7 +269,57 @@ class AsyncOpcPoller:
             elapsed = _time.monotonic() - t0
             print(f"[bridge] Cache ready: {ok} nodes ({miss} not found) in {elapsed:.1f}s", flush=True)
 
+        if self._cmd_entries and not self._cmd_nodes:
+            await self._build_command_cache(root, idx)
+
         _stats["opc_ok"] = True
+
+    async def _build_command_cache(self, root, idx: int):
+        """Resolve command (RW, qualifier=command) tags to OPC nodes so inbound
+        setpoint requests can be written back into the address space."""
+        node_cache = {(): root}
+        ok = miss = 0
+        for bare_topic, opc_parts, data_type in self._cmd_entries:
+            try:
+                path_parts = ['0:Objects'] + [f'{idx}:{p}' for p in opc_parts]
+                node = root
+                prefix = ()
+                for step in path_parts:
+                    prefix = prefix + (step,)
+                    cached = node_cache.get(prefix)
+                    if cached is None:
+                        cached = await node.get_child([step])
+                        node_cache[prefix] = cached
+                    node = cached
+                self._cmd_nodes[bare_topic] = (node, data_type)
+                ok += 1
+            except Exception:
+                miss += 1
+        print(f"[bridge] Command write-back: {ok} command tags mapped ({miss} not found)", flush=True)
+
+    async def write_command(self, bare_topic: str, raw_value) -> tuple:
+        """Write a setpoint request value to its OPC command node.
+
+        Returns (ok, info) where info is a dict on success (with the value read
+        back from OPC, confirming it persisted) or an error string on failure."""
+        entry = self._cmd_nodes.get(bare_topic)
+        if entry is None:
+            return False, f"unknown command tag: {bare_topic}"
+        node, data_type = entry
+        val, vt = _coerce_command(data_type, raw_value)
+        if vt is None:
+            return False, f"unparseable value for {bare_topic}: {raw_value!r}"
+        from asyncua import ua as _ua
+        try:
+            await node.write_value(_ua.DataValue(_ua.Variant(val, vt)))
+            readback = None
+            try:
+                readback = _ser(await node.read_value())
+            except Exception:
+                pass
+            return True, {"written": _ser(val), "readback": readback, "tag": bare_topic}
+        except Exception as e:
+            return False, str(e)
 
     async def _build_cache_with_walk(self, root, idx: int) -> tuple:
         node_cache = {(): root}
@@ -462,6 +569,33 @@ async def run_mqtt(cfg, stop_event: asyncio.Event):
                 print(f"[bridge] MQTT connected to {host}:{port}", flush=True)
                 _emit()
 
+                # ── Command write-back: subscribe to setpoint requests ──
+                cmd_task = None
+                cmd_enabled = bool(cfg.get("command_write", True)) and bool(poller._cmd_entries)
+                if cmd_enabled:
+                    cmd_base = _normalize_cmd_prefix(cfg.get("command_prefix", "cmd"), "/")
+                    await client.subscribe(f"{cmd_base}/#")
+
+                    async def _mqtt_cmd_loop():
+                        try:
+                            async for message in client.messages:
+                                subj = str(message.topic)
+                                pfx  = cmd_base + "/"
+                                if not subj.startswith(pfx):
+                                    continue
+                                raw = _parse_command_payload(message.payload)
+                                ok, info = await poller.write_command(subj[len(pfx):], raw)
+                                if ok:
+                                    _stats["commands"] += 1
+                                else:
+                                    _stats["errors"] += 1
+                                    print(f"[bridge] command rejected: {info}", flush=True)
+                        except Exception as e:
+                            print(f"[bridge] MQTT command loop ended: {e}", flush=True)
+
+                    cmd_task = asyncio.create_task(_mqtt_cmd_loop())
+                    print(f"[bridge] Command write-back subscribed on {cmd_base}/#", flush=True)
+
                 while not stop_event.is_set():
                     if not _stats["opc_ok"]:
                         try:
@@ -494,6 +628,9 @@ async def run_mqtt(cfg, stop_event: asyncio.Event):
                         print(f"[bridge] Poll error: {e}", flush=True)
                         _emit()
                         break
+
+                if cmd_task is not None:
+                    cmd_task.cancel()
 
         except Exception as e:
             _stats["connected"] = False
@@ -554,6 +691,54 @@ async def run_nats(cfg, stop_event: asyncio.Event):
 
     opc_ep = f"opc.tcp://{cfg['opc_host']}:{cfg['opc_port']}/freeopcua/server/"
     poller = AsyncOpcPoller(opc_ep, ".", cfg.get("topic_prefix", "").strip())
+
+    # ── Command write-back: subscribe to optimizer setpoint requests ──
+    # The optimizer publishes to  <command_prefix>.<uns.name.path>.<tag>  and the
+    # bridge writes the value into the matching OPC command node. Uses a distinct
+    # subject prefix from telemetry so the bridge never receives its own
+    # publishes (no feedback loop).
+    if bool(cfg.get("command_write", True)) and poller._cmd_entries:
+        cmd_base = _normalize_cmd_prefix(cfg.get("command_prefix", "cmd"), ".")
+
+        async def _on_command(msg):
+            # Works for both fire-and-forget publishes and request-reply: if the
+            # optimizer used nc.request(), NATS sets msg.reply and we return an
+            # immediate transport-level ack (accepted/rejected + value read back).
+            # The *control* decision (mode/limits/watchdog) is separate — the
+            # optimizer observes it on the loop's …/status telemetry tag.
+            reply = getattr(msg, "reply", "") or ""
+            try:
+                subj = msg.subject
+                pfx  = cmd_base + "."
+                if not subj.startswith(pfx):
+                    if reply:
+                        await nc.publish(reply, json.dumps(
+                            {"status": "rejected", "error": "subject outside command prefix"}).encode())
+                    return
+                raw = _parse_command_payload(msg.data)
+                ok, info = await poller.write_command(subj[len(pfx):], raw)
+                if ok:
+                    _stats["commands"] += 1
+                    if reply:
+                        await nc.publish(reply, json.dumps({"status": "accepted", **info}).encode())
+                else:
+                    _stats["errors"] += 1
+                    print(f"[bridge] command rejected: {info}", flush=True)
+                    if reply:
+                        await nc.publish(reply, json.dumps({"status": "rejected", "error": info}).encode())
+            except Exception as e:
+                print(f"[bridge] command handler error: {e}", flush=True)
+                if reply:
+                    try:
+                        await nc.publish(reply, json.dumps({"status": "error", "error": str(e)}).encode())
+                    except Exception:
+                        pass
+
+        try:
+            await nc.subscribe(f"{cmd_base}.>", cb=_on_command)
+            print(f"[bridge] Command write-back subscribed on {cmd_base}.>", flush=True)
+        except Exception as e:
+            print(f"[bridge] Command subscribe failed: {e}", flush=True)
 
     try:
         while not stop_event.is_set():

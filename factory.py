@@ -397,6 +397,293 @@ def _get_plant_state(plant_key: str, group: str) -> PlantState:
 
 
 # ================================================================
+# CONTROL LOOPS  (per-equipment setpoint → PV closed loop)
+# ================================================================
+# Topology (matches the request → controller → setpoint pattern):
+#   • An optimizer writes a *request* to a  …/cmd/<var>-request  tag (RW, held —
+#     the sim never overwrites it, so an externally written value persists).
+#   • This engine is the *controller*: each tick it ramps the *committed
+#     setpoint* (…/setpoint/<var>) toward the request at a bounded rate.
+#   • The measured *process value* (…/vfd/speed, …/pv, …) tracks the committed
+#     setpoint with first-order lag + small noise, and drops to zero when the
+#     equipment's plant is stopped or in fault.
+#   • Electrical PVs (power, current, frequency) and flow are *derived* from the
+#     PV using VFD affinity laws, so one speed setpoint drives a whole unit.
+#
+# A loop is declared purely through tag `simulation` blocks — no tag-name
+# matching. Every tag in a loop carries {"profile": "ctrl_*", "loop": "<id>"};
+# the authoritative parameters (min/max/rated/ramp/rated_power/…) live on the
+# ctrl_request tag's simulation block.
+class ControlLoop:
+    # cmd-status strings surfaced on the …/status writeback tag
+    ST_ACCEPTED = "Accepted"
+    ST_CLAMPED  = "Clamped"
+    ST_LOCAL    = "Local(HMI)"
+    ST_DISABLED = "OptimizerDisabled"
+    ST_STALE    = "StaleWatchdog"
+
+    def __init__(self, loop_id: str):
+        self.loop_id       = loop_id
+        self.plant_key     = None
+        self.request_var   = None        # OPC variable written by the optimizer
+        # ── Realistic PLC-HMI faceplate: optional handshake input variables ──
+        self.mode_var      = None        # operator mode  (0=Local/HMI, 1=Remote/optimizer)
+        self.enable_var    = None        # operator "Accept optimizer" permissive (Bool)
+        self.op_sp_var     = None        # operator local setpoint (the safe fallback)
+        self.lo_var        = None        # operator EU low limit
+        self.hi_var        = None        # operator EU high limit
+        self.hb_var        = None        # optimizer heartbeat counter (freshness)
+        # Parameters (overridable from the ctrl_request tag's simulation block)
+        self.kind             = "vfd_speed"
+        self.sp_min           = 0.0
+        self.sp_max           = 1500.0
+        self.rated            = 1500.0
+        self.ramp             = 30.0     # max change of committed SP per tick
+        self.lag              = 0.25     # PV first-order tracking factor
+        self.rated_power      = 0.0      # kW at rated PV (0 → no power PV)
+        self.rated_current    = 0.0      # A at rated PV
+        self.no_load_current  = 0.15     # fraction of rated current at zero load
+        self.rated_flow       = 0.0      # flow units at rated PV
+        self.default          = 1200.0
+        self.hb_timeout       = 5        # ticks the heartbeat may stall before "stale"
+        # Optical-sorter (kind="sensitivity") params
+        self.infeed_defect    = 8.0      # % defective / foreign material in the infeed
+        self.rated_throughput = 12.0     # t/h processed at nominal
+        # State
+        self._seeded = False
+        self.request = None
+        self.sp      = None
+        self.pv      = 0.0
+        self.acc_reject = 0.0            # accumulated reject mass (t) for sorters
+        # Handshake state / writeback outputs
+        self._last_hb    = None
+        self._hb_idle    = 0
+        self.watchdog_ok = True
+        self.status      = self.ST_ACCEPTED
+        self.source      = "Operator"
+
+    @staticmethod
+    def _clamp(v, lo, hi):
+        return max(lo, min(hi, v))
+
+    def configure(self, sim: dict):
+        g = sim.get
+        self.kind            = g("kind", self.kind)
+        self.sp_min          = float(g("min", self.sp_min))
+        self.sp_max          = float(g("max", self.sp_max))
+        self.rated           = float(g("rated", self.sp_max))
+        self.ramp            = float(g("ramp", max(1.0, (self.sp_max - self.sp_min) / 40.0)))
+        self.lag             = float(g("lag", self.lag))
+        self.rated_power     = float(g("rated_power", self.rated_power))
+        self.rated_current   = float(g("rated_current", self.rated_current))
+        self.no_load_current = float(g("no_load_current", self.no_load_current))
+        self.rated_flow      = float(g("rated_flow", self.rated_flow))
+        self.default         = float(g("default", self.rated * 0.8))
+        self.hb_timeout      = int(g("hb_timeout", self.hb_timeout))
+        self.infeed_defect   = float(g("infeed_defect", self.infeed_defect))
+        self.rated_throughput = float(g("rated_throughput", self.rated_throughput))
+
+    def _seed(self):
+        if not self._seeded:
+            if self.request is None:
+                self.request = self.default
+            if self.sp is None:
+                self.sp = self.default
+            self.pv = self.default
+            self._seeded = True
+
+    def handshake_vars(self) -> dict:
+        """Wired faceplate input variables, read live each tick (or {} if the
+        loop has no handshake — then the optimizer request is honoured directly)."""
+        return {k: v for k, v in (
+            ("mode", self.mode_var), ("enable", self.enable_var),
+            ("op_sp", self.op_sp_var), ("lo", self.lo_var),
+            ("hi", self.hi_var), ("hb", self.hb_var)) if v is not None}
+
+    def _resolve_target(self, hs: dict):
+        """Apply the PLC-HMI handshake: decide which setpoint actually drives the
+        loop (optimizer request vs operator SP) and set status/source. Returns the
+        target value before ramp/clamp-to-hard-range."""
+        has_hs = bool(self.mode_var or self.enable_var or self.hb_var)
+
+        # Operator EU limits (tighten, never widen, the absolute range)
+        lo = hs.get("lo"); hi = hs.get("hi")
+        eff_lo = self._clamp(float(lo), self.sp_min, self.sp_max) if lo is not None else self.sp_min
+        eff_hi = self._clamp(float(hi), self.sp_min, self.sp_max) if hi is not None else self.sp_max
+        if eff_lo > eff_hi:
+            eff_lo, eff_hi = eff_hi, eff_lo
+
+        # Watchdog: the heartbeat must advance within hb_timeout ticks
+        if self.hb_var is not None:
+            hb = hs.get("hb")
+            if hb is not None and hb != self._last_hb:
+                self._last_hb = hb
+                self._hb_idle = 0
+            else:
+                self._hb_idle += 1
+            self.watchdog_ok = self._hb_idle <= self.hb_timeout
+        else:
+            self.watchdog_ok = True
+
+        mode   = hs.get("mode")
+        enable = hs.get("enable")
+        op_sp  = hs.get("op_sp")
+
+        # Permissive chain: Remote mode AND operator-enabled AND fresh heartbeat
+        remote = True
+        status = self.ST_ACCEPTED
+        if has_hs:
+            if mode is not None and int(mode) < 1:
+                remote, status = False, self.ST_LOCAL
+            elif enable is not None and not bool(enable):
+                remote, status = False, self.ST_DISABLED
+            elif not self.watchdog_ok:
+                remote, status = False, self.ST_STALE
+
+        if remote and self.request is not None:
+            target, self.source = self.request, "Optimizer"
+        elif has_hs and op_sp is not None:
+            target, self.source = float(op_sp), "Operator"     # safe fallback SP
+        else:
+            target = self.request if self.request is not None else self.sp
+            self.source = "Optimizer" if not has_hs else "Operator"
+
+        clamped = self._clamp(target, eff_lo, eff_hi)
+        if remote and self.request is not None and abs(clamped - target) > 1e-6:
+            status = self.ST_CLAMPED
+        self.status = status
+        return clamped
+
+    def tick(self, request_value, running: bool, hs: dict = None):
+        """Advance the loop one tick. request_value is the live value read from the
+        OPC request variable; hs holds live faceplate inputs (mode/enable/…)."""
+        self._seed()
+        hs = hs or {}
+        if request_value is not None:
+            try:
+                self.request = self._clamp(float(request_value), self.sp_min, self.sp_max)
+            except (TypeError, ValueError):
+                pass
+
+        target = self._resolve_target(hs)
+
+        # Controller: ramp the committed setpoint toward the resolved target
+        # (bumpless — the ramp absorbs any source/mode switch).
+        step   = self._clamp(target - self.sp, -self.ramp, self.ramp)
+        self.sp = self._clamp(self.sp + step, self.sp_min, self.sp_max)
+
+        # Process value tracks the committed setpoint.
+        if not running:
+            self.pv = max(0.0, self.pv * 0.7)          # coast down when stopped/faulted
+        else:
+            noise   = random.gauss(0, max(self.sp_max * 0.0015, 0.01))
+            self.pv = self._clamp(self.pv + (self.sp - self.pv) * self.lag + noise,
+                                  0.0, self.sp_max * 1.08)
+            if self.kind == "sensitivity":
+                self.acc_reject += self.rated_throughput / 3600.0 * 1.2 * (self._reject_rate() / 100.0)
+
+    @property
+    def frac(self):
+        return self._clamp(self.pv / self.rated, 0.0, 1.2) if self.rated else 0.0
+
+    # ── Optical-sorter derivations (sensitivity → reject / escape trade-off) ──
+    def _detection(self):
+        return self.frac ** 0.45                        # concave: more sensitivity → more caught
+    def _false_reject(self):
+        return 0.4 + 12.0 * self.frac ** 2              # % good product wrongly ejected
+    def _reject_rate(self):
+        return self.infeed_defect * self._detection() + self._false_reject()
+    def _escape(self):
+        return self.infeed_defect * (1.0 - self._detection())   # % foreign material passing
+
+    def output(self, role: str):
+        """Value for a given ctrl_* role tag."""
+        f = self.frac
+        if role == "ctrl_request":
+            return round(self.request if self.request is not None else self.default, 2)
+        if role == "ctrl_setpoint":
+            return round(self.sp, 2)
+        if role == "ctrl_pv":
+            return round(self.pv, 2)
+        if role == "ctrl_power":       # VFD affinity: P ∝ speed³
+            return round(self.rated_power * (0.03 + 0.97 * f ** 3), 2)
+        if role == "ctrl_current":     # torque ∝ speed² for centrifugal load
+            return round(self.rated_current * (self.no_load_current +
+                         (1 - self.no_load_current) * f ** 2), 2)
+        if role == "ctrl_frequency":   # rated PV assumed to map to 50 Hz
+            return round(50.0 * f, 2)
+        if role == "ctrl_flow":
+            return round(self.rated_flow * f, 2)
+        if role == "ctrl_valve":
+            return round(self._clamp(f * 100.0, 0.0, 100.0), 2)
+        # ── Realistic faceplate writeback outputs ──
+        if role == "ctrl_watchdog":
+            return bool(self.watchdog_ok)
+        if role == "ctrl_status":
+            return str(self.status)
+        if role == "ctrl_source":
+            return str(self.source)
+        # ── Optical-sorter reject metrics ──
+        if role == "ctrl_reject_rate":
+            return round(self._reject_rate(), 2)
+        if role == "ctrl_escape":
+            return round(self._escape(), 3)
+        if role == "ctrl_yield":
+            return round(100.0 - self._reject_rate(), 2)
+        if role == "ctrl_reject_acc":
+            return round(self.acc_reject, 3)
+        if role == "ctrl_ejector":     # air-jet firings per second (indicative)
+            return round(self._reject_rate() * self.rated_throughput * 2.5, 1)
+        return round(self.pv, 2)
+
+
+def _loop_id_for(opc_path, sim: dict) -> str:
+    """Resolve a tag's control-loop id. An explicit simulation.loop groups tags
+    across sub-objects (…/cmd, …/setpoint, …/vfd). Without one, tags are grouped
+    by their parent node — so a drop-in asset whose control tags are flat under
+    one equipment node forms its own loop with no cross-instance collisions."""
+    lid = sim.get("loop")
+    if lid:
+        return str(lid)
+    return "@" + "/".join(opc_path[:-1])
+
+
+def _build_control_loops(variables: dict) -> dict:
+    """Scan the built OPC variable table and assemble the ControlLoop registry.
+
+    variables: {opc_path: (var, sim, plant_key, default, vt)}
+    """
+    # faceplate input roles → ControlLoop attribute that holds the OPC var ref
+    _INPUT_ROLE_ATTR = {
+        "ctrl_mode": "mode_var", "ctrl_enable": "enable_var",
+        "ctrl_sp_operator": "op_sp_var", "ctrl_sp_lo": "lo_var",
+        "ctrl_sp_hi": "hi_var", "ctrl_heartbeat": "hb_var",
+    }
+    loops = {}
+    for _opc_path, (var, sim, plant_key, _default, _vt) in variables.items():
+        profile = sim.get("profile", "")
+        if not isinstance(profile, str) or not profile.startswith("ctrl"):
+            continue
+        loop_id = _loop_id_for(_opc_path, sim)
+        loop = loops.get(loop_id)
+        if loop is None:
+            loop = ControlLoop(loop_id)
+            loops[loop_id] = loop
+        if plant_key:
+            loop.plant_key = plant_key
+        if profile == "ctrl_request":
+            loop.request_var = var
+            loop.configure(sim)
+        elif profile in _INPUT_ROLE_ATTR:
+            setattr(loop, _INPUT_ROLE_ATTR[profile], var)
+    if loops:
+        n_hs = sum(1 for l in loops.values() if l.handshake_vars())
+        print(f"[factory] Control loops ready — {len(loops)} closed loops "
+              f"({n_hs} with PLC-HMI handshake)")
+    return loops
+
+
+# ================================================================
 # PROFILE → VALUE  (pure profile dispatch, no tag names)
 # ================================================================
 def _profile_value(profile: str, ps: PlantState, sim: dict, current_value):
@@ -453,6 +740,13 @@ def _profile_value(profile: str, ps: PlantState, sim: dict, current_value):
 
     if p == "recipe":
         return ps.active_recipe if ps.active_recipe else ""
+
+    # Setpoint / command holds and closed-loop control profiles are resolved
+    # against the per-equipment ControlLoop registry in run_simulation(). If one
+    # is ever dispatched here without a loop, hold the current value rather than
+    # walking it — a setpoint must never drift on its own.
+    if p == "hold":               return current_value
+    if p.startswith("ctrl"):      return current_value
 
     # Legacy aliases
     if p == "percent":                return round(ps.quality, 2)
@@ -525,6 +819,32 @@ SIMULATION_PROFILES = {
     "compressed_air":        {"label": "Compressed Air (m³/h)",        "group": "Energy / Utilities"},
     "co2_kg":                {"label": "CO₂ Emissions (kg, acc.)",      "group": "Energy / Utilities"},
     "recipe":                {"label": "Active Recipe (string)",        "group": "Recipe"},
+    # ── Control / Setpoints (closed-loop; see ControlLoop) ──
+    "ctrl_request":          {"label": "SP Request (RW, optimizer)",    "group": "Control / Setpoints"},
+    "ctrl_setpoint":         {"label": "Committed Setpoint (actual)",   "group": "Control / Setpoints"},
+    "ctrl_pv":               {"label": "Process Value (tracks SP)",     "group": "Control / Setpoints"},
+    "ctrl_power":            {"label": "Derived Power (kW, VFD law)",   "group": "Control / Setpoints"},
+    "ctrl_current":          {"label": "Derived Motor Current (A)",     "group": "Control / Setpoints"},
+    "ctrl_frequency":        {"label": "Derived Output Frequency (Hz)", "group": "Control / Setpoints"},
+    "ctrl_flow":             {"label": "Derived Flow (tracks SP)",      "group": "Control / Setpoints"},
+    "ctrl_valve":            {"label": "Derived Valve Output (%)",      "group": "Control / Setpoints"},
+    # ── PLC-HMI handshake / faceplate (operator + optimizer command interface) ──
+    "ctrl_mode":             {"label": "Loop Mode (0=Local,1=Remote)",  "group": "Control / Handshake"},
+    "ctrl_enable":           {"label": "Accept-Optimizer Permissive",   "group": "Control / Handshake"},
+    "ctrl_sp_operator":      {"label": "Operator Setpoint (fallback)",  "group": "Control / Handshake"},
+    "ctrl_sp_lo":            {"label": "Operator SP Low Limit",         "group": "Control / Handshake"},
+    "ctrl_sp_hi":            {"label": "Operator SP High Limit",        "group": "Control / Handshake"},
+    "ctrl_heartbeat":        {"label": "Optimizer Heartbeat (RW)",      "group": "Control / Handshake"},
+    "ctrl_watchdog":         {"label": "Watchdog OK (bool)",            "group": "Control / Handshake"},
+    "ctrl_status":           {"label": "Command Status (writeback)",    "group": "Control / Handshake"},
+    "ctrl_source":           {"label": "Active SP Source",              "group": "Control / Handshake"},
+    # ── Optical sorter reject metrics ──
+    "ctrl_reject_rate":      {"label": "Reject Rate (%)",               "group": "Control / Sorter"},
+    "ctrl_escape":           {"label": "Foreign-Material Escape (%)",   "group": "Control / Sorter"},
+    "ctrl_yield":            {"label": "Yield / Accept Rate (%)",       "group": "Control / Sorter"},
+    "ctrl_reject_acc":       {"label": "Reject Mass (t, acc.)",         "group": "Control / Sorter"},
+    "ctrl_ejector":          {"label": "Ejector Firings (/s)",          "group": "Control / Sorter"},
+    "hold":                  {"label": "Hold last written value (SP)",  "group": "Control / Setpoints"},
     "default":               {"label": "Generic Walk (fallback)",       "group": "Other"},
 }
 
@@ -609,15 +929,34 @@ async def _create_dynamic_address_space(server, idx, enterprise_obj):
             else:
                 default, vt = 0.0,   ua.VariantType.Double
 
-            var = await current.add_variable(idx, target_opc[-1], ua.Variant(default, vt))
-            if str(tag.get('access', 'R')).upper() == 'RW':
-                await var.set_writable()
-
             sim = tag.get('simulation')
             if not sim or not isinstance(sim, dict):
                 sim = {"profile": "default"}
             elif "profile" not in sim:
                 sim["profile"] = "default"
+
+            # Seed the initial value. Control/hold tags (setpoints, requests)
+            # start at their configured default so an optimizer connecting later
+            # reads a sensible value — and, being held, it persists thereafter.
+            init_val = default
+            if "default" in sim:
+                raw_def = sim["default"]
+                try:
+                    if vt in (ua.VariantType.Float, ua.VariantType.Double):
+                        init_val = float(raw_def)
+                    elif vt in (ua.VariantType.Int16, ua.VariantType.Int32, ua.VariantType.Int64,
+                                ua.VariantType.UInt16, ua.VariantType.UInt32, ua.VariantType.UInt64):
+                        init_val = int(round(float(raw_def)))
+                    elif vt == ua.VariantType.Boolean:
+                        init_val = raw_def in (True, 1, "1", "true", "True", "on", "yes")
+                    elif vt == ua.VariantType.String:
+                        init_val = str(raw_def)
+                except (TypeError, ValueError):
+                    init_val = default
+
+            var = await current.add_variable(idx, target_opc[-1], ua.Variant(init_val, vt))
+            if str(tag.get('access', 'R')).upper() == 'RW':
+                await var.set_writable()
 
             variables[tuple(target_opc)] = (var, sim, new_plant_key, default, vt)
             anomaly_key_map["".join(target_opc)] = var
@@ -635,7 +974,9 @@ async def _create_dynamic_address_space(server, idx, enterprise_obj):
 # ================================================================
 # MAIN SIMULATION LOOP
 # ================================================================
-async def run_simulation(variables, anomaly_key_map, stop_event: asyncio.Event):
+async def run_simulation(variables, anomaly_key_map, stop_event: asyncio.Event, control_loops: dict = None):
+    control_loops = control_loops or {}
+
     def _group_from_key(pk: str) -> str:
         return pk.split("|")[0] if pk and "|" in pk else ""
 
@@ -654,6 +995,40 @@ async def run_simulation(variables, anomaly_key_map, stop_event: asyncio.Event):
             ps = _get_plant_state(pk, _group_from_key(pk))
             ps.tick(running, plant_data)
 
+        # ── Control-loop pre-pass ──────────────────────────────────────────────
+        # Runs after plant states so a loop can honour its plant's run/fault
+        # state, and before the OPC writes so setpoints/PVs are up to date. Reads
+        # the live request value the optimizer last published into each OPC
+        # request variable, then advances the controller and process value.
+        for loop in control_loops.values():
+            pk = loop.plant_key
+            loop_running = bool(simulator_running)
+            if loop_running and pk:
+                pd = sim_state.get(pk, {})
+                if isinstance(pd, bool):
+                    pd = {'running': pd}
+                ps = _get_plant_state(pk, _group_from_key(pk))
+                loop_running = bool(pd.get('running', False)) and \
+                    ps.state in (PlantState.RUNNING, PlantState.RECOVERY)
+            elif not pk:
+                loop_running = bool(simulator_running)
+            req = None
+            if loop.request_var is not None:
+                try:
+                    req = await loop.request_var.read_value()
+                except Exception:
+                    req = None
+            # Read the live faceplate inputs (mode/enable/operator-SP/limits/
+            # heartbeat) the operator (HMI) and optimizer own, so the handshake
+            # decides which setpoint actually drives the loop this tick.
+            hs = {}
+            for _k, _v in loop.handshake_vars().items():
+                try:
+                    hs[_k] = await _v.read_value()
+                except Exception:
+                    hs[_k] = None
+            loop.tick(req, loop_running, hs)
+
         # Snapshot anomaly overrides once per tick to avoid holding the lock during OPC writes
         async with _anomaly_lock:
             overrides_snapshot = dict(anomaly_overrides)
@@ -668,9 +1043,24 @@ async def run_simulation(variables, anomaly_key_map, stop_event: asyncio.Event):
                     continue
 
                 profile = sim.get("profile", "default")
-                ps      = _get_plant_state(plant_key, _group_from_key(plant_key)) if plant_key \
+
+                # Setpoint / command holds and faceplate inputs: never overwrite.
+                # These are owned by the external writer (optimizer request,
+                # heartbeat) or the operator (mode/enable/operator-SP/limits) and
+                # persist in the OPC node between ticks.
+                if profile in ("ctrl_request", "hold", "ctrl_mode", "ctrl_enable",
+                               "ctrl_sp_operator", "ctrl_sp_lo", "ctrl_sp_hi",
+                               "ctrl_heartbeat"):
+                    continue
+
+                # Closed-loop control tags read from the ControlLoop registry.
+                if isinstance(profile, str) and profile.startswith("ctrl"):
+                    loop = control_loops.get(_loop_id_for(opc_path, sim))
+                    val  = loop.output(profile) if loop is not None else default
+                else:
+                    ps  = _get_plant_state(plant_key, _group_from_key(plant_key)) if plant_key \
                           else PlantState("__global__", "")
-                val     = _profile_value(profile, ps, sim, default)
+                    val = _profile_value(profile, ps, sim, default)
 
                 if vt == ua.VariantType.Boolean:
                     await var.write_value(bool(val))
@@ -751,6 +1141,7 @@ async def main():
     enterprise_obj  = await objects.add_object(idx, enterprise_name)
 
     variables, anomaly_key_map = await _create_dynamic_address_space(server, idx, enterprise_obj)
+    control_loops = _build_control_loops(variables)
 
     tcp_server = await asyncio.start_server(handle_client, TCP_SERVER_IP, TCP_SERVER_PORT)
     print(f"[factory] Anomaly TCP server listening on {TCP_SERVER_IP}:{TCP_SERVER_PORT}")
@@ -759,7 +1150,7 @@ async def main():
     print(f"[factory] OPC UA Server listening on {BIND_ENDPOINT} (advertising {ADVERTISED_ENDPOINT}, root: {enterprise_name})")
     await asyncio.sleep(1.5)
 
-    sim_task = asyncio.create_task(run_simulation(variables, anomaly_key_map, stop_event))
+    sim_task = asyncio.create_task(run_simulation(variables, anomaly_key_map, stop_event, control_loops))
 
     print("=" * 70)
     print("    UNS Design Studio  |  github.com/Ilja0101")

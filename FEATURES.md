@@ -209,15 +209,45 @@ Real-time view of all MQTT/NATS messages flowing from the bridge.
 | ERP / Finance | `erp_order_id`, `production_cost_eur`, `waste_cost_eur`, `revenue_eur`, `margin_pct` |
 | Energy / Utilities | `power_kw`, `steam_flow`, `compressed_air`, `co2_kg` |
 | Recipe | `recipe` — publishes the active recipe string |
+| Control / Setpoints | `ctrl_request`, `ctrl_setpoint`, `ctrl_pv`, `ctrl_power`, `ctrl_current`, `ctrl_frequency`, `ctrl_flow`, `ctrl_valve`, `hold` |
+| Control / Handshake | `ctrl_mode`, `ctrl_enable`, `ctrl_sp_operator`, `ctrl_sp_lo`, `ctrl_sp_hi`, `ctrl_heartbeat`, `ctrl_watchdog`, `ctrl_status`, `ctrl_source` |
+| Control / Sorter | `ctrl_reject_rate`, `ctrl_escape`, `ctrl_yield`, `ctrl_reject_acc`, `ctrl_ejector` |
 | Other | `default` — generic Gaussian walk with configurable min/max/std |
 
 All profiles are plant-state-aware. Values change coherently when a plant faults, recovers or stops.
+
+### Closed-loop control & setpoints
+
+The `ctrl_*` profiles turn a group of tags into a **per-equipment control loop** for
+Industrial-AI setpoint optimization. An optimizer publishes a **request** to a
+writable `qualifier: command` tag (`ctrl_request`); the engine (the controller)
+ramps the **committed setpoint** (`ctrl_setpoint`) toward it and the **process
+value** (`ctrl_pv`) tracks the setpoint, with current / power / frequency / flow
+derived via VFD affinity laws. `hold` keeps a manually written setpoint from
+drifting. Tags with an explicit `simulation.loop` id group across `cmd`/`setpoint`/`vfd`
+sub-nodes; otherwise they group by their parent node. Requests reach OPC-UA through
+the bridge's command write-back. Full guide: [docs/SETPOINT_OPTIMIZATION.md](docs/SETPOINT_OPTIMIZATION.md).
+
+**Realistic PLC-HMI handshake.** The `Control / Handshake` profiles model a real
+remote-setpoint loop: the optimizer's request is honoured only in **Remote** mode
+(`ctrl_mode`), with the operator **permissive** on (`ctrl_enable`), and while the
+optimizer's **heartbeat** (`ctrl_heartbeat`) stays fresh — otherwise a **watchdog**
+reverts the loop to the operator's fallback setpoint (`ctrl_sp_operator`), clamped to
+operator EU limits (`ctrl_sp_lo`/`ctrl_sp_hi`). The controller publishes a writeback
+`ctrl_status` (Accepted / Clamped / Local(HMI) / OptimizerDisabled / StaleWatchdog) and
+`ctrl_source`. Over NATS the bridge also answers `nc.request()` with an immediate ack.
+Rationale and the pub/sub-vs-PLC comparison: [docs/REALISTIC_CONTROL_ARCHITECTURE.md](docs/REALISTIC_CONTROL_ARCHITECTURE.md).
+
+**Optical sorters & rejects.** The `Control / Sorter` profiles model a sensitivity loop
+where detection sensitivity trades **reject rate / yield loss** (`ctrl_reject_rate`,
+`ctrl_yield`) against **foreign-material escape** (`ctrl_escape`) — a real optimization
+target — plus reject-mass accumulation and ejector firing rate.
 
 ---
 
 ## Asset Library
 
-16 predefined asset bundles insertable from the UNS designer in one click. Each bundle includes pre-wired simulation profiles, data types and units.
+Predefined asset bundles insertable from the UNS designer in one click. Each bundle includes pre-wired simulation profiles, data types and units. The **Control Modules** bundles below carry full request/setpoint/PV control loops (drop one per equipment node).
 
 | Asset | Tags | Category |
 |---|---|---|
@@ -237,6 +267,14 @@ All profiles are plant-state-aware. Values change coherently when a plant faults
 | Fryer / Pre-Fryer | 9 | Process Equipment |
 | Drum Dryer | 9 | Process Equipment |
 | Crystallizer / Evaporator | 8 | Process Equipment |
+| VFD / Variable Speed Drive | 10 | Control Modules |
+| VFD-Driven Pump (closed loop) | 15 | Control Modules |
+| Decanter Centrifuge (VFD) | 12 | Control Modules |
+| Screw Loader / Feeder (VFD) | 9 | Control Modules |
+| Silo with Level Control | 9 | Control Modules |
+| Flow Control Loop (FIC + FCV) | 5 | Control Modules |
+| Temperature Control Loop (TIC + steam valve) | 5 | Control Modules |
+| Optical Sorter (sensitivity loop + reject) | 22 | Control Modules |
 
 To add a custom asset: add an entry to `asset_library.json` — it appears in the picker immediately on next page load.
 
@@ -273,15 +311,20 @@ All persistent configuration lives in JSON files — no hardcoded data in source
 
 ```json
 {
-  "protocol":     "mqtt",
-  "broker_host":  "127.0.0.1",
-  "broker_port":  1883,
-  "topic_prefix": "",
-  "interval":     2
+  "protocol":       "mqtt",
+  "broker_host":    "127.0.0.1",
+  "broker_port":    1883,
+  "topic_prefix":   "",
+  "interval":       2,
+  "command_write":  true,
+  "command_prefix": "cmd"
 }
 ```
 
 > Set `protocol` to `"nats"` and `broker_port` to `4222` for NATS native mode.
+> `command_write` enables setpoint write-back: the bridge subscribes to
+> `<command_prefix>/…` (MQTT) / `<command_prefix>.…` (NATS) and writes incoming
+> values to the matching OPC-UA command tag. See [docs/SETPOINT_OPTIMIZATION.md](docs/SETPOINT_OPTIMIZATION.md).
 
 ### Persistent Docker volume
 

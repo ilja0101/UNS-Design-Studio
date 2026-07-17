@@ -1390,7 +1390,8 @@ async def api_bridge_cfg_save():
     data = await request.get_json() or {}
     cfg  = _load_bridge_cfg()
     for key in ('protocol', 'broker_host', 'broker_port', 'topic_prefix',
-                'interval', 'username', 'password'):
+                'interval', 'username', 'password',
+                'command_write', 'command_prefix'):
         if key in data:
             cfg[key] = data[key]
     if 'broker_host' in cfg:

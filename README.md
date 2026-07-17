@@ -35,6 +35,7 @@ UNS Design Studio lets you model an industrial enterprise, generate realistic pl
 - Visual ISA-95 / UNS tree designer backed by `uns_config.json`.
 - Dynamic OPC-UA server generated from the configured UNS.
 - OPC-UA → MQTT/NATS bridge with configurable broker, topic prefix, interval, and payload schemas.
+- Closed-loop **setpoints & command tags** for Industrial-AI optimization — an optimizer publishes a setpoint request, the bridge writes it back to OPC-UA (pub/sub or NATS request-reply), and per-equipment control loops ramp the committed setpoint while PVs (RPM, current, power, flow) track it. A realistic **PLC-HMI handshake** (operator mode + permissive, EU limits, optimizer heartbeat/watchdog, command-status writeback) keeps the operator in control and fails safe on comms loss. Includes **optical sorters** with a sensitivity↔reject-rate trade-off. See [docs/SETPOINT_OPTIMIZATION.md](docs/SETPOINT_OPTIMIZATION.md) and [docs/REALISTIC_CONTROL_ARCHITECTURE.md](docs/REALISTIC_CONTROL_ARCHITECTURE.md).
 - Live UNS viewer for real-time topic inspection in the browser.
 - Built-in Mosquitto MQTT broker and MQTT Explorer — no external broker needed.
 - Asset library, importable enterprise templates, and configurable simulation profiles.
