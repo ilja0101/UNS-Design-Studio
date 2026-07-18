@@ -3,6 +3,47 @@
 All notable changes to UNS Design Studio are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased] — 2026-07-18
+
+### Added
+
+- **PLC Simulators — simulate raw PLC/Kepware datasources as standalone
+  OPC-UA servers.** For testing PLC → UNS (NATS) → SCADA integration paths and
+  AI-driven tag mapping (UNS-Protocol-Converter), the studio can now run N
+  extra OPC-UA servers, each serving an imported PLC tag catalog with live
+  simulated values.
+  - `tools/import_plc_catalog.py` — converts a browsed catalog export from
+    UNS-Protocol-Converter (`catalog_<source>.json` / `/api/catalog` /
+    `catalog.csv`) **or** a native Kepware export (JSON project or per-device
+    tag CSV) into a Design Studio config. Formats are auto-detected; multiple
+    files merge into one tree. Sim profiles are chosen from tag name + datatype
+    (Kepware scaling limits feed sim min/max), writable tags become held
+    RW command tags, and repeated structures are stamped `udtType` — ground
+    truth for mapping evaluation.
+  - `factory.py` — `UDS_CONFIG`, `UDS_OPC_PORT`, `UDS_TCP_PORT` env overrides
+    so one binary can serve any config on any port (N PLCs = N processes).
+  - `app.py` — PLC instance manager: registry (`plc_instances.json` +
+    `plc_configs/`), `GET /api/plc/instances`, `POST /api/plc/import`,
+    `POST /api/plc/<id>/start|stop`, `PATCH`/`DELETE /api/plc/<id>`,
+    per-instance autostart, dashboard-shutdown cleanup.
+  - UI — new **PLC Simulators** page (`/plc`): instance cards with endpoint
+    (copy-to-clipboard), tag/UDT counts, Start/Stop/Delete, autostart toggle,
+    and an import modal (browse one or more export files, optional name/port).
+  - `docker-compose.plc-lab.yml` — lab stack: UNS-mode studio + standalone
+    PLC sim containers + NATS.
+  - Tests: `tests/test_import_plc_catalog.py` (24 tests — format parsing,
+    tree equivalence across formats, UDT detection, id uniqueness, scaling,
+    OPC-UA NodeId datatypes, system-node filtering, writable-PV vs setpoint).
+  - Hardened against real exports: native Kepware CSV structure is read from
+    the **Address** column (real Tag Names are flat leaves); browsed catalogs
+    report datatypes as **OPC-UA NodeIds** (`i=1` Boolean … `i=10` Float, with
+    custom/structured `ns=…;s=…` types → inert String); the OPC-UA `Objects`
+    root and Kepware server/diagnostic branches (`Server`, `Aliases`,
+    `_Statistics`/`_System`, …) are dropped; multi-source catalogs group by
+    `source_id`. Writability no longer freezes a tag — only setpoint/command-
+    named tags `hold`; writable process values keep simulating (like a real
+    PLC PV). Verified against ~130k-tag real Kepware/converter exports.
+
 ## [Unreleased] — 2026-07-17
 
 ### Fixed

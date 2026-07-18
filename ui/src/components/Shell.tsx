@@ -13,6 +13,7 @@ import {
   User,
   Tag,
   Sparkles,
+  Cpu,
 } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { ShiftBadge } from "./ShiftBadge";
@@ -91,6 +92,7 @@ const design = [
   { to: "/payload-schemas", label: "Payload Schemas", icon: FileJson },
   { to: "/live", label: "Live UNS View", icon: Radio },
   { to: "/viz", label: "Visualization", icon: LayoutDashboard },
+  { to: "/plc", label: "PLC Simulators", icon: Cpu },
   { to: "/manual", label: "User Manual", icon: BookOpen },
 ];
 

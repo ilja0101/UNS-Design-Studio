@@ -1,0 +1,75 @@
+# PLC → UNS → SCADA integration lab
+#
+# One UNS Design Studio dashboard (UNS mode) plus standalone simulated PLCs —
+# each PLC is the same image running only factory.py against an imported
+# catalog config (tools/import_plc_catalog.py output). Point UNS-Protocol-
+# Converter (or any OPC-UA client / SCADA) at the plc-* endpoints to test
+# browse + AI mapping against a raw Kepware-shaped address space.
+#
+#   docker compose -f docker-compose.plc-lab.yml up -d
+#
+# Prereq: put your imported configs in ./plc_configs (e.g.
+#   python tools/import_plc_catalog.py catalog_kepware-1.json --name Kepware-Line3)
+#
+# NOTE: PLC instances can also be created and started from the dashboard UI
+# ("PLC Simulators" page) inside the single uns-simulator container — this lab
+# file is for when you want them as separate containers/endpoints instead.
+
+services:
+
+  uns-simulator:
+    build: .
+    image: ${UNS_LOCAL_IMAGE:-uns-design-studio:latest}
+    container_name: uns-design-studio
+    restart: unless-stopped
+    ports:
+      - "5000:5000" # dashboard →  http://localhost:5000
+      - "4840:4840" # OPC-UA (UNS mode)
+      - "9999:9999" # anomaly TCP
+    volumes:
+      - uns-design-studio-data:/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      - UDS_AUTOSTART=1
+
+  plc-a:
+    image: ${UNS_LOCAL_IMAGE:-uns-design-studio:latest}
+    container_name: plc-sim-a
+    restart: unless-stopped
+    command: python factory.py
+    ports:
+      - "4841:4841" # opc.tcp://localhost:4841/freeopcua/server/
+    volumes:
+      - ./plc_configs:/data/plc_configs:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - UDS_CONFIG=/data/plc_configs/plc-a.json
+      - UDS_OPC_PORT=4841
+      - UDS_TCP_PORT=9841
+
+  plc-b:
+    image: ${UNS_LOCAL_IMAGE:-uns-design-studio:latest}
+    container_name: plc-sim-b
+    restart: unless-stopped
+    command: python factory.py
+    ports:
+      - "4842:4842" # opc.tcp://localhost:4842/freeopcua/server/
+    volumes:
+      - ./plc_configs:/data/plc_configs:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - UDS_CONFIG=/data/plc_configs/plc-b.json
+      - UDS_OPC_PORT=4842
+      - UDS_TCP_PORT=9842
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: plc-lab-nats
+    restart: unless-stopped
+    command: ["-js"]
+    ports:
+      - "4222:4222"
+
+volumes:
+  uns-design-studio-data:
+    name: uns-design-studio-data

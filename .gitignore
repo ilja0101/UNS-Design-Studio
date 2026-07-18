@@ -255,3 +255,7 @@ example_UNS_jsons_to_import/RoyalFarmersCollective_UNS_Import.json
 # React UI build output (built by Dockerfile multi-stage / npm run build)
 /static/spa/
 ui/node_modules/
+
+# PLC simulator runtime state (created by the dashboard on native runs)
+plc_instances.json
+/plc_configs/

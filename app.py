@@ -708,6 +708,11 @@ async def _dashboard_shutdown():
         await stop_bridge()
     except Exception:
         pass
+    for _iid in list(_plc_procs.keys()):
+        try:
+            await stop_plc_instance(_iid)
+        except Exception:
+            pass
     try:
         await stop_factory_server()
     except Exception:
@@ -718,8 +723,8 @@ async def _dashboard_shutdown():
 
 def _install_shutdown_handlers():
     def _sync_shutdown():
-        for key in ('bridge_proc', 'server_proc'):
-            p = _state.get(key)
+        procs = [_state.get('bridge_proc'), _state.get('server_proc')] + list(_plc_procs.values())
+        for p in procs:
             if p is not None and p.returncode is None:
                 try:
                     p.terminate()
@@ -965,6 +970,7 @@ async def startup():
     asyncio.create_task(_periodic_sync_loop(interval=10))
     asyncio.create_task(_poll_loop())
     asyncio.create_task(_shift_loop())
+    asyncio.create_task(_autostart_plc_instances())
     if os.environ.get('UDS_AUTOSTART', '').strip().lower() in ('1', 'true', 'yes', 'on'):
         _log('[autostart] enabled — bringing the sim pipeline up on boot')
         asyncio.create_task(_autostart_pipeline())
@@ -1402,6 +1408,235 @@ async def api_bridge_cfg_save():
         ok, msg = await start_bridge()
         return jsonify({'ok': ok, 'restarted': True, 'msg': msg})
     return jsonify({'ok': True, 'restarted': False})
+
+# ── PLC Simulators ─────────────────────────────────────────────────────────────
+# N extra factory.py processes, each serving an imported PLC/Kepware catalog as
+# its own OPC-UA server (UDS_CONFIG / UDS_OPC_PORT / UDS_TCP_PORT env overrides).
+PLC_CONFIG_DIR    = os.path.join(DATA_DIR, 'plc_configs')
+PLC_REGISTRY_FILE = os.path.join(DATA_DIR, 'plc_instances.json')
+PLC_PORT_BASE     = int(os.environ.get('UDS_PLC_PORT_BASE', '4841'))
+
+_plc_procs: dict = {}   # instance id -> asyncio subprocess
+_locks['plc'] = asyncio.Lock()
+
+def _load_plc_registry() -> list:
+    data = load_json(PLC_REGISTRY_FILE, [], logger=_json_log, label='plc_instances.json')
+    return data if isinstance(data, list) else []
+
+def _save_plc_registry(items: list):
+    if not save_json_atomic(PLC_REGISTRY_FILE, items, ensure_ascii=False, logger=_json_log, label='plc_instances.json'):
+        raise OSError(f"Could not write {PLC_REGISTRY_FILE}")
+
+def _plc_find(items: list, iid: str):
+    return next((i for i in items if i.get('id') == iid), None)
+
+def _plc_alive(iid: str) -> bool:
+    p = _plc_procs.get(iid)
+    return p is not None and p.returncode is None
+
+def _plc_next_port(items: list) -> int:
+    used = {int(_state['opc_port'])} | {int(i.get('port', 0)) for i in items}
+    port = PLC_PORT_BASE
+    while port in used:
+        port += 1
+    return port
+
+def _plc_view(inst: dict) -> dict:
+    host = _normalize_connect_host(_state['opc_host'])
+    return {**inst,
+            'running': _plc_alive(inst['id']),
+            'endpoint': f"opc.tcp://{host}:{inst.get('port')}/freeopcua/server/"}
+
+async def _plc_port_open(port: int, timeout: float = 0.25) -> bool:
+    try:
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection('127.0.0.1', int(port)), timeout=timeout)
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except Exception:
+            pass
+        return True
+    except Exception:
+        return False
+
+async def _capture_plc_output(name: str, proc):
+    try:
+        while True:
+            line = await proc.stdout.readline()
+            if not line:
+                break
+            _log(f"[plc:{name}] {line.decode('utf-8', errors='replace').rstrip()}")
+    except Exception:
+        pass
+
+async def start_plc_instance(iid: str):
+    async with _locks['plc']:
+        items = _load_plc_registry()
+        inst = _plc_find(items, iid)
+        if inst is None:
+            return False, "Unknown PLC instance"
+        if _plc_alive(iid):
+            return False, "PLC simulator is already running"
+        port = int(inst['port'])
+        if await _plc_port_open(port):
+            return False, f"Port {port} is already in use"
+        cfg_path = os.path.join(PLC_CONFIG_DIR, inst['configFile'])
+        if not os.path.exists(cfg_path):
+            return False, f"Config not found: {inst['configFile']}"
+        env = {**os.environ,
+               'UDS_CONFIG':   cfg_path,
+               'UDS_OPC_PORT': str(port),
+               'UDS_TCP_PORT': str(int(inst.get('tcpPort') or port + 5000))}
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, os.path.join(BASE_DIR, 'factory.py'),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+                cwd=BASE_DIR, env=env,
+            )
+            _plc_procs[iid] = proc
+            asyncio.create_task(_capture_plc_output(inst.get('name', iid), proc))
+        except Exception as e:
+            return False, str(e)
+        # wait for the OPC-UA port (imported catalogs are big; give it time)
+        deadline = time.monotonic() + SERVER_START_TIMEOUT_SECONDS
+        while time.monotonic() < deadline:
+            if proc.returncode is not None:
+                _plc_procs.pop(iid, None)
+                return False, f"PLC simulator exited with code {proc.returncode} — check dashboard logs"
+            if await _plc_port_open(port):
+                _log(f"[plc:{inst.get('name', iid)}] OPC-UA server up on port {port}")
+                return True, f"PLC simulator running on port {port}"
+            await asyncio.sleep(0.5)
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+        _plc_procs.pop(iid, None)
+        return False, "PLC simulator did not open its OPC-UA port in time"
+
+async def stop_plc_instance(iid: str):
+    async with _locks['plc']:
+        proc = _plc_procs.get(iid)
+        if proc is None or proc.returncode is not None:
+            _plc_procs.pop(iid, None)
+            return True, "PLC simulator was not running"
+        try:
+            proc.terminate()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=6)
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+        except Exception:
+            pass
+        _plc_procs.pop(iid, None)
+        return True, "PLC simulator stopped"
+
+@app.route('/api/plc/instances', methods=['GET'])
+async def api_plc_instances():
+    return jsonify([_plc_view(i) for i in _load_plc_registry()])
+
+@app.route('/api/plc/import', methods=['POST'])
+async def api_plc_import():
+    """Create an instance from uploaded export text(s).
+
+    Body: {name, port?, autostart?, files: [{filename, content}]}
+    Accepts converter catalog JSON/CSV and native Kepware JSON/CSV exports.
+    """
+    data = await request.get_json() or {}
+    name  = (data.get('name') or '').strip() or 'PLC-Sim'
+    files = data.get('files') or []
+    if not files:
+        return jsonify({'ok': False, 'msg': 'No export files provided'}), 400
+    sys.path.insert(0, os.path.join(BASE_DIR, 'tools'))
+    try:
+        from import_plc_catalog import import_payloads, _slug
+        cfg, summary = import_payloads(
+            [(f.get('filename', 'export'), f.get('content', '')) for f in files],
+            name=name)
+    except Exception as e:
+        return jsonify({'ok': False, 'msg': f'Import failed: {e}'}), 400
+
+    items = _load_plc_registry()
+    iid = _slug(name)
+    if _plc_find(items, iid):
+        n = 2
+        while _plc_find(items, f"{iid}-{n}"):
+            n += 1
+        iid = f"{iid}-{n}"
+    port = int(data.get('port') or _plc_next_port(items))
+    if any(int(i.get('port', 0)) == port for i in items) or port == int(_state['opc_port']):
+        return jsonify({'ok': False, 'msg': f'Port {port} is already assigned'}), 400
+
+    os.makedirs(PLC_CONFIG_DIR, exist_ok=True)
+    cfg_file = f"{iid}.json"
+    if not save_json_atomic(os.path.join(PLC_CONFIG_DIR, cfg_file), cfg,
+                            ensure_ascii=False, logger=_json_log, label=cfg_file):
+        return jsonify({'ok': False, 'msg': 'Could not write PLC config'}), 500
+
+    inst = {'id': iid, 'name': name, 'configFile': cfg_file, 'port': port,
+            'tcpPort': port + 5000, 'autostart': bool(data.get('autostart')),
+            'nodes': summary['nodes'], 'tags': summary['tags'],
+            'udtInstances': summary['udt_nodes'],
+            'createdAt': datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')}
+    items.append(inst)
+    _save_plc_registry(items)
+    _log(f"[plc:{name}] imported — {summary['tags']} tags / {summary['nodes']} nodes on port {port}")
+    return jsonify({'ok': True, 'instance': _plc_view(inst), 'summary': summary})
+
+@app.route('/api/plc/<iid>/start', methods=['POST'])
+async def api_plc_start(iid):
+    ok, msg = await start_plc_instance(iid)
+    return jsonify({'ok': ok, 'msg': msg})
+
+@app.route('/api/plc/<iid>/stop', methods=['POST'])
+async def api_plc_stop(iid):
+    ok, msg = await stop_plc_instance(iid)
+    return jsonify({'ok': ok, 'msg': msg})
+
+@app.route('/api/plc/<iid>', methods=['DELETE'])
+async def api_plc_delete(iid):
+    await stop_plc_instance(iid)
+    items = _load_plc_registry()
+    inst = _plc_find(items, iid)
+    if inst is None:
+        return jsonify({'ok': False, 'msg': 'Unknown PLC instance'}), 404
+    items.remove(inst)
+    _save_plc_registry(items)
+    try:
+        os.remove(os.path.join(PLC_CONFIG_DIR, inst['configFile']))
+    except OSError:
+        pass
+    return jsonify({'ok': True})
+
+@app.route('/api/plc/<iid>', methods=['PATCH'])
+async def api_plc_patch(iid):
+    data = await request.get_json() or {}
+    items = _load_plc_registry()
+    inst = _plc_find(items, iid)
+    if inst is None:
+        return jsonify({'ok': False, 'msg': 'Unknown PLC instance'}), 404
+    if 'name' in data and str(data['name']).strip():
+        inst['name'] = str(data['name']).strip()
+    if 'autostart' in data:
+        inst['autostart'] = bool(data['autostart'])
+    if 'port' in data:
+        port = int(data['port'])
+        if any(i is not inst and int(i.get('port', 0)) == port for i in items) \
+                or port == int(_state['opc_port']):
+            return jsonify({'ok': False, 'msg': f'Port {port} is already assigned'}), 400
+        inst['port'] = port
+        inst['tcpPort'] = port + 5000
+    _save_plc_registry(items)
+    return jsonify({'ok': True, 'instance': _plc_view(inst)})
+
+async def _autostart_plc_instances():
+    for inst in _load_plc_registry():
+        if inst.get('autostart'):
+            ok, msg = await start_plc_instance(inst['id'])
+            _log(f"[plc:{inst.get('name')}] autostart → {msg}")
 
 # ── Asset Library ──────────────────────────────────────────────────────────────
 ASSET_LIBRARY_FILE = os.path.join(DATA_DIR, 'asset_library.json')

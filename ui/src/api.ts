@@ -71,6 +71,29 @@ export const api = {
   serverConfigSave: (cfg: Partial<ServerConfig>) =>
     req<ServerConfig>("/api/server-config", { method: "POST", body: JSON.stringify(cfg) }),
 
+  plcInstances: () => req<PlcInstance[]>("/api/plc/instances"),
+  plcImport: (body: {
+    name: string;
+    port?: number;
+    autostart?: boolean;
+    files: Array<{ filename: string; content: string }>;
+  }) =>
+    req<{ ok: boolean; msg?: string; instance?: PlcInstance; summary?: PlcImportSummary }>(
+      "/api/plc/import",
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  plcStart: (id: string) =>
+    req<{ ok: boolean; msg: string }>(`/api/plc/${encodeURIComponent(id)}/start`, { method: "POST", body: "{}" }),
+  plcStop: (id: string) =>
+    req<{ ok: boolean; msg: string }>(`/api/plc/${encodeURIComponent(id)}/stop`, { method: "POST", body: "{}" }),
+  plcDelete: (id: string) =>
+    req<{ ok: boolean }>(`/api/plc/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  plcPatch: (id: string, patch: { name?: string; port?: number; autostart?: boolean }) =>
+    req<{ ok: boolean; msg?: string; instance?: PlcInstance }>(`/api/plc/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
   bridgeConfig: () => req<BridgeConfig>("/api/bridge/config"),
   bridgeConfigSave: (cfg: Partial<BridgeConfig> & { password?: string }) =>
     req<{ ok?: boolean } & BridgeConfig>("/api/bridge/config", {
@@ -196,6 +219,30 @@ export interface ServerConfig {
   opc_client_host: string;
   tcp_port: number;
   host_ip: string;
+}
+export interface PlcInstance {
+  id: string;
+  name: string;
+  configFile: string;
+  port: number;
+  tcpPort: number;
+  autostart: boolean;
+  nodes: number;
+  tags: number;
+  udtInstances: number;
+  createdAt: string;
+  running: boolean;
+  endpoint: string;
+}
+export interface PlcImportSummary {
+  records: number;
+  nodes: number;
+  tags: number;
+  devices: number;
+  folders: number;
+  udt_nodes: number;
+  dropped_rows: number;
+  unknown_datatypes: Record<string, number>;
 }
 export interface BridgeConfig {
   protocol: string;

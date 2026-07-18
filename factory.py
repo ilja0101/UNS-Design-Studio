@@ -27,6 +27,18 @@ logging.basicConfig(level=logging.WARN)
 BASE_DIR = _os.path.dirname(_os.path.abspath(__file__))
 DATA_DIR = _os.environ.get('UNS_DATA_DIR') or ('/data' if _os.name != 'nt' and _os.path.isdir('/data') else BASE_DIR)
 
+# UDS_CONFIG lets one factory.py binary serve any tree config (e.g. an imported
+# PLC catalog in plc_configs/) instead of the default uns_config.json — the basis
+# for running N simulated PLCs as N processes. Relative paths resolve under DATA_DIR.
+def _resolve_config_path() -> str:
+    p = (_os.environ.get('UDS_CONFIG') or '').strip()
+    if not p:
+        return _os.path.join(DATA_DIR, 'uns_config.json')
+    return p if _os.path.isabs(p) else _os.path.join(DATA_DIR, p)
+
+UNS_CONFIG_PATH  = _resolve_config_path()
+UNS_CONFIG_LABEL = _os.path.basename(UNS_CONFIG_PATH)
+
 def _json_log(msg: str):
     print(msg, flush=True)
 
@@ -39,8 +51,9 @@ def _load_server_cfg():
 
 _scfg            = _load_server_cfg()
 _OPC_BIND_IP     = _scfg.get('opc_bind_ip',    '0.0.0.0')
-_OPC_PORT        = int(_scfg.get('opc_port',   4840))
-_TCP_PORT        = int(_scfg.get('tcp_port',   9999))
+# Env overrides allow multiple factory instances (PLC simulators) side by side
+_OPC_PORT        = int(_os.environ.get('UDS_OPC_PORT') or _scfg.get('opc_port', 4840))
+_TCP_PORT        = int(_os.environ.get('UDS_TCP_PORT') or _scfg.get('tcp_port', 9999))
 _HOST_IP         = (_scfg.get('host_ip') or '').strip()
 _OPC_CLIENT_HOST = (_scfg.get('opc_client_host') or '').strip()
 
@@ -64,8 +77,7 @@ anomaly_overrides: dict = {}
 
 def _get_namespace_uri() -> str:
     try:
-        path = _os.path.join(DATA_DIR, 'uns_config.json')
-        cfg = load_json(path, {}, logger=_json_log, label='uns_config.json')
+        cfg = load_json(UNS_CONFIG_PATH, {}, logger=_json_log, label=UNS_CONFIG_LABEL)
         if isinstance(cfg, dict):
             return cfg.get('namespaceUri') or NAMESPACE_URI_DEFAULT
     except Exception:
@@ -80,8 +92,7 @@ NAMESPACE_URI = _get_namespace_uri()
 def _get_enterprise_name() -> str:
     """Return the root enterprise name from uns_config.json (supports any name set in UNS Designer)."""
     try:
-        path = _os.path.join(DATA_DIR, 'uns_config.json')
-        cfg = load_json(path, {}, logger=_json_log, label='uns_config.json')
+        cfg = load_json(UNS_CONFIG_PATH, {}, logger=_json_log, label=UNS_CONFIG_LABEL)
         name, _ = resolve_enterprise_root(cfg.get('tree', {}) if isinstance(cfg, dict) else {})
         return name
     except Exception:
@@ -857,8 +868,7 @@ SIMULATION_PROFILES = {
 # UNS CONFIG LOADER
 # ================================================================
 def _load_uns_config():
-    path = _os.path.join(DATA_DIR, 'uns_config.json')
-    return load_json_or_raise(path, logger=_json_log, label='uns_config.json')
+    return load_json_or_raise(UNS_CONFIG_PATH, logger=_json_log, label=UNS_CONFIG_LABEL)
 
 
 # ================================================================

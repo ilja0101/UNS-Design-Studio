@@ -195,6 +195,32 @@ Real-time view of all MQTT/NATS messages flowing from the bridge.
 - Configure OPC-UA client host (for remote factory servers)
 - Configure anomaly TCP server port
 
+### 8. PLC Simulators (`/plc`)
+
+Simulate **raw PLC / Kepware datasources** as standalone OPC-UA servers, next
+to the UNS server — realistic sources for testing PLC → UNS → SCADA
+integration paths (OPC-UA ↔ MQTT/NATS pub/sub & req/reply) and AI-driven tag
+mapping.
+
+- **Import** an export file (auto-detected, multiple files merge):
+  - UNS-Protocol-Converter browsed catalog — `catalog_<source>.json` cache,
+    `GET /api/catalog` response, or `catalog.csv`
+  - Native Kepware — JSON project export (channels → devices → tag groups) or
+    per-device tag CSV (`Tag Name`, `Data Type`, `Client Access`, scaling, …)
+- The importer (`tools/import_plc_catalog.py`, also used by
+  `POST /api/plc/import`) rebuilds the browse hierarchy (channel → `folder`,
+  device → `device`, groups/UDT instances → `folder`), maps Kepware datatypes
+  to OPC-UA, picks simulation profiles from tag name + datatype (Kepware
+  scaling limits become sim min/max), keeps writable tags **RW with hold
+  semantics** (writes persist — write-back testing works), and stamps repeated
+  structures with `udtType` (ground truth for mapping evaluation).
+- **Each instance is its own `factory.py` process** on its own OPC-UA port
+  (`UDS_CONFIG` / `UDS_OPC_PORT` / `UDS_TCP_PORT` env overrides) — start/stop
+  per instance from the page, autostart with the dashboard, endpoints shown
+  with copy-to-clipboard. Registry: `plc_instances.json` + `plc_configs/`.
+- Or run instances as separate containers: `docker-compose.plc-lab.yml`
+  (UNS-mode studio + PLC sims + NATS).
+
 ---
 
 ## Simulation Profiles

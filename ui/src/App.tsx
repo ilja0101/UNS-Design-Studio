@@ -8,6 +8,7 @@ import { Manual } from "./pages/Manual";
 import { PayloadSchemas } from "./pages/PayloadSchemas";
 import { Designer } from "./pages/designer/Designer";
 import { Visualization } from "./pages/Visualization";
+import { PlcSimulators } from "./pages/PlcSimulators";
 import { Start } from "./pages/Start";
 import { isOnboarded } from "./onboarding";
 
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/start" element={<Start />} />
           <Route path="/uns" element={<Designer />} />
           <Route path="/viz" element={<Visualization />} />
+          <Route path="/plc" element={<PlcSimulators />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/payload-schemas" element={<PayloadSchemas />} />
           <Route
