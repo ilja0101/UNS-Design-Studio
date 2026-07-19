@@ -58,6 +58,11 @@ _HOST_IP         = (_scfg.get('host_ip') or '').strip()
 _OPC_CLIENT_HOST = (_scfg.get('opc_client_host') or '').strip()
 
 def _resolve_advertise_host() -> str:
+    # Env override wins — the address clients dial (e.g. a container's service
+    # FQDN behind ACA/K8s ingress). OPC-UA advertises this in GetEndpoints, so it
+    # must match what the client used or the client is redirected to a dead host.
+    env_host = (_os.environ.get('UDS_ADVERTISE_HOST') or _os.environ.get('HOST_IP') or '').strip()
+    if env_host:              return env_host
     if _HOST_IP:              return _HOST_IP
     if _OPC_CLIENT_HOST:      return _OPC_CLIENT_HOST
     if _OPC_BIND_IP and _OPC_BIND_IP != '0.0.0.0': return _OPC_BIND_IP
