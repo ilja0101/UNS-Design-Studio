@@ -1,8 +1,16 @@
 import type { GraphResponse, LiveConfig, AssetTemplate } from "./types/graph";
 
+// In AMIX governed mode the app is surfaced same-origin under a portal path
+// prefix (window.__AMIX_BASE__, e.g. "/connect/design-studio/"); every backend
+// call must carry it. Standalone it is undefined → paths stay at the root.
+const AMIX_BASE = (window as { __AMIX_BASE__?: string }).__AMIX_BASE__ ?? "/";
+export function apiUrl(path: string): string {
+  return AMIX_BASE.replace(/\/$/, "") + path; // path is absolute ("/api/...")
+}
+
 // Same-origin so the app's optional Basic Auth cookie/credentials ride along.
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(path, {
+  const r = await fetch(apiUrl(path), {
     credentials: "same-origin",
     headers: init?.body ? { "Content-Type": "application/json" } : undefined,
     ...init,

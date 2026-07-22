@@ -25,10 +25,13 @@ const SETTINGS_KEY = "uns-live-settings";
 
 function autoDetect(): Cfg {
   const loc = window.location;
+  // In AMIX governed mode the MQTT-over-WebSocket endpoint is proxied under the
+  // portal prefix (window.__AMIX_BASE__), so prefix the ws path with it.
+  const amixBase = (window as { __AMIX_BASE__?: string }).__AMIX_BASE__ ?? "/";
   return {
     host: loc.hostname,
     port: loc.port || (loc.protocol === "https:" ? "443" : "80"),
-    path: "/mqtt-ws",
+    path: amixBase.replace(/\/$/, "") + "/mqtt-ws",
     topic: "#",
     user: "",
     pass: "",

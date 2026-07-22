@@ -14,11 +14,16 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false } },
 });
 
+// Served under /app by Quart. In AMIX governed mode the whole app is proxied
+// under a portal prefix (window.__AMIX_BASE__), so the router basename becomes
+// "{prefix}app"; standalone it stays "/app".
+const AMIX_BASE = (window as { __AMIX_BASE__?: string }).__AMIX_BASE__;
+const routerBasename = (AMIX_BASE ? AMIX_BASE.replace(/\/$/, "") : "") + "/app";
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      {/* Served under /app by Quart */}
-      <BrowserRouter basename="/app">
+      <BrowserRouter basename={routerBasename}>
         <I18nProvider>
           <App />
         </I18nProvider>

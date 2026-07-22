@@ -203,6 +203,12 @@ function BridgeCard() {
   });
   if (!form) return <Card title="MQTT / NATS bridge" icon={<Cable size={16} />}>Loading…</Card>;
 
+  // AMIX governed mode: the broker + topic scope are platform-owned and come
+  // read-only ("Managed by AMIX"); the app rejects a save that changes them.
+  const managed = ((data as { managed_fields?: string[] }).managed_fields) ?? [];
+  const isManaged = (k: string) => managed.includes(k);
+  const managedHint = "Managed by AMIX";
+
   const set = (k: keyof BridgeConfig, v: string) =>
     setForm({ ...form, [k]: k === "broker_port" || k === "interval" ? Number(v) : v });
 
@@ -230,14 +236,17 @@ function BridgeCard() {
         <Field label="Publish interval (s)">
           <input className={inputCls} type="number" step="0.1" value={form.interval} onChange={(e) => set("interval", e.target.value)} />
         </Field>
-        <Field label="Broker host">
-          <input className={inputCls} value={form.broker_host} onChange={(e) => set("broker_host", e.target.value)} />
+        <Field label="Broker host" hint={isManaged("broker_host") ? managedHint : undefined}>
+          <input className={inputCls} value={form.broker_host} disabled={isManaged("broker_host")}
+                 onChange={(e) => set("broker_host", e.target.value)} />
         </Field>
-        <Field label="Broker port">
-          <input className={inputCls} type="number" value={form.broker_port} onChange={(e) => set("broker_port", e.target.value)} />
+        <Field label="Broker port" hint={isManaged("broker_port") ? managedHint : undefined}>
+          <input className={inputCls} type="number" value={form.broker_port} disabled={isManaged("broker_port")}
+                 onChange={(e) => set("broker_port", e.target.value)} />
         </Field>
-        <Field label="Topic prefix" hint="Root of the published UNS topic tree">
-          <input className={inputCls} value={form.topic_prefix} onChange={(e) => set("topic_prefix", e.target.value)} />
+        <Field label="Topic prefix" hint={isManaged("topic_prefix") ? managedHint : "Root of the published UNS topic tree"}>
+          <input className={inputCls} value={form.topic_prefix} disabled={isManaged("topic_prefix")}
+                 onChange={(e) => set("topic_prefix", e.target.value)} />
         </Field>
         <Field label="Username">
           <input className={inputCls} value={form.username} onChange={(e) => set("username", e.target.value)} />

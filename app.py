@@ -20,12 +20,27 @@ from graph_service import build_graph
 from uns_tree import enterprise_structure, resolve_enterprise_root
 import shift
 
+# AMIX governance shim (dormant unless CONTROL_STRATEGY=amix — see amix/).
+from amix import load_governance
+from amix import web as amix_web
+from amix.announce import Announce
+from amix.runtime import AmixRuntime
+
 # ── Adjust path so recipe.py is importable ────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get('UNS_DATA_DIR') or ('/data' if os.name != 'nt' and os.path.isdir('/data') else BASE_DIR)
 
 # ── Quart app ──────────────────────────────────────────────────────────────────
 app = Quart(__name__)
+
+# ── AMIX governance (env-only; standalone by default) ───────────────────────
+# Read the control strategy from the environment once at boot. Unset / standalone
+# ⇒ every governed code path below stays dormant and the app is byte-for-byte its
+# standalone self (no $PLAT, no /auth/amix, no injection, no background tasks).
+_GOV = load_governance(os.environ)
+_amix_apply_lock = asyncio.Lock()   # serialises KV-converge vs. UI settings-write
+_amix_current_user = (lambda: None) # request → (username, role) | None (governed)
+_AMIX: 'AmixRuntime | None' = None   # the governance NATS runtime (governed-only)
 
 # ── Auth (HTTP Basic, single shared demo credential) ────────────────────────
 # No login UI here, and no per-user store — this mirrors the rest of the UNS
@@ -35,24 +50,101 @@ app = Quart(__name__)
 _AUTH_USER = os.environ.get('UDS_ADMIN_USERNAME', '')
 _AUTH_PASS = os.environ.get('UDS_ADMIN_PASSWORD', '')
 
-@app.before_request
-async def _require_basic_auth():
-    if not (_AUTH_USER and _AUTH_PASS):
-        return None
-    if request.path == '/healthz':
-        return None
+def _basic_ok() -> bool:
+    """True when the current request satisfies the app's HTTP-Basic credential."""
     auth = request.authorization
-    if (
+    return (
         auth is not None
         and auth.type == 'basic'
         and hmac.compare_digest(auth.username or '', _AUTH_USER)
         and hmac.compare_digest(auth.password or '', _AUTH_PASS)
-    ):
+    )
+
+def _basic_configured() -> bool:
+    return bool(_AUTH_USER and _AUTH_PASS)
+
+@app.before_request
+async def _require_basic_auth():
+    # Governed mode: a valid AMIX SSO session satisfies auth even when a Basic
+    # credential is also set (dead branch standalone — _GOV.governed() is False).
+    if _GOV.governed() and _amix_current_user() is not None:
+        return None
+    if not (_AUTH_USER and _AUTH_PASS):
+        return None
+    if request.path == '/healthz':
+        return None
+    if _basic_ok():
         return None
     return Response(
         'Unauthenticated', 401,
         {'WWW-Authenticate': 'Basic realm="UNS Design Studio", charset="UTF-8"'},
     )
+
+# ── AMIX governed HTTP glue (SSO route, base injection, /api auth gate) ──────
+# Installed ONLY when governed, and AFTER the Basic hook above so the Basic hook
+# runs first. Standalone: none of this registers → no /auth/amix, no injection.
+def _parse_nats_url(url: str):
+    """('nats://host:4222') → ('host', 4222). Tolerates a bare host[:port]."""
+    u = (url or '').strip()
+    if '://' in u:
+        u = u.split('://', 1)[1]
+    u = u.rstrip('/').split('/', 1)[0].split(',', 1)[0]  # first server, no path
+    host, _, port = u.partition(':')
+    return (host or 'localhost'), int(port or 4222)
+
+async def _amix_apply_config(raw: bytes):
+    """Converge an amix_app_config document onto the bridge (the managed fields:
+    nats.url → broker_host/broker_port, subject_prefix → topic_prefix). Runs under
+    the apply lock so a UI /api/bridge/config save and a KV apply can't interleave."""
+    doc = json.loads(raw.decode('utf-8'))
+    if not isinstance(doc, dict):
+        raise ValueError('amix config document is not an object')
+    async with _amix_apply_lock:
+        cfg = _load_bridge_cfg()
+        applied = []
+        nats_block = doc.get('nats')
+        url = nats_block.get('url') if isinstance(nats_block, dict) else None
+        if isinstance(url, str) and url.strip():
+            host, port = _parse_nats_url(url)
+            cfg['protocol'], cfg['broker_host'], cfg['broker_port'] = 'nats', host, port
+            applied.append(f'broker={host}:{port}')
+        sp = doc.get('subject_prefix')
+        if isinstance(sp, str):
+            cfg['topic_prefix'] = sp
+            applied.append(f'topic_prefix={sp!r}')
+        if applied:
+            _save_bridge_cfg(cfg)
+            if _bridge_alive():
+                await stop_bridge()
+                await start_bridge()
+        _log(f"[amix] config converged (doc rev {doc.get('rev')}): "
+             f"{', '.join(applied) or 'no managed fields present'}")
+
+if _GOV.governed():
+    _amix_current_user = amix_web.install_http_glue(
+        app, _GOV,
+        basic_configured=_basic_configured,
+        basic_ok=_basic_ok,
+    )
+    _AMIX = AmixRuntime(
+        _GOV,
+        Announce(
+            id=_GOV.app_id,
+            name='UNS Design Studio',
+            version='1.0',
+            category='Build',                         # a UNS design / modelling studio
+            layer='l4',                               # enterprise-facing namespace design
+            url=_GOV.app_url,
+            icon='pencil-ruler',
+            description='Design & simulate the UNS namespace',
+            capabilities={
+                'http': {'health': '/healthz'},
+                'sso': {'login_path': '/auth/amix'},
+            },
+        ),
+        _amix_apply_config,
+    )
+    print(f"[amix] governed mode: app id {_GOV.app_id!r}, control leaf {_GOV.nats_url}", flush=True)
 
 # ── Config file paths ─────────────────────────────────────────────────────────
 UNS_CONFIG_FILE      = os.path.join(DATA_DIR, 'uns_config.json')
@@ -974,12 +1066,34 @@ async def startup():
     if os.environ.get('UDS_AUTOSTART', '').strip().lower() in ('1', 'true', 'yes', 'on'):
         _log('[autostart] enabled — bringing the sim pipeline up on boot')
         asyncio.create_task(_autostart_pipeline())
+    # Governed: bootstrap the bridge broker from AMIX_NATS_URL (the platform-owned
+    # UNS broker) then start the $PLAT announce + amix_app_config KV watch on this
+    # (the app's own) event loop. Quart is async ASGI, so no background thread is
+    # needed — the runtime rides the same loop as the rest of the app.
+    if _GOV.governed() and _AMIX is not None:
+        try:
+            host, port = _parse_nats_url(_GOV.nats_url)
+            cfg = _load_bridge_cfg()
+            cfg['protocol'], cfg['broker_host'], cfg['broker_port'] = 'nats', host, port
+            _save_bridge_cfg(cfg)
+            _log(f'[amix] bridge broker pointed at AMIX UNS broker {host}:{port}')
+        except Exception as e:
+            _log(f'[amix] bridge broker bootstrap failed: {e}')
+        await _AMIX.start()
+        _log('[amix] $PLAT announce + amix_app_config watch started')
     print()
     print("==============================================================")
     print("UNS Design Studio")
     print("Dashboard: http://localhost:5000")
     print("==============================================================")
     print()
+
+# ── Quart shutdown hook (stop the governance runtime cleanly) ────────────────
+@app.after_serving
+async def _amix_shutdown():
+    if _GOV.governed() and _AMIX is not None:
+        await _AMIX.stop()
+        _log('[amix] governance runtime stopped')
 
 # ── Quart routes ───────────────────────────────────────────────────────────────
 SPA_DIR = os.path.join(BASE_DIR, 'static', 'spa')
@@ -1050,6 +1164,7 @@ async def api_status():
         bridge_cfg=cfg,
         structure_hash=struct_hash,
         enterprise_name=enterprise_name,
+        governance=amix_web.governance_block(_GOV),
         ts=time.time(),
     ))
 
@@ -1389,24 +1504,35 @@ async def api_bridge_stop():
 async def api_bridge_cfg_get():
     cfg = _load_bridge_cfg()
     cfg.pop('password', None)
+    # Tell the UI which fields the platform owns so it can render them read-only
+    # ("Managed by AMIX"). Empty list standalone → UI shows everything editable.
+    cfg['governance'] = amix_web.governance_block(_GOV)
+    cfg['managed_fields'] = list(amix_web.MANAGED_BRIDGE_KEYS) if _GOV.governed() else []
     return jsonify(cfg)
 
 @app.route('/api/bridge/config', methods=['POST'])
 async def api_bridge_cfg_save():
     data = await request.get_json() or {}
     cfg  = _load_bridge_cfg()
-    for key in ('protocol', 'broker_host', 'broker_port', 'topic_prefix',
-                'interval', 'username', 'password',
-                'command_write', 'command_prefix'):
-        if key in data:
-            cfg[key] = data[key]
-    if 'broker_host' in cfg:
-        cfg['broker_host'] = _normalize_connect_host(cfg.get('broker_host', 'localhost'))
-    _save_bridge_cfg(cfg)
-    if _bridge_alive():
-        await stop_bridge()
-        ok, msg = await start_bridge()
-        return jsonify({'ok': ok, 'restarted': True, 'msg': msg})
+    # Governed mode: the broker + topic scope are platform-owned. Refuse a save
+    # that tries to change them (409) — everything else stays editable.
+    err = amix_web.reject_managed_bridge_change(_GOV, data, cfg)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 409
+    # Serialise against a concurrent amix_app_config KV convergence.
+    async with _amix_apply_lock:
+        for key in ('protocol', 'broker_host', 'broker_port', 'topic_prefix',
+                    'interval', 'username', 'password',
+                    'command_write', 'command_prefix'):
+            if key in data:
+                cfg[key] = data[key]
+        if 'broker_host' in cfg:
+            cfg['broker_host'] = _normalize_connect_host(cfg.get('broker_host', 'localhost'))
+        _save_bridge_cfg(cfg)
+        if _bridge_alive():
+            await stop_bridge()
+            ok, msg = await start_bridge()
+            return jsonify({'ok': ok, 'restarted': True, 'msg': msg})
     return jsonify({'ok': True, 'restarted': False})
 
 # ── PLC Simulators ─────────────────────────────────────────────────────────────
