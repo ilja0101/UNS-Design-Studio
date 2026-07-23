@@ -50,6 +50,7 @@ class Governance:
     app_url: str = ""
     nats_url: str = ""
     nats_creds: str = ""
+    nats_js_domain: str = ""
     sso_secret: str = ""
 
     def governed(self) -> bool:
@@ -92,6 +93,7 @@ def load_governance(env: dict[str, str]) -> Governance:
         app_url=get("AMIX_APP_URL"),
         nats_url=get("AMIX_NATS_URL"),
         nats_creds=get("AMIX_NATS_CREDS"),
+        nats_js_domain=get("AMIX_NATS_JS_DOMAIN"),
         sso_secret=get("AMIX_SSO_SECRET"),
     )
     if not g.app_id:

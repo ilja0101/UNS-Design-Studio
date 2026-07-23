@@ -50,7 +50,7 @@ class AmixRuntime:
         self._nc: Any = None
         self._stop = asyncio.Event()
         self._tasks: list[asyncio.Task] = []
-        self._watcher = Watcher(lambda: self._nc, governance.app_id, apply)
+        self._watcher = Watcher(lambda: self._nc, governance.app_id, apply, governance.nats_js_domain)
 
     @property
     def last_rev(self) -> int:

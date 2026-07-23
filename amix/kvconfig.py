@@ -35,11 +35,15 @@ ApplyFunc = Callable[[bytes], Awaitable[None]]
 class Watcher:
     """Watches one app's key in ``amix_app_config`` and converges on each update."""
 
-    def __init__(self, conn: ConnFunc, app_id: str, apply: ApplyFunc) -> None:
+    def __init__(self, conn: ConnFunc, app_id: str, apply: ApplyFunc, domain: str = "") -> None:
         self._conn = conn
         self._id = app_id
         self._apply = apply
         self._rev = 0
+        # JetStream domain of the amix_app_config bucket. Empty = the connection's
+        # own domain (all-in-one); set to the hub's domain (e.g. "idmz") so a
+        # governed app at L3 reads the bucket across the leaf.
+        self._domain = domain
 
     @property
     def last_rev(self) -> int:
@@ -68,7 +72,7 @@ class Watcher:
         nc = self._conn()
         if nc is None or not getattr(nc, "is_connected", False):
             raise ConnectionError("governance NATS not connected")
-        js = nc.jetstream()
+        js = nc.jetstream(domain=self._domain) if self._domain else nc.jetstream()
         kv = await js.key_value(BUCKET)  # raises if the bucket isn't created yet — caller retries
         watcher = await kv.watch(self._id)
         try:
