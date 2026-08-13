@@ -170,7 +170,10 @@ def main() -> int:
             time.sleep(2)
             sim(port, "/api/plant/control",
                 {"group": unit, "plant": site, "action": "set_state", "value": True})
-            sim(port, "/api/bridge/config", {"creds": target})
+            # The connection name is what AMIX's observed-producers catalogue
+            # shows. Matching it to the NATS user means the mesh, the catalogue
+            # and the creds file all call this publisher the same thing.
+            sim(port, "/api/bridge/config", {"creds": target, "client_name": name})
             sim(port, "/api/bridge/stop", {})
             time.sleep(1)
             sim(port, "/api/bridge/start", {})

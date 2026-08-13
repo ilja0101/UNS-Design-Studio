@@ -742,7 +742,15 @@ async def run_nats(cfg, stop_event: asyncio.Event):
     if creds:
         opts["user_credentials"] = creds
 
-    print(f"[bridge] NATS mode -> {url}" + (f" (creds {creds})" if creds else ""), flush=True)
+    # Name the connection. AMIX lists who is publishing into the mesh from the
+    # broker's CONNZ, which reports the client's own name, so an unnamed client
+    # appears in that catalogue as "?" and cannot be told from any other. The
+    # account says which business group it belongs to and the name says which
+    # publisher it is.
+    opts["name"] = str(cfg.get("client_name") or "uns-design-studio").strip()
+
+    print(f"[bridge] NATS mode -> {url} as {opts['name']}"
+          + (f" (creds {creds})" if creds else ""), flush=True)
 
     # Retry the initial connect until the broker is reachable, and enable
     # infinite reconnect so the bridge survives the broker starting later or

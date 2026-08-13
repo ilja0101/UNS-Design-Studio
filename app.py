@@ -1525,7 +1525,7 @@ async def api_bridge_cfg_save():
         # An operator-mode broker accepts nothing else, and every AMIX broker
         # runs operator mode.
         for key in ('protocol', 'broker_host', 'broker_port', 'topic_prefix',
-                    'interval', 'username', 'password', 'creds',
+                    'interval', 'username', 'password', 'creds', 'client_name',
                     'command_write', 'command_prefix'):
             if key in data:
                 cfg[key] = data[key]
