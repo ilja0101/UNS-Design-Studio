@@ -41,6 +41,11 @@ OPC_BROWSE_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_OPC_BROWSE_BATCH", "100"))
 OPC_READ_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_OPC_READ_BATCH", "100"))
 OPC_READ_CONCURRENCY = int(os.getenv("UNS_BRIDGE_OPC_READ_CONCURRENCY", "32"))
 PUBLISH_BATCH_SIZE = int(os.getenv("UNS_BRIDGE_PUBLISH_BATCH", "250"))
+# nats-py defaults to a 2 MiB outbound buffer. A 20k-tag poll is well past that,
+# so while the client is mid-reconnect a publish raises OutboundBufferLimitError
+# and the whole poll fails. Buffer a full poll instead.
+NATS_PENDING_SIZE = int(os.getenv("UNS_BRIDGE_NATS_PENDING_MB", "64")) * 1024 * 1024
+NATS_FLUSH_TIMEOUT = float(os.getenv("UNS_BRIDGE_NATS_FLUSH_TIMEOUT", "20"))
 
 def _json_log(msg: str):
     print(msg, flush=True)
@@ -523,17 +528,69 @@ class AsyncOpcPoller:
         self._opc = None
 
 
-async def _publish_batched(items: list, publish_one, stop_event: asyncio.Event) -> int:
+class PublishError(Exception):
+    """A broker publish failed.
+
+    Distinct from an OPC failure so the caller can reconnect the broker without
+    throwing away a working OPC session — rebuilding that cache means browsing
+    every node again, which at 20k tags is minutes of silence.
+    """
+
+    def __init__(self, cause: BaseException):
+        super().__init__(f"{type(cause).__name__}: {cause}")
+        self.cause = cause
+
+
+async def _publish_batched(items: list, publish_one, stop_event: asyncio.Event,
+                           concurrent: bool = False) -> int:
+    """Publish one poll's worth of messages, a chunk at a time.
+
+    `concurrent` must match how the client behaves, because the two protocols
+    are limited by opposite things. Measured here, 20,723 messages per round:
+
+        MQTT (aiomqtt)   serial 2,331 msg/s   chunked 4,096 msg/s
+        NATS (nats-py)   serial 311,955 msg/s chunked 60,943 msg/s
+
+    aiomqtt awaits the socket for every message, so overlapping a chunk keeps
+    it busy. nats-py only appends to an outbound buffer — publishing is nearly
+    free, and wrapping each call in a Task costs far more than it saves. So
+    MQTT passes concurrent=True and NATS does not.
+
+    PUBLISH_BATCH_SIZE bounds how many payloads are in flight (250 measured
+    best; 5,000 is slower than serial). stop_event is honoured between chunks.
+    """
     published = 0
     for i in range(0, len(items), PUBLISH_BATCH_SIZE):
         if stop_event.is_set():
             break
         chunk = items[i:i + PUBLISH_BATCH_SIZE]
-        for topic, payload in chunk:
-            if stop_event.is_set():
-                break
-            await publish_one(topic, payload)
-            published += 1
+
+        if not concurrent:
+            for topic, payload in chunk:
+                if stop_event.is_set():
+                    break
+                try:
+                    await publish_one(topic, payload)
+                except Exception as e:
+                    _stats["errors"] += 1
+                    raise PublishError(e)
+                published += 1
+            continue
+
+        results = await asyncio.gather(
+            *(publish_one(topic, payload) for topic, payload in chunk),
+            return_exceptions=True,
+        )
+        first_error = None
+        for res in results:
+            if isinstance(res, BaseException):
+                _stats["errors"] += 1
+                if first_error is None:
+                    first_error = res
+            else:
+                published += 1
+        if first_error is not None:
+            raise PublishError(first_error)
     return published
 
 
@@ -615,12 +672,20 @@ async def run_mqtt(cfg, stop_event: asyncio.Event):
                         async def _publish_one(topic, payload):
                             await client.publish(topic, payload)
 
-                        count = await _publish_batched(items, _publish_one, stop_event)
+                        count = await _publish_batched(items, _publish_one, stop_event,
+                                                       concurrent=True)
                         _stats["published"] += count
                         elapsed = time.time() - t0
                         _stats["rate"] = round(count / max(elapsed, 0.01), 1)
                         _emit()
                         await _sleep_or_stop(stop_event, max(0.0, interval - elapsed))
+
+                    except PublishError as e:
+                        # Broker-side only. Drop out to rebuild the MQTT client
+                        # but keep the OPC session and its cache.
+                        print(f"[bridge] Publish error: {e}; reconnecting broker", flush=True)
+                        _emit()
+                        break
 
                     except Exception as e:
                         _stats["opc_ok"] = False
@@ -662,22 +727,32 @@ async def run_nats(cfg, stop_event: asyncio.Event):
     if cfg.get("username"):
         url = f"nats://{cfg['username']}:{cfg.get('password','')}@{host}:{port}"
 
-    print(f"[bridge] NATS mode -> {url}", flush=True)
+    # A NATS server in operator mode authenticates with a credentials file and
+    # refuses username/password outright. Every AMIX broker runs operator mode,
+    # so without this the bridge can reach a plain nats-server and nothing on a
+    # governed mesh. nats-py reads the file itself, so the path is the one
+    # inside this container.
+    opts = {
+        "max_reconnect_attempts": -1,   # never stop trying to reconnect
+        "reconnect_time_wait": 2,
+        "connect_timeout": 5,
+        "pending_size": NATS_PENDING_SIZE,
+    }
+    creds = str(cfg.get("creds") or "").strip()
+    if creds:
+        opts["user_credentials"] = creds
+
+    print(f"[bridge] NATS mode -> {url}" + (f" (creds {creds})" if creds else ""), flush=True)
 
     # Retry the initial connect until the broker is reachable, and enable
     # infinite reconnect so the bridge survives the broker starting later or
-    # restarting — e.g. when the whole fleet is started together and NATS is
-    # still booting, or on a fleet stop/start. Without this the bridge would
-    # give up on the first failure and stay off until manually restarted.
+    # restarting, such as when the whole fleet starts together and NATS is
+    # still booting. Without this the bridge would give up on the first failure
+    # and stay off until somebody restarted it.
     nc = None
     while not stop_event.is_set():
         try:
-            nc = await nats_lib.connect(
-                url,
-                max_reconnect_attempts=-1,   # never stop trying to reconnect
-                reconnect_time_wait=2,
-                connect_timeout=5,
-            )
+            nc = await nats_lib.connect(url, **opts)
             break
         except Exception as e:
             print(f"[bridge] NATS connect error: {e}; retrying in 3s", flush=True)
@@ -761,11 +836,28 @@ async def run_nats(cfg, stop_event: asyncio.Event):
                     await nc.publish(subject, payload.encode())
 
                 count = await _publish_batched(items, _publish_one, stop_event)
+                if count:
+                    # nc.publish only appends to the outbound buffer. Flushing
+                    # here is what makes "rate" mean messages actually on the
+                    # wire, and surfaces broker backpressure as latency instead
+                    # of as a silently growing buffer.
+                    try:
+                        await nc.flush(timeout=NATS_FLUSH_TIMEOUT)
+                    except Exception as e:
+                        raise PublishError(e)
                 _stats["published"] += count
                 elapsed = time.time() - t0
                 _stats["rate"] = round(count / max(elapsed, 0.01), 1)
                 _emit()
                 await _sleep_or_stop(stop_event, max(0.0, interval - elapsed))
+
+            except PublishError as e:
+                # Broker-side only; nats-py reconnects on its own. Skip this
+                # poll rather than tearing down OPC and re-browsing every node.
+                print(f"[bridge] Publish error: {e}; skipping poll", flush=True)
+                _emit()
+                await _sleep_or_stop(stop_event, 1)
+                continue
 
             except Exception as e:
                 _stats["opc_ok"] = False

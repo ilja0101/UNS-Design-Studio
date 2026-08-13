@@ -1,0 +1,88 @@
+# One UNS Design Studio per plant of the default RoyalFarmersCollective UNS,
+# each publishing its own plant into the AMIX eventMESH.
+#
+# Every instance loads the same enterprise model and marks exactly one site
+# live, so each container publishes one plant and nothing else. The model is
+# shared on purpose: a slice per container would drift from the enterprise
+# model the moment somebody edited it, and live membership is already the
+# mechanism the product has for "publish this branch".
+#
+# Each joins the mesh network and reads `svc.creds` from the mesh config
+# volume, the same way the entsim simulators already attach. An operator-mode
+# broker accepts nothing else, which is why the bridge learned `creds`.
+#
+#   docker compose -f docker-compose.rfc-plants.yml up -d
+#   python tools/configure_rfc_plants.py        # loads, starts and bridges each
+#
+# Dashboards land on 5001-5007. The OPC-UA server of each stays internal:
+# nothing outside needs to browse it, and seven published ports for a demo is
+# seven chances to collide with something.
+
+x-plant: &plant
+  image: uns-design-studio:amix
+  restart: unless-stopped
+  environment:
+    - PYTHONUNBUFFERED=1
+    - UDS_AUTOSTART=1
+  volumes:
+    - amix_meshcfg:/mesh:ro
+  networks: [mesh]
+
+services:
+  rfc-heerenveen:
+    <<: *plant
+    container_name: rfc-sim-heerenveen
+    ports: ["5001:5000"]
+    volumes: [amix_meshcfg:/mesh:ro, rfc-heerenveen:/data]
+
+  rfc-hoogeveen:
+    <<: *plant
+    container_name: rfc-sim-hoogeveen
+    ports: ["5002:5000"]
+    volumes: [amix_meshcfg:/mesh:ro, rfc-hoogeveen:/data]
+
+  rfc-terneuzen:
+    <<: *plant
+    container_name: rfc-sim-terneuzen
+    ports: ["5003:5000"]
+    volumes: [amix_meshcfg:/mesh:ro, rfc-terneuzen:/data]
+
+  rfc-zevenbergen:
+    <<: *plant
+    container_name: rfc-sim-zevenbergen
+    ports: ["5004:5000"]
+    volumes: [amix_meshcfg:/mesh:ro, rfc-zevenbergen:/data]
+
+  rfc-emmeloord:
+    <<: *plant
+    container_name: rfc-sim-emmeloord
+    ports: ["5005:5000"]
+    volumes: [amix_meshcfg:/mesh:ro, rfc-emmeloord:/data]
+
+  rfc-roosendaal:
+    <<: *plant
+    container_name: rfc-sim-roosendaal
+    ports: ["5006:5000"]
+    volumes: [amix_meshcfg:/mesh:ro, rfc-roosendaal:/data]
+
+  rfc-veghel:
+    <<: *plant
+    container_name: rfc-sim-veghel
+    ports: ["5007:5000"]
+    volumes: [amix_meshcfg:/mesh:ro, rfc-veghel:/data]
+
+networks:
+  mesh:
+    name: amix_amix
+    external: true
+
+volumes:
+  amix_meshcfg:
+    external: true
+  rfc-heerenveen:
+  rfc-hoogeveen:
+  rfc-terneuzen:
+  rfc-zevenbergen:
+  rfc-emmeloord:
+  rfc-roosendaal:
+  rfc-veghel:

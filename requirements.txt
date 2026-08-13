@@ -2,6 +2,11 @@ quart>=0.19
 asyncua>=1.1
 aiomqtt>=2.0
 nats-py>=2.3
+# nats-py needs nkeys to authenticate with a credentials file. It is an optional
+# extra, so without it a creds connection fails with "No module named 'nkeys'",
+# which reads as a broker problem rather than a missing package. Every AMIX
+# broker runs in operator mode and accepts nothing but creds.
+nkeys>=0.2
 inquirer>=3.1
 pytest>=8.0
 pytest-asyncio>=0.23

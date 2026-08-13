@@ -1521,8 +1521,11 @@ async def api_bridge_cfg_save():
         return jsonify({'ok': False, 'error': err}), 409
     # Serialise against a concurrent amix_app_config KV convergence.
     async with _amix_apply_lock:
+        # `creds` is a path to a NATS credentials file inside this container.
+        # An operator-mode broker accepts nothing else, and every AMIX broker
+        # runs operator mode.
         for key in ('protocol', 'broker_host', 'broker_port', 'topic_prefix',
-                    'interval', 'username', 'password',
+                    'interval', 'username', 'password', 'creds',
                     'command_write', 'command_prefix'):
             if key in data:
                 cfg[key] = data[key]
