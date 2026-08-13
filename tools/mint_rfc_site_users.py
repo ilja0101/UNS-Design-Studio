@@ -18,6 +18,11 @@ Per site it:
   4. writes the file into the mesh volume the simulators already mount
   5. points that simulator's bridge at its own creds and restarts it
 
+The order matters. A user's permissions and limits live inside its JWT, and the
+creds file is a copy of that JWT, so permissions are set before the download.
+Changing a permission later mints a new JWT and every credentials file already
+written keeps working under the old rules until it is fetched again.
+
 It needs an AMIX admin session, because minting a user uses the account signing
 seed and setting permissions is admin-only. Pass the login in the environment:
 
@@ -116,9 +121,13 @@ def main() -> int:
         # Publish only its own subtree. Subscribe stays open so the simulator
         # can still be reached for command write-back, which is a separate
         # decision from what it may produce.
+        # -1 is unlimited. AMIX passes these straight into the user JWT, and in
+        # NATS a limit of 0 means zero allowed, not unbounded: a user minted
+        # with 0 connects and is dropped, because it may hold no subscriptions
+        # and send no payload. The failure looks like a broker problem.
         hub(a.hub, f"/api/mesh/users/{uid}/permissions",
             {"pub_allow": [subtree], "pub_deny": [], "sub_allow": [">"],
-             "sub_deny": [], "max_subscriptions": 0, "max_payload": 0,
+             "sub_deny": [], "max_subscriptions": -1, "max_payload": -1,
              "bearer_token": False},
             method="PATCH")
 
