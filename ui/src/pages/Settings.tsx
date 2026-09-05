@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Clock, Server, Cable, Check, Loader2 } from "lucide-react";
 import { api, type ShiftConfig, type ServerConfig, type BridgeConfig } from "../api";
@@ -38,6 +38,30 @@ const serializeDays = (set: Set<number>) =>
     ? "daily"
     : DAYS.filter((_, i) => set.has(i)).join(",") || "Mon-Fri";
 
+/** Local edit state seeded from the server, re-seeded when the server changes.
+ *
+ *  The previous `if (data && !form) setForm(data)` seeded once per mount and
+ *  never again. Combined with a save that did not invalidate its query, that
+ *  meant: save → cache still holds the pre-save config → navigate away → the
+ *  card remounts and seeds from that stale cache → the edit looks reverted, and
+ *  saving again is the only way to make it stick. Comparing snapshots re-seeds
+ *  after a save without clobbering edits on a refetch that changed nothing.
+ */
+function useServerForm<T>(data: T | undefined) {
+  const [form, setForm] = useState<T | null>(null);
+  const seeded = useRef<string | null>(null);
+  const snapshot = data === undefined ? null : JSON.stringify(data);
+
+  useEffect(() => {
+    if (snapshot !== null && snapshot !== seeded.current) {
+      seeded.current = snapshot;
+      setForm(JSON.parse(snapshot) as T);
+    }
+  }, [snapshot]);
+
+  return [form, setForm] as const;
+}
+
 function SavedTick({ show }: { show: boolean }) {
   if (!show) return null;
   return (
@@ -50,15 +74,16 @@ function SavedTick({ show }: { show: boolean }) {
 function ShiftCard() {
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["shift"], queryFn: api.shift });
-  const [form, setForm] = useState<ShiftConfig | null>(null);
+  // api.shift returns live status too (running/total/state), which changes on
+  // its own — seed only the editable fields so status churn cannot re-seed.
+  const [form, setForm] = useServerForm<ShiftConfig>(
+    data && { enabled: data.enabled, start: data.start, end: data.end, days: data.days, tz: data.tz },
+  );
   const [days, setDays] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    if (data && !form) {
-      setForm({ enabled: data.enabled, start: data.start, end: data.end, days: data.days, tz: data.tz });
-      setDays(parseDays(data.days));
-    }
-  }, [data, form]);
+    if (form) setDays(parseDays(form.days));
+  }, [form?.days]);
 
   const save = useMutation({
     mutationFn: () => api.shiftSave({ ...form!, days: serializeDays(days) }),
@@ -150,11 +175,14 @@ function ShiftCard() {
 }
 
 function ServerCard() {
+  const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["server-config"], queryFn: api.serverConfig });
-  const [form, setForm] = useState<ServerConfig | null>(null);
-  useEffect(() => { if (data && !form) setForm(data); }, [data, form]);
+  const [form, setForm] = useServerForm<ServerConfig>(data);
 
-  const save = useMutation({ mutationFn: () => api.serverConfigSave(form!) });
+  const save = useMutation({
+    mutationFn: () => api.serverConfigSave(form!),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["server-config"] }),
+  });
   if (!form) return <Card title="OPC-UA server" icon={<Server size={16} />}>Loading…</Card>;
 
   const set = (k: keyof ServerConfig, v: string) =>
@@ -193,13 +221,17 @@ function ServerCard() {
 }
 
 function BridgeCard() {
+  const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["bridge-config"], queryFn: api.bridgeConfig });
-  const [form, setForm] = useState<BridgeConfig | null>(null);
+  const [form, setForm] = useServerForm<BridgeConfig>(data);
   const [password, setPassword] = useState("");
-  useEffect(() => { if (data && !form) setForm(data); }, [data, form]);
 
   const save = useMutation({
     mutationFn: () => api.bridgeConfigSave(password ? { ...form!, password } : form!),
+    onSuccess: () => {
+      setPassword("");   // it is stored now; keeping it would re-send on every save
+      qc.invalidateQueries({ queryKey: ["bridge-config"] });
+    },
   });
   if (!form) return <Card title="MQTT / NATS bridge" icon={<Cable size={16} />}>Loading…</Card>;
 

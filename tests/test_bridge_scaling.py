@@ -126,6 +126,72 @@ async def test_publish_batched_stops_between_chunks(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_publish_batched_overlaps_a_chunk_when_concurrent(monkeypatch):
+    """MQTT awaits the socket per message, so a chunk must overlap."""
+    monkeypatch.setattr(bridge, "PUBLISH_BATCH_SIZE", 4)
+    in_flight = 0
+    peak = 0
+
+    async def publish_one(topic, payload):
+        nonlocal in_flight, peak
+        in_flight += 1
+        peak = max(peak, in_flight)
+        await asyncio.sleep(0)
+        in_flight -= 1
+
+    items = [(f"t{i}", str(i)) for i in range(8)]
+    count = await bridge._publish_batched(items, publish_one, asyncio.Event(),
+                                          concurrent=True)
+
+    assert count == 8
+    assert peak == 4
+
+
+@pytest.mark.asyncio
+async def test_publish_batched_stays_serial_by_default(monkeypatch):
+    """NATS only buffers; a Task per message costs more than it saves."""
+    monkeypatch.setattr(bridge, "PUBLISH_BATCH_SIZE", 4)
+    in_flight = 0
+    peak = 0
+
+    async def publish_one(topic, payload):
+        nonlocal in_flight, peak
+        in_flight += 1
+        peak = max(peak, in_flight)
+        await asyncio.sleep(0)
+        in_flight -= 1
+
+    count = await bridge._publish_batched(
+        [(f"t{i}", str(i)) for i in range(8)], publish_one, asyncio.Event()
+    )
+
+    assert count == 8
+    assert peak == 1
+
+
+@pytest.mark.parametrize("concurrent", [False, True])
+@pytest.mark.asyncio
+async def test_publish_batched_raises_publish_error(monkeypatch, concurrent):
+    """Broker failures must be distinguishable from OPC failures."""
+    monkeypatch.setattr(bridge, "PUBLISH_BATCH_SIZE", 4)
+    before = bridge._stats["errors"]
+
+    async def publish_one(topic, payload):
+        if topic in ("t1", "t2"):
+            raise ConnectionResetError("broker went away")
+
+    with pytest.raises(bridge.PublishError) as excinfo:
+        await bridge._publish_batched(
+            [(f"t{i}", str(i)) for i in range(4)], publish_one, asyncio.Event(),
+            concurrent=concurrent,
+        )
+
+    assert isinstance(excinfo.value.cause, ConnectionResetError)
+    # serial stops at the first failure, concurrent sees the whole chunk
+    assert bridge._stats["errors"] - before == (2 if concurrent else 1)
+
+
+@pytest.mark.asyncio
 async def test_browsepath_translation_splits_failed_chunks(monkeypatch):
     monkeypatch.setattr(bridge, "OPC_BROWSE_BATCH_SIZE", 4)
 
