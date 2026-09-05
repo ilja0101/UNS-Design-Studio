@@ -92,6 +92,13 @@ export const countTags = (n?: UnsTreeNode): number =>
 export const maxDepth = (n?: UnsTreeNode, d = 0): number =>
   !n || !(n.children ?? []).length ? d : Math.max(...n.children!.map((c) => maxDepth(c, d + 1)));
 
+/** Tags carrying an answer key (`_truth`) anywhere in the subtree. */
+export const countTruth = (n?: UnsTreeNode): number =>
+  n
+    ? (n.tags ?? []).filter((t) => t._truth).length +
+      (n.children ?? []).reduce((s, c) => s + countTruth(c), 0)
+    : 0;
+
 export function subtreeMatch(n: UnsTreeNode, q: string): boolean {
   if (!q) return true;
   const lq = q.toLowerCase();

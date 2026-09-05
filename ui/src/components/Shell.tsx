@@ -83,12 +83,12 @@ function InfoButton() {
 // Internal SPA routes vs. legacy Jinja pages (linked out during migration).
 const internal = [
   { to: "/start", label: "Quick start", icon: Sparkles },
-  { to: "/", label: "UNS Hub", icon: Network },
+  { to: "/", label: "UNS Simulation Publisher", icon: Network },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 // Every page is now a native SPA route.
 const design = [
-  { to: "/uns", label: "UNS Designer", icon: PencilRuler },
+  { to: "/uns", label: "Data Model Designer", icon: PencilRuler },
   { to: "/payload-schemas", label: "Payload Schemas", icon: FileJson },
   { to: "/live", label: "Live UNS View", icon: Radio },
   { to: "/viz", label: "Visualization", icon: LayoutDashboard },

@@ -101,6 +101,26 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
+  // Raw OT sources: an empty PLC sim the Designer edits like a UNS tree.
+  plcBlank: (body: { name: string; rootName?: string; port?: number; autostart?: boolean }) =>
+    req<{ ok: boolean; msg?: string; instance?: PlcInstance }>("/api/plc/blank", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  plcConfig: (id: string) =>
+    req<{ ok: boolean; instance: PlcInstance; config: UnsConfig }>(
+      `/api/plc/${encodeURIComponent(id)}/config`,
+    ),
+  plcConfigSave: (id: string, cfg: UnsConfig) =>
+    req<{ ok: boolean; msg?: string; restarted?: boolean; instance?: PlcInstance }>(
+      `/api/plc/${encodeURIComponent(id)}/config`,
+      { method: "PUT", body: JSON.stringify({ config: cfg }) },
+    ),
+  plcTruth: (id: string) =>
+    req<{ ok: boolean; source: string; count: number; rows: TruthRow[] }>(
+      `/api/plc/${encodeURIComponent(id)}/truth`,
+    ),
+  plcTruthCsvUrl: (id: string) => apiUrl(`/api/plc/${encodeURIComponent(id)}/truth?format=csv`),
 
   bridgeConfig: () => req<BridgeConfig>("/api/bridge/config"),
   bridgeConfigSave: (cfg: Partial<BridgeConfig> & { password?: string }) =>
@@ -121,12 +141,43 @@ export type UnsNodeType =
   | "device"
   | "folder";
 
+export interface RawScale {
+  engLo: number;
+  engHi: number;
+  rawLo: number;
+  rawHi: number;
+}
 export interface Sim {
   profile: string;
   base?: number;
   std?: number;
   min?: number;
   max?: number;
+  /** Present the value as PLC counts instead of engineering units. */
+  rawScale?: RawScale;
+}
+/** What a rawified tag really is. Written by the raw-asset inserter, never
+ *  exposed over OPC-UA — it is the answer key for scoring a mapping run. */
+export interface TagTruth {
+  asset: string;
+  assetLabel: string;
+  instance: string;
+  tag: string;
+  unit: string;
+  description: string;
+  profile: string;
+  role: string;
+  engLo?: number;
+  engHi?: number;
+  rawLo?: number;
+  rawHi?: number;
+  decoy?: boolean;
+}
+export interface TruthRow extends Record<string, unknown> {
+  opcPath: string;
+  tag: string;
+  asset: string;
+  canonicalTag: string;
 }
 export interface UnsTag {
   id: string;
@@ -137,6 +188,7 @@ export interface UnsTag {
   access: string;
   payloadSchema: string;
   simulation: Sim | null;
+  _truth?: TagTruth;
 }
 export interface Recipe {
   name: string;

@@ -702,6 +702,61 @@ def _build_control_loops(variables: dict) -> dict:
 # ================================================================
 # PROFILE → VALUE  (pure profile dispatch, no tag names)
 # ================================================================
+# Declared integer widths, so a tag says Int16 and a client reads Int16.
+_INT_VARIANTS = {
+    'Int':     ua.VariantType.Int64,
+    'Integer': ua.VariantType.Int64,
+    'Int64':   ua.VariantType.Int64,
+    'Int32':   ua.VariantType.Int32,
+    'Int16':   ua.VariantType.Int16,
+    'UInt64':  ua.VariantType.UInt64,
+    'UInt32':  ua.VariantType.UInt32,
+    'UInt16':  ua.VariantType.UInt16,
+}
+_INT_RANGES = {
+    ua.VariantType.Int16:  (-32768, 32767),
+    ua.VariantType.UInt16: (0, 65535),
+    ua.VariantType.Int32:  (-2147483648, 2147483647),
+    ua.VariantType.UInt32: (0, 4294967295),
+    ua.VariantType.Int64:  (-(2 ** 63), 2 ** 63 - 1),
+    ua.VariantType.UInt64: (0, 2 ** 64 - 1),
+}
+
+
+def _fit_int(val, vt) -> int:
+    """Clamp to the tag's integer width — a narrow type must never throw.
+
+    A counter profile on an INT saturates the way a real PLC word does instead
+    of failing the write and freezing the tag at its last value.
+    """
+    lo, hi = _INT_RANGES.get(vt, _INT_RANGES[ua.VariantType.Int64])
+    return max(lo, min(hi, int(round(float(val)))))
+
+
+def _apply_raw_scale(val, sim: dict):
+    """Present an engineering value the way a PLC actually holds it.
+
+    A raw OT source (the Designer's raw-source mode) may carry
+    ``simulation.rawScale = {engLo, engHi, rawLo, rawHi}`` — the analog-input
+    scaling a gateway would normally undo. 42.0 m3/h becomes 23224 counts, so
+    whoever maps the tag has to recover both the unit and the span. Booleans,
+    strings and timestamps pass through untouched.
+    """
+    rs = sim.get("rawScale") if isinstance(sim, dict) else None
+    if not isinstance(rs, dict) or isinstance(val, (bool, str)) or val is None:
+        return val
+    try:
+        e_lo, e_hi = float(rs.get("engLo", 0.0)),  float(rs.get("engHi", 100.0))
+        r_lo, r_hi = float(rs.get("rawLo", 0.0)),  float(rs.get("rawHi", 27648.0))
+        if e_hi == e_lo:
+            return val
+        frac = (float(val) - e_lo) / (e_hi - e_lo)
+        raw  = r_lo + frac * (r_hi - r_lo)
+        return max(min(r_lo, r_hi), min(max(r_lo, r_hi), raw))
+    except (TypeError, ValueError):
+        return val
+
+
 def _profile_value(profile: str, ps: PlantState, sim: dict, current_value):
     p = profile.lower().strip()
 
@@ -936,8 +991,8 @@ async def _create_dynamic_address_space(server, idx, enterprise_obj):
             dt = (data_type or 'Float').strip()
             if dt in ('Float', 'Double', 'Real'):
                 default, vt = 0.0,   ua.VariantType.Double
-            elif dt in ('Int', 'Int16', 'Int32', 'Int64', 'Integer', 'UInt16', 'UInt32', 'UInt64'):
-                default, vt = 0,     ua.VariantType.Int64
+            elif dt in _INT_VARIANTS:
+                default, vt = 0,     _INT_VARIANTS[dt]
             elif dt in ('Bool', 'Boolean'):
                 default, vt = False, ua.VariantType.Boolean
             elif dt in ('String', 'Str'):
@@ -1081,11 +1136,16 @@ async def run_simulation(variables, anomaly_key_map, stop_event: asyncio.Event, 
                           else PlantState("__global__", "")
                     val = _profile_value(profile, ps, sim, default)
 
+                val = _apply_raw_scale(val, sim)
+
                 if vt == ua.VariantType.Boolean:
                     await var.write_value(bool(val))
-                elif vt in (ua.VariantType.Int16, ua.VariantType.Int32, ua.VariantType.Int64,
-                            ua.VariantType.UInt16, ua.VariantType.UInt32, ua.VariantType.UInt64):
-                    await var.write_value(int(round(float(val))) if not isinstance(val, (str, bool)) else 0)
+                elif vt in _INT_RANGES:
+                    # Write the variant explicitly: a bare Python int is inferred
+                    # as Int64 and a narrow node (Int16 / UInt16 / Int32) rejects
+                    # it, which used to leave the tag frozen at its default.
+                    fitted = _fit_int(val, vt) if not isinstance(val, (str, bool)) else 0
+                    await var.write_value(ua.Variant(fitted, vt))
                 elif vt in (ua.VariantType.Float, ua.VariantType.Double):
                     await var.write_value(float(val) if not isinstance(val, (str, bool)) else 0.0)
                 elif vt == ua.VariantType.String:

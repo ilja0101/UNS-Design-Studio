@@ -8,7 +8,8 @@ License: MIT  |  https://github.com/Ilja0101/UNS-Design-Studio
 
 import asyncio
 import hmac
-import os, sys, time, json, signal, atexit, hashlib
+import csv, io
+import os, re, sys, time, json, signal, atexit, hashlib
 from datetime import datetime
 from quart import Quart, render_template, jsonify, request, Response, redirect, send_from_directory
 from json_persistence import load_json, save_json_atomic
@@ -1570,6 +1571,41 @@ def _plc_next_port(items: list) -> int:
         port += 1
     return port
 
+def _plc_slug(s: str) -> str:
+    return re.sub(r'[^a-z0-9]+', '-', str(s).lower()).strip('-') or 'plc'
+
+def _plc_unique_id(items: list, name: str) -> str:
+    iid = _plc_slug(name)
+    if _plc_find(items, iid):
+        n = 2
+        while _plc_find(items, f"{iid}-{n}"):
+            n += 1
+        iid = f"{iid}-{n}"
+    return iid
+
+def _plc_port_taken(items: list, port: int, skip: dict = None) -> bool:
+    if int(port) == int(_state['opc_port']):
+        return True
+    return any(i is not skip and int(i.get('port', 0)) == int(port) for i in items)
+
+def _plc_tree_counts(tree: dict) -> dict:
+    """Node / tag / UDT-instance totals for a config tree (the instance card)."""
+    counts = {'nodes': 0, 'tags': 0, 'udtInstances': 0}
+    def walk(n):
+        if not isinstance(n, dict):
+            return
+        counts['nodes'] += 1
+        counts['tags']  += len(n.get('tags') or [])
+        if n.get('udtType'):
+            counts['udtInstances'] += 1
+        for c in (n.get('children') or []):
+            walk(c)
+    walk(tree)
+    return counts
+
+def _plc_config_path(inst: dict) -> str:
+    return os.path.join(PLC_CONFIG_DIR, inst['configFile'])
+
 def _plc_view(inst: dict) -> dict:
     host = _normalize_connect_host(_state['opc_host'])
     return {**inst,
@@ -1681,7 +1717,7 @@ async def api_plc_import():
         return jsonify({'ok': False, 'msg': 'No export files provided'}), 400
     sys.path.insert(0, os.path.join(BASE_DIR, 'tools'))
     try:
-        from import_plc_catalog import import_payloads, _slug
+        from import_plc_catalog import import_payloads
         cfg, summary = import_payloads(
             [(f.get('filename', 'export'), f.get('content', '')) for f in files],
             name=name)
@@ -1689,14 +1725,9 @@ async def api_plc_import():
         return jsonify({'ok': False, 'msg': f'Import failed: {e}'}), 400
 
     items = _load_plc_registry()
-    iid = _slug(name)
-    if _plc_find(items, iid):
-        n = 2
-        while _plc_find(items, f"{iid}-{n}"):
-            n += 1
-        iid = f"{iid}-{n}"
+    iid  = _plc_unique_id(items, name)
     port = int(data.get('port') or _plc_next_port(items))
-    if any(int(i.get('port', 0)) == port for i in items) or port == int(_state['opc_port']):
+    if _plc_port_taken(items, port):
         return jsonify({'ok': False, 'msg': f'Port {port} is already assigned'}), 400
 
     os.makedirs(PLC_CONFIG_DIR, exist_ok=True)
@@ -1753,13 +1784,161 @@ async def api_plc_patch(iid):
         inst['autostart'] = bool(data['autostart'])
     if 'port' in data:
         port = int(data['port'])
-        if any(i is not inst and int(i.get('port', 0)) == port for i in items) \
-                or port == int(_state['opc_port']):
+        if _plc_port_taken(items, port, skip=inst):
             return jsonify({'ok': False, 'msg': f'Port {port} is already assigned'}), 400
         inst['port'] = port
         inst['tcpPort'] = port + 5000
     _save_plc_registry(items)
     return jsonify({'ok': True, 'instance': _plc_view(inst)})
+
+@app.route('/api/plc/blank', methods=['POST'])
+async def api_plc_blank():
+    """Create an EMPTY raw OT source.
+
+    An import needs a Kepware/converter export; this is the other starting
+    point — a running OPC-UA server with nothing in it, which the UNS Designer
+    then fills (asset bundles, raw or modelled) and saves back through
+    /api/plc/<iid>/config. Nothing is published to a broker: modelling that raw
+    source into a UNS is the exercise.
+    """
+    data = await request.get_json() or {}
+    name = (data.get('name') or '').strip() or 'Raw OT Source'
+    root = (data.get('rootName') or name).strip()
+    items = _load_plc_registry()
+    iid   = _plc_unique_id(items, name)
+    port  = int(data.get('port') or _plc_next_port(items))
+    if _plc_port_taken(items, port):
+        return jsonify({'ok': False, 'msg': f'Port {port} is already assigned'}), 400
+
+    cfg = {
+        'version': '1.0',
+        'lastModified': datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'namespaceUri': f'http://plc-sim/{iid}',
+        'description': f'{name} — raw OT source (edited in the UNS Designer)',
+        'tree': {'id': f'ent-{iid}', 'name': root or name, 'type': 'enterprise',
+                 'description': 'Raw OT source', 'children': [], 'tags': []},
+    }
+    os.makedirs(PLC_CONFIG_DIR, exist_ok=True)
+    cfg_file = f"{iid}.json"
+    if not save_json_atomic(os.path.join(PLC_CONFIG_DIR, cfg_file), cfg,
+                            ensure_ascii=False, logger=_json_log, label=cfg_file):
+        return jsonify({'ok': False, 'msg': 'Could not write PLC config'}), 500
+
+    inst = {'id': iid, 'name': name, 'configFile': cfg_file, 'port': port,
+            'tcpPort': port + 5000, 'autostart': bool(data.get('autostart')),
+            'nodes': 1, 'tags': 0, 'udtInstances': 0, 'raw': True,
+            'createdAt': datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')}
+    items.append(inst)
+    _save_plc_registry(items)
+    _log(f"[plc:{name}] created empty raw OT source on port {port}")
+    return jsonify({'ok': True, 'instance': _plc_view(inst)})
+
+@app.route('/api/plc/<iid>/config', methods=['GET'])
+async def api_plc_config_get(iid):
+    """The instance's tree config, in the same shape as /api/uns."""
+    inst = _plc_find(_load_plc_registry(), iid)
+    if inst is None:
+        return jsonify({'ok': False, 'msg': 'Unknown PLC instance'}), 404
+    cfg = load_json(_plc_config_path(inst), {}, logger=_json_log, label=inst['configFile'])
+    if not isinstance(cfg, dict) or not isinstance(cfg.get('tree'), dict):
+        return jsonify({'ok': False, 'msg': 'PLC config is missing or unreadable'}), 500
+    return jsonify({'ok': True, 'instance': _plc_view(inst), 'config': cfg})
+
+@app.route('/api/plc/<iid>/config', methods=['POST', 'PUT'])
+async def api_plc_config_save(iid):
+    """Save an edited tree back to the instance and hot-restart just that sim.
+
+    Unlike /api/uns this touches neither the factory nor the bridge — a raw OT
+    source is its own OPC-UA server with nothing downstream of it.
+    """
+    items = _load_plc_registry()
+    inst  = _plc_find(items, iid)
+    if inst is None:
+        return jsonify({'ok': False, 'msg': 'Unknown PLC instance'}), 404
+    data = await request.get_json() or {}
+    cfg  = data.get('config') if isinstance(data.get('config'), dict) else data
+    if not isinstance(cfg, dict) or not isinstance(cfg.get('tree'), dict):
+        return jsonify({'ok': False, 'msg': 'Body has no UNS tree'}), 400
+
+    cfg['lastModified'] = datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+    if not save_json_atomic(_plc_config_path(inst), cfg, ensure_ascii=False,
+                            logger=_json_log, label=inst['configFile']):
+        return jsonify({'ok': False, 'msg': 'Could not write PLC config'}), 500
+
+    counts = _plc_tree_counts(cfg['tree'])
+    inst.update(counts)
+    _save_plc_registry(items)
+
+    restarted = False
+    if _plc_alive(iid):
+        await stop_plc_instance(iid)
+        ok, msg = await start_plc_instance(iid)
+        restarted = ok
+        if not ok:
+            _log(f"[plc:{inst.get('name')}] restart after save failed — {msg}")
+    return jsonify({'ok': True, 'restarted': restarted,
+                    'instance': _plc_view(inst), **counts})
+
+@app.route('/api/plc/<iid>/truth', methods=['GET'])
+async def api_plc_truth(iid):
+    """The answer key for a raw OT source.
+
+    Tags inserted from an asset bundle in raw mode keep a hidden `_truth` block
+    saying what the mangled tag really is. It never reaches OPC-UA — it exists
+    so a mapping run, by a person or by an AI agent, can be scored against
+    ground truth. ?format=csv for a spreadsheet.
+    """
+    inst = _plc_find(_load_plc_registry(), iid)
+    if inst is None:
+        return jsonify({'ok': False, 'msg': 'Unknown PLC instance'}), 404
+    cfg  = load_json(_plc_config_path(inst), {}, logger=_json_log, label=inst['configFile'])
+    tree = cfg.get('tree') if isinstance(cfg, dict) else None
+    if not isinstance(tree, dict):
+        return jsonify({'ok': False, 'msg': 'PLC config is missing or unreadable'}), 500
+
+    rows = []
+
+    def _walk(node, parts):
+        for tag in (node.get('tags') or []):
+            t = tag.get('_truth')
+            if not isinstance(t, dict):
+                continue
+            rows.append({
+                'opcPath':      '/'.join(parts + [tag.get('name', '')]),
+                'tag':          tag.get('name', ''),
+                'dataType':     tag.get('dataType', ''),
+                'asset':        t.get('assetLabel') or t.get('asset', ''),
+                'instance':     t.get('instance', ''),
+                'canonicalTag': t.get('tag', ''),
+                'unit':         t.get('unit', ''),
+                'description':  t.get('description', ''),
+                'profile':      t.get('profile', ''),
+                'role':         t.get('role', ''),
+                'engLo':        t.get('engLo', ''),
+                'engHi':        t.get('engHi', ''),
+                'rawLo':        t.get('rawLo', ''),
+                'rawHi':        t.get('rawHi', ''),
+                'decoy':        bool(t.get('decoy')),
+            })
+        for child in (node.get('children') or []):
+            _walk(child, parts + [child.get('name', '')])
+
+    # Same paths a client browsing the sim sees: factory.py hangs the tree under
+    # an object named after the enterprise root, then walks its children.
+    root_name, enterprise = resolve_enterprise_root(tree)
+    _walk(enterprise, [root_name] if root_name else [])
+
+    if (request.args.get('format') or '').lower() == 'csv':
+        cols = ['opcPath', 'tag', 'dataType', 'asset', 'instance', 'canonicalTag',
+                'unit', 'description', 'profile', 'role', 'engLo', 'engHi',
+                'rawLo', 'rawHi', 'decoy']
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=cols, extrasaction='ignore', lineterminator='\n')
+        w.writeheader()
+        w.writerows(rows)
+        return Response(buf.getvalue(), mimetype='text/csv', headers={
+            'Content-Disposition': f'attachment; filename="{iid}_truth.csv"'})
+    return jsonify({'ok': True, 'source': inst.get('name'), 'count': len(rows), 'rows': rows})
 
 async def _autostart_plc_instances():
     for inst in _load_plc_registry():

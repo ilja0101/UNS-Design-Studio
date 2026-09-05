@@ -18,8 +18,18 @@ import {
   Download,
   Upload,
   Eraser,
+  Cpu,
+  KeyRound,
+  Radio,
 } from "lucide-react";
-import { api, type UnsConfig, type UnsTreeNode, type UnsTag, type AssetDef } from "../../api";
+import {
+  api,
+  apiUrl,
+  type PlcInstance,
+  type UnsConfig,
+  type UnsTreeNode,
+  type AssetDef,
+} from "../../api";
 import { Button, inputCls, cx } from "../../components/ui";
 import {
   NT,
@@ -30,6 +40,7 @@ import {
   allTagPaths,
   countNodes,
   countTags,
+  countTruth,
   maxDepth,
   subtreeMatch,
   newTag,
@@ -38,11 +49,35 @@ import {
   uid,
   plantKey,
 } from "./tree";
+import type { InsertPlan } from "./rawify";
 import { SimModal } from "./SimModal";
 import { AssetModal } from "./AssetModal";
 import { ImportModal } from "./ImportModal";
+import { NewSourceModal } from "./NewSourceModal";
 
 type Tab = "props" | "tags" | "paths" | "recipes";
+
+// The Designer edits two kinds of tree. "uns" is the modelled UNS that feeds
+// the factory sim and the bridge; every other id is a raw OT source — a
+// standalone OPC-UA server (a PLC sim) with nothing downstream of it, which is
+// the point: someone else gets to model it into a UNS.
+const UNS_SOURCE = "uns";
+const SOURCE_KEY = "uds.designer.source";
+
+function rememberedSource(): string {
+  try {
+    return localStorage.getItem(SOURCE_KEY) || UNS_SOURCE;
+  } catch {
+    return UNS_SOURCE;
+  }
+}
+
+/** Raw sources are not ISA-95 — a channel holds devices, devices hold groups. */
+function rawChildType(parentType: UnsTreeNode["type"]): UnsTreeNode["type"] {
+  if (parentType === "enterprise") return "folder";
+  if (parentType === "folder") return "device";
+  return "folder";
+}
 
 export function Designer() {
   const [cfg, setCfg] = useState<UnsConfig | null>(null);
@@ -56,18 +91,79 @@ export function Designer() {
   const [simTagIdx, setSimTagIdx] = useState<number | null>(null);
   const [assetOpen, setAssetOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [newSourceOpen, setNewSourceOpen] = useState(false);
+  const [sourceId, setSourceId] = useState<string>(rememberedSource);
+  const [restoreChecked, setRestoreChecked] = useState(false);
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
 
-  const { data: loaded } = useQuery({ queryKey: ["uns-config"], queryFn: api.unsConfig });
+  const rawMode = sourceId !== UNS_SOURCE;
+  const { data: instances, refetch: refetchInstances } = useQuery({
+    queryKey: ["plc-instances"],
+    queryFn: api.plcInstances,
+    refetchInterval: 15000,
+  });
+  const instance: PlcInstance | undefined = rawMode
+    ? instances?.find((i) => i.id === sourceId)
+    : undefined;
+
+  const { data: loaded, error: loadError } = useQuery({
+    queryKey: ["designer-source", sourceId],
+    queryFn: async (): Promise<UnsConfig> =>
+      sourceId === UNS_SOURCE ? api.unsConfig() : (await api.plcConfig(sourceId)).config,
+  });
   const { data: profiles } = useQuery({ queryKey: ["sim-profiles"], queryFn: api.simulationProfiles });
   const { data: assetLib } = useQuery({ queryKey: ["asset-lib"], queryFn: api.assetLibraryFull });
   const { data: schemas } = useQuery({ queryKey: ["payload-schemas"], queryFn: api.payloadSchemas });
 
+  // Reload whenever the edited source changes — not just on first mount.
   useEffect(() => {
-    if (loaded && !cfg) {
+    if (loaded && loadedFor !== sourceId) {
       setCfg(loaded);
+      setLoadedFor(sourceId);
       setExpanded(new Set([loaded.tree.id]));
+      setSelId(null);
+      setDirty(false);
     }
-  }, [loaded, cfg]);
+  }, [loaded, loadedFor, sourceId]);
+
+  // A raw source deleted elsewhere (the PLC page, another tab) falls back to
+  // the UNS model. Only once we have actually loaded it — a source we just
+  // switched to may not be in the cached instance list yet, and yanking it away
+  // mid-switch would drop the edit.
+  useEffect(() => {
+    if (rawMode && loadedFor === sourceId && instances && !instances.some((i) => i.id === sourceId)) {
+      setSourceId(UNS_SOURCE);
+      setLoadedFor(null);
+      setCfg(null);
+    }
+  }, [instances, rawMode, sourceId, loadedFor]);
+
+  // Come back to the source you were editing after a reload — unless it is gone,
+  // which we can only tell once the instance list has arrived (checked once, so
+  // it can never race with a switch the user makes later).
+  useEffect(() => {
+    if (!restoreChecked && instances) {
+      setRestoreChecked(true);
+      if (sourceId !== UNS_SOURCE && !instances.some((i) => i.id === sourceId)) setSourceId(UNS_SOURCE);
+    }
+  }, [instances, restoreChecked, sourceId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SOURCE_KEY, sourceId);
+    } catch {
+      /* private mode — the picker just forgets between reloads */
+    }
+  }, [sourceId]);
+
+  const switchSource = (next: string) => {
+    if (next === sourceId) return;
+    if (dirty && !confirm("You have unsaved changes. Switch source and discard them?")) return;
+    setSourceId(next);
+    setLoadedFor(null);
+    setCfg(null);
+    setDirty(false);
+  };
 
   const flash = (text: string, tone: "ok" | "err" = "ok") => {
     setToast({ text, tone });
@@ -81,10 +177,12 @@ export function Designer() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${cfg.tree?.name || "uns"}_uns_config.json`;
+    a.download = rawMode
+      ? `${cfg.tree?.name || "raw"}_plc_config.json`
+      : `${cfg.tree?.name || "uns"}_uns_config.json`;
     a.click();
     URL.revokeObjectURL(url);
-    flash("Exported uns_config.json");
+    flash(rawMode ? "Exported the raw source config" : "Exported uns_config.json");
   };
 
   // Import from the modal. merge=true appends the imported tree's top-level
@@ -131,7 +229,8 @@ export function Designer() {
   };
 
   const clearTree = () => {
-    if (!confirm("Clear the entire UNS tree? All nodes and tags will be removed.\nSave to make it permanent.")) return;
+    const what = rawMode ? "raw OT source" : "UNS tree";
+    if (!confirm(`Clear the entire ${what}? All nodes and tags will be removed.\nSave to make it permanent.`)) return;
     mutate((d) => {
       d.tree = {
         id: uid(),
@@ -144,7 +243,7 @@ export function Designer() {
     });
     setSelId(null);
     setExpanded(new Set());
-    flash("UNS tree cleared — Save to persist");
+    flash(`${rawMode ? "Raw OT source" : "UNS tree"} cleared — Save to persist`);
   };
 
   const tree = cfg?.tree;
@@ -198,7 +297,7 @@ export function Designer() {
   const addChild = (parentId: string, custom = false) => {
     const parent = tree && find(tree, parentId);
     if (!parent) return;
-    const type = custom ? "workCenter" : NT[parent.type].next;
+    const type = custom ? "workCenter" : rawMode ? rawChildType(parent.type) : NT[parent.type].next;
     const node = newNode(type);
     mutateNode(parentId, (p) => {
       (p.children ??= []).push(node);
@@ -244,12 +343,21 @@ export function Designer() {
     if (!cfg) return;
     setSaving(true);
     try {
-      const res = await api.unsConfigSave(cfg);
-      if (res.ok) {
-        setDirty(false);
-        const svc = (res.restarted ?? []).join(" + ");
-        flash(svc ? `Saved — restarted: ${svc}` : "Saved");
-      } else flash("Save failed", "err");
+      if (rawMode) {
+        const res = await api.plcConfigSave(sourceId, cfg);
+        if (res.ok) {
+          setDirty(false);
+          refetchInstances();
+          flash(res.restarted ? "Saved — OPC-UA server restarted" : "Saved");
+        } else flash(res.msg || "Save failed", "err");
+      } else {
+        const res = await api.unsConfigSave(cfg);
+        if (res.ok) {
+          setDirty(false);
+          const svc = (res.restarted ?? []).join(" + ");
+          flash(svc ? `Saved — restarted: ${svc}` : "Saved");
+        } else flash("Save failed", "err");
+      }
     } catch (e) {
       flash("Save error: " + (e as Error).message, "err");
     } finally {
@@ -257,21 +365,94 @@ export function Designer() {
     }
   };
 
+  if (loadError)
+    return (
+      <div className="grid h-full place-items-center p-6 text-center text-sm text-err">
+        Could not load this source: {(loadError as Error).message}
+        <button className="mt-2 underline" onClick={() => switchSource(UNS_SOURCE)}>
+          Back to the UNS model
+        </button>
+      </div>
+    );
   if (!cfg || !tree)
-    return <div className="grid h-full place-items-center text-sm text-fg-muted">Loading UNS…</div>;
+    return (
+      <div className="grid h-full place-items-center text-sm text-fg-muted">
+        Loading {rawMode ? "raw OPC-UA server" : "UNS model"}…
+      </div>
+    );
 
-  const nextMeta = selected ? NT[NT[selected.type].next] : null;
+  const nextMeta = selected
+    ? rawMode
+      ? NT[rawChildType(selected.type)]
+      : NT[NT[selected.type].next]
+    : null;
+  const rootChildLabel = NT[rawMode ? rawChildType(tree.type) : NT[tree.type].next].label;
+  const truthCount = countTruth(tree);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* toolbar */}
-      <div className="flex items-center gap-2 border-b border-border bg-surface px-4 py-2">
-        <FolderTree size={16} className="text-accent" />
-        <span className="text-sm font-semibold text-fg">UNS Designer</span>
-        <span className="ml-2 text-xs text-fg-muted">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border bg-surface px-4 py-2">
+        {rawMode ? <Cpu size={16} className="text-warn" /> : <FolderTree size={16} className="text-accent" />}
+        <span className="text-sm font-semibold text-fg">Data Model Designer</span>
+        <span
+          className={cx(
+            "rounded-md px-1.5 py-0.5 text-[11px] font-medium",
+            rawMode ? "bg-warn-soft text-warn" : "bg-accent-soft text-accent",
+          )}
+          title={
+            rawMode
+              ? "A raw OPC-UA server data model — served over OPC-UA only, published to no broker."
+              : "The UNS data model — simulated and published to the brokers by the bridge."
+          }
+        >
+          {rawMode ? "Raw OPC-UA server" : "UNS model"}
+        </span>
+        <select
+          aria-label="Edited source"
+          className="h-7 max-w-[15rem] rounded-lg border border-border bg-bg px-1.5 text-[12px] text-fg outline-none focus:border-accent"
+          value={sourceId}
+          onChange={(e) => {
+            if (e.target.value === "__new__") setNewSourceOpen(true);
+            else switchSource(e.target.value);
+          }}
+        >
+          <option value={UNS_SOURCE}>UNS model (published)</option>
+          {(instances ?? []).length > 0 && (
+            <optgroup label="Raw OPC-UA servers (nothing published)">
+              {(instances ?? []).map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name} · :{i.port} {i.running ? "▶" : "■"}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          <option value="__new__">+ New raw OPC-UA server…</option>
+        </select>
+        <span className="text-xs text-fg-muted">
           {countNodes(tree)} nodes · {countTags(tree)} tags · depth {maxDepth(tree)}
         </span>
+        {rawMode && instance && (
+          <span
+            title={instance.running ? "Serving OPC-UA now" : "Stopped — start it on the PLC Simulators page"}
+            className={cx(
+              "flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px]",
+              instance.running ? "bg-ok-soft text-ok" : "bg-surface-2 text-fg-muted",
+            )}
+          >
+            <Radio size={11} /> {instance.endpoint}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-2">
+          {rawMode && truthCount > 0 && (
+            <a
+              href={apiUrl(`/api/plc/${encodeURIComponent(sourceId)}/truth?format=csv`)}
+              title="Download the answer key — what every mangled tag really is"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[12px] text-fg-muted hover:border-ok hover:text-ok"
+            >
+              <KeyRound size={14} /> Answer key ({truthCount})
+            </a>
+          )}
           <button
             onClick={() => setImportOpen(true)}
             title="Import a UNS from a .json file — replace or append (Save to persist)"
@@ -344,7 +525,7 @@ export function Designer() {
               onClick={() => addChild(tree.id)}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-[12px] text-fg-muted hover:border-accent hover:text-accent"
             >
-              <Plus size={13} /> Add {NT[NT[tree.type].next].label} to root
+              <Plus size={13} /> Add {rootChildLabel} to root
             </button>
           </div>
         </div>
@@ -483,21 +664,45 @@ export function Designer() {
       {selected && assetOpen && (
         <AssetModal
           assets={assetLib?.assets ?? []}
+          existingNames={(selected.tags ?? []).map((t) => t.name)}
+          existingChildNames={(selected.children ?? []).map((c) => c.name)}
+          defaultLevel={rawMode ? "plc" : "modelled"}
+          childType={rawMode ? rawChildType(selected.type) : NT[selected.type].next}
           onClose={() => setAssetOpen(false)}
-          onInsert={(asset: AssetDef) => {
+          onInsert={(asset: AssetDef, plan: InsertPlan) => {
+            const node = plan.node;
             mutateNode(selected.id, (n) => {
-              n.tags ??= [];
-              asset.tags.forEach((t) =>
-                n.tags!.push({
-                  ...newTag(),
-                  ...t,
-                  simulation: t.simulation ? { ...t.simulation } : null,
-                } as UnsTag),
-              );
+              if (node) (n.children ??= []).push(node);
+              else {
+                n.tags ??= [];
+                plan.tags.forEach((t) => n.tags!.push(t));
+              }
             });
             setAssetOpen(false);
-            setActiveTab("tags");
-            flash(`Added ${asset.tags.length} tags from "${asset.label}"`);
+            const count = node
+              ? (node.tags ?? []).length + (node.children ?? []).reduce((s, c) => s + (c.tags ?? []).length, 0)
+              : plan.tags.length;
+            if (node) {
+              setExpanded((e) => new Set(e).add(selected.id).add(node.id));
+              setSelId(node.id);
+              setActiveTab(plan.folderCount ? "props" : "tags");
+              flash(`Added "${node.name}" with ${count} tags from "${asset.label}"`);
+            } else {
+              setActiveTab("tags");
+              flash(`Added ${count} tags from "${asset.label}"`);
+            }
+          }}
+        />
+      )}
+
+      {newSourceOpen && (
+        <NewSourceModal
+          onClose={() => setNewSourceOpen(false)}
+          onCreated={async (inst) => {
+            setNewSourceOpen(false);
+            await refetchInstances();
+            switchSource(inst.id);
+            flash(`Created "${inst.name}" on port ${inst.port} — add nodes and tags, then Save`);
           }}
         />
       )}
@@ -516,6 +721,15 @@ export function Designer() {
       )}
     </div>
   );
+}
+
+// Every datatype factory.py can serve. A tag that already carries something
+// else — a legacy "Int"/"Bool", or whatever a PLC catalog import produced —
+// keeps its own value as the first option, so opening the dropdown can never
+// silently retype it.
+const DATA_TYPES = ["Float", "Double", "Int16", "Int32", "Int64", "Boolean", "String", "DateTime"];
+function dataTypeOptions(current: string): string[] {
+  return current && !DATA_TYPES.includes(current) ? [current, ...DATA_TYPES] : DATA_TYPES;
 }
 
 // ── tree row ──
@@ -701,7 +915,7 @@ function TagsTab({
                   </td>
                   <td className="px-2 py-1.5">
                     <select className={cx(inputCls, "h-8")} value={t.dataType} onChange={(e) => onUpdTag(i, "dataType", e.target.value)}>
-                      {["Float", "Int", "Bool", "String", "DateTime"].map((x) => (
+                      {dataTypeOptions(t.dataType).map((x) => (
                         <option key={x}>{x}</option>
                       ))}
                     </select>

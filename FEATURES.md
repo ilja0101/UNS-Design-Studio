@@ -46,7 +46,7 @@
 
 ## Feature Areas
 
-### 1. UNS / Topic Tree Designer (`/uns`)
+### 1. Data Model Designer — UNS / topic tree (`/uns`)
 
 Visual tree editor for designing the enterprise namespace hierarchy.
 
@@ -221,6 +221,42 @@ mapping.
 - Or run instances as separate containers: `docker-compose.plc-lab.yml`
   (UNS-mode studio + PLC sims + NATS).
 
+### 9. Raw OPC-UA server data models (`/uns`, source picker)
+
+An import needs an export file. The other starting point is an **empty raw
+OPC-UA server** you build by hand, from the same asset library — for showing or
+teaching how a UNS gets modelled, and for testing AI mapping agents against
+data that looks like it came off a PLC.
+
+- **New empty source** (Designer source picker, or the PLC Simulators page)
+  creates a running OPC-UA server with nothing in it (`POST /api/plc/blank`).
+- The **Data Model Designer** edits it exactly like the UNS tree — the source
+  picker switches between *UNS model (published)* and any raw server. Saving
+  writes `plc_configs/<id>.json` and hot-restarts **only that sim**; the
+  factory and the bridge are untouched, and nothing is published to a broker.
+  Raw sources use a channel → device → group palette instead of ISA-95 levels.
+- **Rawness levels** when inserting an asset bundle
+  (`ui/src/pages/designer/rawify.ts`):
+
+  | Level | What the client sees |
+  |---|---|
+  | Modelled | `FlowM3H`, `Float`, `m³/h`, description — the library as-is |
+  | Flat | `P101_FlowM3H` — readable, instance-prefixed, units kept |
+  | PLC symbolic | `P101_DURCHFLUSS` / `FT_101_PV` / `P101_FLOW` — vendor symbol names (Siemens, ISA, Kepware, Rockwell), no units, no descriptions |
+  | Raw addresses | `DB101.DBW0`, `40001`, `N7:12` — addresses only, analogs as `Int16` counts (0–27648 / 0–4095) |
+
+  Plus **spare tags** (dead padding, held at 0) and per-asset structure: give
+  the asset its own node, optionally split into the folders a device has —
+  Status, Analog, Counters, Setpoints, Ident.
+- **Answer key.** Every rawified tag keeps a hidden `_truth` block (asset,
+  original tag, unit, description, profile, engineering span). It never reaches
+  OPC-UA; `GET /api/plc/<id>/truth[?format=csv]` returns it keyed by the OPC-UA
+  browse path, so a mapping run — by a person or an AI agent — can be scored
+  against ground truth.
+- **Raw scaling.** `simulation.rawScale = {engLo, engHi, rawLo, rawHi}` makes
+  `factory.py` present the simulated engineering value as PLC counts (60 m³/h →
+  13824), leaving the unit *and* the span for the mapper to recover.
+
 ---
 
 ## Simulation Profiles
@@ -383,6 +419,13 @@ All endpoints are served by `app.py` on port 5000.
 | `POST` | `/api/plant/control` | Recipe switching and plant state changes |
 | `GET` | `/api/recipes/<group>/<plant>` | Get recipe list and active recipe for a plant |
 | `POST` | `/api/recipes/<group>/<plant>` | Save recipe list for a plant |
+| `GET` | `/api/plc/instances` | PLC sims / raw OPC-UA servers with live state |
+| `POST` | `/api/plc/import` | Create an instance from a Kepware / catalog export |
+| `POST` | `/api/plc/blank` | Create an empty raw OPC-UA server |
+| `GET` | `/api/plc/<id>/config` | Read that instance's tree (same shape as `/api/uns`) |
+| `PUT` | `/api/plc/<id>/config` | Save it and hot-restart just that sim |
+| `GET` | `/api/plc/<id>/truth` | Answer key for its rawified tags (`?format=csv`) |
+| `POST` | `/api/plc/<id>/start\|stop` | Start / stop one instance |
 | `GET` | `/api/opc/test` | Diagnose OPC-UA connectivity |
 | `POST` | `/api/anomaly/inject` | TCP anomaly injection — force a tag value |
 

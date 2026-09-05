@@ -143,7 +143,7 @@ export function Start() {
             <Button onClick={finish}>
               <span className="inline-flex items-center gap-1.5">
                 <Network size={15} />
-                {t("Naar de UNS Hub", "Go to the UNS Hub")}
+                {t("Naar de UNS Simulation Publisher", "Go to the UNS Simulation Publisher")}
               </span>
             </Button>
           ) : (
@@ -227,7 +227,7 @@ function useSteps(): Step[] {
           {en ? (
             <>
               <p>
-                The <strong>UNS Designer</strong> is where it begins. Build the{" "}
+                The <strong>Data Model Designer</strong> is where it begins. Build the{" "}
                 <strong>ISA-95 tree</strong> visually — enterprise, sites, areas, lines and assets — and it
                 is saved as the <code>uns_config.json</code> that backs the whole simulator.
               </p>
@@ -244,14 +244,14 @@ function useSteps(): Step[] {
               </ul>
               <p>
                 <Link to="/uns" className="font-medium text-accent hover:underline">
-                  Open the UNS Designer →
+                  Open the Data Model Designer →
                 </Link>
               </p>
             </>
           ) : (
             <>
               <p>
-                De <strong>UNS Designer</strong> is waar het begint. Bouw de{" "}
+                De <strong>Data Model Designer</strong> is waar het begint. Bouw de{" "}
                 <strong>ISA-95-boom</strong> visueel op — onderneming, sites, gebieden, lijnen en assets — en
                 die wordt opgeslagen als de <code>uns_config.json</code> waarop de hele simulator draait.
               </p>
@@ -268,7 +268,7 @@ function useSteps(): Step[] {
               </ul>
               <p>
                 <Link to="/uns" className="font-medium text-accent hover:underline">
-                  Open de UNS Designer →
+                  Open de Data Model Designer →
                 </Link>
               </p>
             </>
@@ -378,14 +378,14 @@ function useSteps(): Step[] {
           {en ? (
             <>
               <p>
-                The <strong>UNS Hub</strong> — the home screen — draws your namespace as a hub-and-spoke map:
+                The <strong>UNS Simulation Publisher</strong> — the home screen — draws your namespace as a hub-and-spoke map:
                 the enterprise at the centre, every site and asset radiating out, edges pulsing as topics
                 publish. <strong>Visualization</strong> turns those same signals into dashboards, gauges and
                 trends.
               </p>
               <ul className="flex flex-col gap-1.5 pl-1">
                 <FeatureLi>
-                  <strong>UNS Hub</strong> — the live spoke-map of the whole namespace.
+                  <strong>UNS Simulation Publisher</strong> — the live spoke-map of the whole namespace.
                 </FeatureLi>
                 <FeatureLi>
                   <strong>Visualization</strong> — dashboards over the generated plant data.
@@ -393,7 +393,7 @@ function useSteps(): Step[] {
               </ul>
               <p className="flex flex-wrap gap-4">
                 <Link to="/" className="font-medium text-accent hover:underline">
-                  Open the UNS Hub →
+                  Open the UNS Simulation Publisher →
                 </Link>
                 <Link to="/viz" className="font-medium text-accent hover:underline">
                   Open Visualization →
@@ -403,14 +403,14 @@ function useSteps(): Step[] {
           ) : (
             <>
               <p>
-                De <strong>UNS Hub</strong> — het startscherm — tekent je namespace als een hub-en-spaak-kaart:
+                De <strong>UNS Simulation Publisher</strong> — het startscherm — tekent je namespace als een hub-en-spaak-kaart:
                 de onderneming in het midden, elke site en asset eromheen, verbindingen die pulseren zodra
                 topics publiceren. <strong>Visualization</strong> maakt van diezelfde signalen dashboards,
                 meters en trends.
               </p>
               <ul className="flex flex-col gap-1.5 pl-1">
                 <FeatureLi>
-                  <strong>UNS Hub</strong> — de live spaak-kaart van de hele namespace.
+                  <strong>UNS Simulation Publisher</strong> — de live spaak-kaart van de hele namespace.
                 </FeatureLi>
                 <FeatureLi>
                   <strong>Visualization</strong> — dashboards over de gegenereerde fabrieksdata.
@@ -418,7 +418,7 @@ function useSteps(): Step[] {
               </ul>
               <p className="flex flex-wrap gap-4">
                 <Link to="/" className="font-medium text-accent hover:underline">
-                  Open de UNS Hub →
+                  Open de UNS Simulation Publisher →
                 </Link>
                 <Link to="/viz" className="font-medium text-accent hover:underline">
                   Open Visualization →
@@ -451,7 +451,7 @@ function useSteps(): Step[] {
                 </Link>
               </p>
               <p className="rounded-lg border border-border bg-bg px-3 py-2 text-xs text-fg-muted">
-                Ready? <strong>Go to the UNS Hub</strong> for the live map — or reopen this tour any time from{" "}
+                Ready? <strong>Go to the UNS Simulation Publisher</strong> for the live map — or reopen this tour any time from{" "}
                 <strong>Quick start</strong> in the sidebar.
               </p>
             </>
@@ -472,7 +472,7 @@ function useSteps(): Step[] {
                 </Link>
               </p>
               <p className="rounded-lg border border-border bg-bg px-3 py-2 text-xs text-fg-muted">
-                Klaar? <strong>Naar de UNS Hub</strong> voor de live kaart — of heropen deze rondleiding altijd
+                Klaar? <strong>Naar de UNS Simulation Publisher</strong> voor de live kaart — of heropen deze rondleiding altijd
                 via <strong>Quick start</strong> in het menu.
               </p>
             </>

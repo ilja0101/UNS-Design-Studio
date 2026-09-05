@@ -3,6 +3,54 @@
 All notable changes to UNS Design Studio are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased] — 2026-09-05
+
+### Added
+
+- **Raw OPC-UA server data models — design the source, not just the UNS.**
+  The Designer now edits two kinds of tree: the UNS model that the factory
+  simulates and the bridge publishes, and a *raw OPC-UA server* — a PLC sim
+  that is served over OPC-UA and published to no broker. Point a gateway or
+  protocol converter at it and let someone model the UNS themselves, instead of
+  handing them a finished namespace.
+  - `app.py` — `POST /api/plc/blank` creates an empty source (no export file
+    needed), `GET|PUT /api/plc/<id>/config` reads and writes its tree (saving
+    hot-restarts just that sim — the factory and bridge are untouched), and
+    `GET /api/plc/<id>/truth[?format=csv]` returns the **answer key**.
+  - UI — a source picker in the Designer toolbar (remembered across reloads),
+    a raw node palette (channel → device → group instead of ISA-95 levels), the
+    live OPC-UA endpoint, an answer-key download, and **Edit in Designer** /
+    **New empty source** on the PLC Simulators page.
+- **Rawness levels for asset bundles.** An asset can now be inserted the way it
+  really comes off a PLC: *Modelled* (the library as-is), *Flat* (readable,
+  instance-prefixed), *PLC symbolic* (vendor symbol names — Kepware, Siemens
+  German shorthand, Rockwell, ISA loop tags — no units, no descriptions) and
+  *Raw addresses* (`DB101.DBW0`, `40001`, `N7:12`, with analogs as integer
+  counts). Plus spare/dead padding tags. Every rawified tag keeps a hidden
+  `_truth` block — what it really is — so a mapping run by a person or an AI
+  agent can be scored against ground truth (`ui/src/pages/designer/rawify.ts`).
+- **Assets bring their own structure.** Inserting a bundle can create its own
+  node (named after the loop tag or the asset) and optionally split the tags
+  into the folders a device actually has — Status, Analog, Counters, Setpoints,
+  Ident — instead of dropping loose tags into whatever node was selected.
+- `factory.py` — `simulation.rawScale` presents an engineering value as PLC
+  counts (60 m³/h → 13824), leaving the scaling for the mapper to recover.
+
+### Changed
+
+- **Renamed for clarity**: *UNS Designer* → **Data Model Designer** (it models
+  both a UNS and a raw OPC-UA server, and says which one it is editing), and
+  *UNS Hub* → **UNS Simulation Publisher**.
+- `factory.py` now serves the integer width a tag declares (`Int16` reads as
+  Int16, not Int64) and clamps to it, so a narrow tag saturates like a real PLC
+  word instead of failing the write.
+
+### Fixed
+
+- The Designer's datatype dropdown only knew `Float/Int/Bool/String/DateTime`,
+  so a tag from a PLC catalog import (`Boolean`, `Int16`, `UInt16`) displayed as
+  "Float" and could be silently retyped by opening the dropdown.
+
 ## [Unreleased] — 2026-07-18
 
 ### Added

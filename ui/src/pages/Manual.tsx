@@ -42,7 +42,7 @@ export function Manual() {
         footer={
           <div className="flex flex-wrap gap-2">
             <Link to="/" className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover">
-              Open UNS Hub
+              Open UNS Simulation Publisher
             </Link>
             <Link to="/uns" className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2">
               Design UNS
@@ -64,7 +64,7 @@ export function Manual() {
         <Card title="1 · Start the simulator" icon={<Play size={16} />}>
           <Steps
             items={[
-              "Open the UNS Hub.",
+              "Open the UNS Simulation Publisher.",
               "Start the OPC-UA server from the toolbar.",
               "Wait until OPC-UA and Bridge show green.",
               "Use the main Simulation switch to run or pause all plants.",
@@ -89,7 +89,7 @@ export function Manual() {
         <Card title="3 · Design the UNS" icon={<Network size={16} />}>
           <Bullets
             items={[
-              "Open the UNS Designer to edit enterprise, business units, sites, areas, work centers, work units and tags.",
+              "Open the Data Model Designer (UNS model) to edit enterprise, business units, sites, areas, work centers, work units and tags.",
               "Tags carry simulation profiles that make them discoverable for metrics and publishing.",
               "Saving rewrites the live UNS config and restarts the simulator components.",
             ]}
@@ -134,7 +134,7 @@ export function Manual() {
             ["Plants won't start", "Start the OPC-UA server first and wait for the green status, then use the Simulation switch."],
             ["No broker messages", "Check the bridge config, start the bridge, and confirm the broker status says connected."],
             ["Metrics show dashes", "Confirm the plant is running, OPC is connected, and tags have simulation profiles."],
-            ["Designer changes not visible", "Save the UNS Designer — the hub reloads when the structure changes."],
+            ["Designer changes not visible", "Save in the Data Model Designer — the publisher reloads when the structure changes."],
           ].map(([h, b]) => (
             <div key={h}>
               <div className="text-sm font-semibold text-fg">{h}</div>

@@ -238,7 +238,7 @@ export function SpokeMap() {
           <div>
             <p className="text-sm font-medium">No UNS modelled yet.</p>
             <p className="mt-1 text-xs">
-              Open the <Link className="text-accent underline" to="/uns">UNS Designer</Link> to build one.
+              Open the <Link className="text-accent underline" to="/uns">Data Model Designer</Link> to build one.
             </p>
           </div>
         </div>

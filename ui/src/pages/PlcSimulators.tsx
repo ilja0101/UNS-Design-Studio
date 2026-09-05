@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Cpu,
@@ -10,6 +11,8 @@ import {
   FileJson,
   Copy,
   Check,
+  Pencil,
+  Plus,
 } from "lucide-react";
 import { api, type PlcInstance, type PlcImportSummary } from "../api";
 import { Page, Card, Field, Button, Toggle, inputCls, cx } from "../components/ui";
@@ -18,6 +21,7 @@ import { Page, Card, Field, Button, Toggle, inputCls, cx } from "../components/u
  * built from an imported Kepware / protocol-converter catalog export. */
 export function PlcSimulators() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { data: instances = [] } = useQuery({
     queryKey: ["plc-instances"],
     queryFn: api.plcInstances,
@@ -28,6 +32,32 @@ export function PlcSimulators() {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["plc-instances"] });
+
+  const editInDesigner = (id: string) => {
+    try {
+      localStorage.setItem("uds.designer.source", id);
+    } catch {
+      /* private mode — the Designer opens on the UNS model and the picker still works */
+    }
+    navigate("/uns");
+  };
+
+  const createBlank = async () => {
+    const name = window.prompt("Name for the new raw OPC-UA server", "Raw OPC-UA Server");
+    if (!name) return;
+    setBusy("new");
+    setError(null);
+    try {
+      const res = await api.plcBlank({ name });
+      if (res.ok && res.instance) editInDesigner(res.instance.id);
+      else setError(res.msg || "Could not create the source");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+      refresh();
+    }
+  };
 
   const act = async (id: string, fn: () => Promise<{ ok: boolean; msg?: string }>) => {
     setBusy(id);
@@ -48,11 +78,18 @@ export function PlcSimulators() {
       title="PLC Simulators"
       subtitle="Raw PLC datasources for integration testing — each instance is a standalone OPC-UA server simulating an imported Kepware / PLC tag catalog."
       actions={
-        <Button onClick={() => setImportOpen(true)}>
-          <span className="flex items-center gap-1.5">
-            <Upload size={14} /> Import PLC export
-          </span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" disabled={busy === "new"} onClick={createBlank}>
+            <span className="flex items-center gap-1.5">
+              <Plus size={14} /> New empty source
+            </span>
+          </Button>
+          <Button onClick={() => setImportOpen(true)}>
+            <span className="flex items-center gap-1.5">
+              <Upload size={14} /> Import PLC export
+            </span>
+          </Button>
+        </div>
       }
     >
       {error && (
@@ -89,7 +126,13 @@ export function PlcSimulators() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {instances.map((inst) => (
-            <InstanceCard key={inst.id} inst={inst} busy={busy === inst.id} act={act} />
+            <InstanceCard
+              key={inst.id}
+              inst={inst}
+              busy={busy === inst.id}
+              act={act}
+              onEdit={editInDesigner}
+            />
           ))}
         </div>
       )}
@@ -111,10 +154,12 @@ function InstanceCard({
   inst,
   busy,
   act,
+  onEdit,
 }: {
   inst: PlcInstance;
   busy: boolean;
   act: (id: string, fn: () => Promise<{ ok: boolean; msg?: string }>) => Promise<void>;
+  onEdit: (id: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const copyEndpoint = async () => {
@@ -188,6 +233,11 @@ function InstanceCard({
             </span>
           </Button>
         )}
+        <Button variant="ghost" onClick={() => onEdit(inst.id)}>
+          <span className="flex items-center gap-1.5">
+            <Pencil size={13} /> Edit in Designer
+          </span>
+        </Button>
         <button
           disabled={busy}
           onClick={() => {
