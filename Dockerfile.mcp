@@ -1,0 +1,41 @@
+# uds-mcp — the agent-facing MCP server as its own process.
+#
+# The dashboard already serves /mcp in-process (uds_mcp/http.py), which is the
+# simplest way to let an agent drive a UDS. This image is for when the trust
+# boundary matters: a different bearer token from the dashboard's own auth, no
+# UI, no OPC-UA server, no bridge, and nothing of app.py imported — it reaches
+# the UDS over its REST API. Same split as UNS-Knowledge-Graph's Dockerfile.mcp.
+#
+#   docker build -f Dockerfile.mcp -t uds-mcp .
+#   docker run -e UDS_MCP_TOKEN=... -e UDS_URL=http://uds:5000 -p 8060:8060 uds-mcp
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+LABEL org.opencontainers.image.title="UNS Design Studio MCP server" \
+      org.opencontainers.image.description="MCP tools for modelling a UNS Design Studio simulator" \
+      org.opencontainers.image.source="https://github.com/Ilja0101/UNS-Design-Studio" \
+      org.opencontainers.image.licenses="MIT"
+
+# Only what the tool layer and the HTTP transport need — no asyncua, no MQTT,
+# no NATS. This process never touches a protocol stack.
+RUN pip install --no-cache-dir "quart>=0.19" "httpx>=0.27"
+
+# The tool layer plus the two modules it imports from the app root.
+COPY uds_agent/ ./uds_agent/
+COPY uds_mcp/ ./uds_mcp/
+COPY uns_tree.py json_persistence.py ./
+
+ENV UDS_URL=http://uds:5000 \
+    UDS_MCP_LISTEN=0.0.0.0:8060 \
+    UNS_DATA_DIR=/data
+
+VOLUME /data
+EXPOSE 8060
+
+# / and /healthz are open; /mcp requires the bearer token in UDS_MCP_TOKEN.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=5 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8060/healthz', timeout=5).read()" || exit 1
+
+ENTRYPOINT ["python", "-m", "uds_mcp", "http"]

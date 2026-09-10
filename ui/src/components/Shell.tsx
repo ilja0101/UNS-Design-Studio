@@ -14,6 +14,7 @@ import {
   Tag,
   Sparkles,
   Cpu,
+  Bot,
 } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { ShiftBadge } from "./ShiftBadge";
@@ -88,6 +89,7 @@ const internal = [
 ];
 // Every page is now a native SPA route.
 const design = [
+  { to: "/agent", label: "Agent", icon: Bot },
   { to: "/uns", label: "Data Model Designer", icon: PencilRuler },
   { to: "/payload-schemas", label: "Payload Schemas", icon: FileJson },
   { to: "/live", label: "Live UNS View", icon: Radio },

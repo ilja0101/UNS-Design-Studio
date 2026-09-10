@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Clock, Server, Cable, Check, Loader2 } from "lucide-react";
 import { api, type ShiftConfig, type ServerConfig, type BridgeConfig } from "../api";
 import { Page, Card, Field, Button, Toggle, inputCls, cx } from "../components/ui";
+import { AgentCard } from "./AgentSettings";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -293,10 +294,14 @@ function BridgeCard() {
 
 export function Settings() {
   return (
-    <Page title="Settings" subtitle="Simulator, OPC-UA server, broker bridge and production shift hours.">
+    <Page
+      title="Settings"
+      subtitle="Simulator, OPC-UA server, broker bridge, production shift hours, and the modelling agent."
+    >
       <ShiftCard />
       <ServerCard />
       <BridgeCard />
+      <AgentCard />
     </Page>
   );
 }

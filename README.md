@@ -37,6 +37,7 @@ UNS Design Studio lets you model an industrial enterprise, generate realistic pl
 - OPC-UA → MQTT/NATS bridge with configurable broker, topic prefix, interval, and payload schemas.
 - Closed-loop **setpoints & command tags** for Industrial-AI optimization — an optimizer publishes a setpoint request, the bridge writes it back to OPC-UA (pub/sub or NATS request-reply), and per-equipment control loops ramp the committed setpoint while PVs (RPM, current, power, flow) track it. A realistic **PLC-HMI handshake** (operator mode + permissive, EU limits, optimizer heartbeat/watchdog, command-status writeback) keeps the operator in control and fails safe on comms loss. Includes **optical sorters** with a sensitivity↔reject-rate trade-off. See [docs/SETPOINT_OPTIMIZATION.md](docs/SETPOINT_OPTIMIZATION.md) and [docs/REALISTIC_CONTROL_ARCHITECTURE.md](docs/REALISTIC_CONTROL_ARCHITECTURE.md).
 - **PLC Simulators** — import a raw PLC tag catalog (UNS-Protocol-Converter browse export or a native Kepware JSON/CSV export) and run it as its own standalone OPC-UA server, next to the UNS server. Each instance reproduces the Kepware-shaped browse structure (channel → device → tag groups / UDT instances) with live simulated values, held writable setpoints, and auto-detected UDT instances — a realistic "raw" datasource for testing PLC → UNS → SCADA integration paths and AI-driven tag mapping. Manage instances (import / start / stop) from the **PLC Simulators** page, the `/api/plc/*` API, or `tools/import_plc_catalog.py` + `UDS_CONFIG`/`UDS_OPC_PORT` env vars (see `docker-compose.plc-lab.yml`).
+- **Modelling agent & MCP server** — describe the plant you want and let a language model build it. Give the agent your organisation's **topic policy** and it reads the rulebook, generates the ISA-95 tree, instantiates real equipment from the asset library, grades its own work with `policy_check`, and shows you the topics the bridge will publish. Every edit is snapshotted, so anything it does is undoable. The same tools are exposed over **MCP** at `/mcp`, so Claude Desktop, Claude Code, UNS-Industrial-AI or any other MCP client can drive this simulator from outside — in-process, over stdio, or as its own container. Works with any OpenAI-compatible endpoint (Azure AI Foundry, OpenAI, OpenRouter, Ollama); with no LLM configured the MCP side still works on its own. See [docs/AGENT_AND_MCP.md](docs/AGENT_AND_MCP.md).
 - Live UNS viewer for real-time topic inspection in the browser.
 - Built-in Mosquitto MQTT broker and MQTT Explorer — no external broker needed.
 - Asset library, importable enterprise templates, and configurable simulation profiles.
@@ -164,6 +165,15 @@ docker compose logs -f
 
 The local Compose build tags the image as `uns-design-studio:2.0`. Runtime state is stored in the `uns-design-studio-data` Docker volume.
 
+### MCP as its own container
+
+The dashboard already serves `/mcp`. Build `Dockerfile.mcp` only when you want the agent-facing server behind a separate trust boundary — its own bearer token, no UI, nothing of `app.py` in the process:
+
+```bash
+docker build -f Dockerfile.mcp -t uds-mcp .
+docker run -e UDS_MCP_TOKEN=... -e UDS_URL=http://uds:5000 -p 8060:8060 uds-mcp
+```
+
 ## Portainer / GHCR
 
 Use `portainer-stack.yml` to deploy the published image from GitHub Container Registry:
@@ -187,6 +197,8 @@ Root JSON files are live mutable state, not fixtures:
 `uns_config.json`, `sim_state.json`, `bridge_config.json`, `server_config.json`, `payload_schemas.json`, `asset_library.json`
 
 Docker seeds these into `/data` on first boot and symlinks `/app/*.json` to `/data/*.json`.
+
+The agent adds `agent_config.json` (LLM endpoint and MCP token), `topic_policy.json`, and an `agent/` directory holding conversations and the model-snapshot undo history.
 
 ## Validation
 

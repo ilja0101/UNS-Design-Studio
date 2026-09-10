@@ -7,6 +7,52 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **A modelling agent, an agent chat, and an MCP server.** UDS can now be driven
+  by a language model: hand it your organisation's **topic policy** and ask for
+  a simulation, and it reads the rulebook, builds the ISA-95 tree, instantiates
+  real equipment from the asset library, grades its own work, fixes what it
+  broke, and shows you the topics the bridge will publish. See
+  [docs/AGENT_AND_MCP.md](docs/AGENT_AND_MCP.md).
+  - **One tool registry, three consumers** (`uds_agent/tools.py`, 29 tools). The
+    built-in chat agent, the in-process `/mcp` endpoint and the standalone
+    `python -m uds_mcp` entrypoints all execute the same functions, so an
+    external agent is never less capable than the built-in one. Tools reach the
+    app through `uds_agent/backend.py`: `DirectBackend` re-enters the app's own
+    HTTP handlers in-process (so an agent's UNS save restarts the OPC server and
+    the bridge exactly as the Designer's does), `HttpBackend` drives a remote UDS
+    over its REST API.
+  - **Topic policy as a first-class object** (`uds_agent/policy.py`,
+    `topic_policy.json`). Separator, prefix, allowed ISA-95 levels, per-level
+    naming patterns, tag case and qualifiers, forbidden parts, topic length —
+    plus a free-text `notes` field for the parts a regex cannot express, which
+    is injected verbatim into the agent's system prompt. `policy_check` walks
+    the model with `uns_tree.build_bridge_entries`, the bridge's own walk, so
+    what it validates is literally what would be published.
+  - **Every write is snapshotted**, and `uns_revert` puts any of the last 30
+    model states back — including undoing a revert. Surfaced as an **Undo** tab
+    on the Agent page and at `/api/agent/snapshots`.
+  - **Agent page** (`/app/agent`) — streaming chat over SSE, a collapsible card
+    per tool call showing arguments and results, conversation history, and a
+    side panel with the policy editor, a live compliance report, the topics the
+    model would publish, and the undo history.
+  - **MCP server** at `POST /mcp`, streamable HTTP, bearer-gated with a token
+    minted on first use (`UDS_MCP_TOKEN` to pin it, `UDS_MCP_ENABLED=0` to
+    switch it off). `GET /mcp/info` is unauthenticated and reports the protocol
+    revision and tool list without leaking anything. Also `python -m uds_mcp
+    stdio` for Claude Desktop / Claude Code, and `python -m uds_mcp http` +
+    `Dockerfile.mcp` for a separate trust boundary in the shape of
+    UNS-Knowledge-Graph's `kg-mcp`.
+  - **Settings → Agent** — endpoint, model and API key for any OpenAI-compatible
+    provider (Azure AI Foundry, OpenAI, OpenRouter, Ollama, vLLM), a tool-step
+    budget, a read-only switch, extra system-prompt instructions, and the MCP
+    endpoint/token with a rotate button. The API key is never returned to the
+    browser; `UDS_LLM_*` environment variables override the stored values.
+  - `uds_agent/llm.py` ports the wire-format lessons from
+    UNS-Industrial-AI-V2's adapter: `max_completion_tokens` → `max_tokens`
+    fallback, optional params dropped on rejection, a non-streaming fallback,
+    tool-call fragments merged by index, and malformed tool arguments answered
+    as an error rather than raised.
+
 - **Raw OPC-UA server data models — design the source, not just the UNS.**
   The Designer now edits two kinds of tree: the UNS model that the factory
   simulates and the bridge publishes, and a *raw OPC-UA server* — a PLC sim
@@ -37,6 +83,13 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
   counts (60 m³/h → 13824), leaving the scaling for the mapper to recover.
 
 ### Changed
+
+- `app.py` — the auth hook now also accepts a per-boot loopback token so the
+  agent's in-process tool calls satisfy HTTP Basic without handling the
+  operator's password. The token is regenerated every boot and never persisted.
+- `requirements.txt` — added `openai` and `httpx`. `openai` is imported only
+  when a chat turn actually runs, so a UDS with no LLM configured never
+  touches it.
 
 - **Renamed for clarity**: *UNS Designer* → **Data Model Designer** (it models
   both a UNS and a raw OPC-UA server, and says which one it is editing), and

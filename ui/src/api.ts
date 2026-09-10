@@ -128,7 +128,204 @@ export const api = {
       method: "POST",
       body: JSON.stringify(cfg),
     }),
+
+  // ── Agent ──
+  agentSettings: () => req<AgentSettings>("/api/agent/settings"),
+  agentSettingsSave: (patch: Partial<AgentSettings> & { apiKey?: string }) =>
+    req<AgentSettings>("/api/agent/settings", { method: "POST", body: JSON.stringify(patch) }),
+  agentTools: () => req<{ tools: AgentTool[] }>("/api/agent/tools"),
+  agentPolicy: () => req<TopicPolicy>("/api/agent/policy"),
+  agentPolicySave: (policy: TopicPolicy) =>
+    req<{ ok: boolean; policy: TopicPolicy }>("/api/agent/policy", {
+      method: "POST",
+      body: JSON.stringify(policy),
+    }),
+  agentPolicyCheck: (limit = 50) => req<PolicyReport>(`/api/agent/policy/check?limit=${limit}`),
+  agentTopics: (contains = "", limit = 100) =>
+    req<TopicPreview>(
+      `/api/agent/topics?limit=${limit}&contains=${encodeURIComponent(contains)}`,
+    ),
+  agentSnapshots: () => req<{ snapshots: ModelSnapshot[] }>("/api/agent/snapshots"),
+  agentRevert: (id: string) =>
+    req<{ ok: boolean; revertedTo?: string; error?: string }>(
+      `/api/agent/snapshots/${encodeURIComponent(id)}/revert`,
+      { method: "POST", body: "{}" },
+    ),
+  conversations: () => req<{ conversations: ConversationMeta[] }>("/api/agent/conversations"),
+  conversation: (id: string) =>
+    req<Conversation>(`/api/agent/conversations/${encodeURIComponent(id)}`),
+  conversationDelete: (id: string) =>
+    req<{ ok: boolean }>(`/api/agent/conversations/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
 };
+
+// ── Agent types ──
+export interface AgentSettings {
+  endpoint: string;
+  model: string;
+  maxTokens: number;
+  temperature: number | null;
+  reasoningEffort: string;
+  maxSteps: number;
+  allowWrites: boolean;
+  systemPromptExtra: string;
+  mcpEnabled: boolean;
+  mcpToken: string;
+  mcpAllowWrites: boolean;
+  apiKeySet: boolean;
+  configured: boolean;
+  envManaged: Record<string, boolean>;
+}
+
+export interface AgentTool {
+  name: string;
+  description: string;
+  writes: boolean;
+  schema: unknown;
+}
+
+export interface PolicyLevel {
+  type: string;
+  required?: boolean;
+  caseRule?: string;
+  pattern?: string;
+  allowed?: string[];
+}
+
+export interface TopicPolicy {
+  name: string;
+  description: string;
+  separator: string;
+  prefix: string;
+  caseRule: string;
+  maxTopicLength: number;
+  levels: PolicyLevel[];
+  tag: { caseRule?: string; pattern?: string; qualifiers?: string[] };
+  forbiddenParts: string[];
+  notes: string;
+}
+
+export interface PolicyViolation {
+  code: string;
+  path: string;
+  message: string;
+  fix: string;
+}
+
+export interface PolicyReport {
+  ok: boolean;
+  policy: string;
+  separator: string;
+  prefix: string;
+  counts: { nodes: number; tags: number; topics: number; violations: number };
+  reported: number;
+  truncated: boolean;
+  violations: PolicyViolation[];
+  sampleTopics: string[];
+}
+
+export interface TopicPreview {
+  total: number;
+  separator: string;
+  prefix: string;
+  topics: Array<{ topic: string; unit: string; dataType: string; tag: string }>;
+}
+
+export interface ModelSnapshot {
+  id: string;
+  label: string;
+  takenAt: string;
+  nodes: number;
+}
+
+export interface ConversationMeta {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: number;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant" | "tool";
+  content: string;
+  ts?: string;
+  tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
+  tool_call_id?: string;
+  name?: string;
+  ok?: boolean;
+  summary?: string;
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+}
+
+/** One event off the /api/agent/chat SSE stream. */
+export type AgentEvent =
+  | { type: "start"; conversation: string; title?: string }
+  | { type: "delta"; text: string }
+  | { type: "tool_call"; id: string; name: string; args: Record<string, unknown> }
+  | {
+      type: "tool_result";
+      id: string;
+      name: string;
+      ok: boolean;
+      summary: string;
+      result: Record<string, unknown> | null;
+    }
+  | { type: "done"; stop: string; usage?: Record<string, number>; title?: string; message?: string }
+  | { type: "error"; message: string; retryable?: boolean };
+
+/** POST a turn and yield agent events as they stream in.
+ *
+ *  EventSource can only issue GETs, and a chat turn is a POST with a body, so
+ *  the SSE frames are parsed off a fetch stream by hand. Frames are separated
+ *  by a blank line; a partial frame at the end of a chunk is carried over.
+ */
+export async function* agentChat(
+  body: { message: string; conversation?: string },
+  signal?: AbortSignal,
+): AsyncGenerator<AgentEvent> {
+  const r = await fetch(apiUrl("/api/agent/chat"), {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!r.ok || !r.body) {
+    yield { type: "error", message: `chat failed (HTTP ${r.status})` };
+    return;
+  }
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let split = buffer.indexOf("\n\n");
+    while (split !== -1) {
+      const frame = buffer.slice(0, split);
+      buffer = buffer.slice(split + 2);
+      const line = frame.split("\n").find((l) => l.startsWith("data:"));
+      if (line) {
+        try {
+          yield JSON.parse(line.slice(5).trim()) as AgentEvent;
+        } catch {
+          // A frame we can't parse is not worth killing the stream over.
+        }
+      }
+      split = buffer.indexOf("\n\n");
+    }
+  }
+}
 
 // ── UNS Designer model ──
 export type UnsNodeType =

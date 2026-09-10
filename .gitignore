@@ -259,3 +259,10 @@ ui/node_modules/
 # PLC simulator runtime state (created by the dashboard on native runs)
 plc_instances.json
 /plc_configs/
+
+# Agent runtime state (created by the dashboard on native runs; on Docker these
+# live on the /data volume instead). agent_config.json holds the LLM API key
+# and the MCP bearer token, so it must never be committed.
+agent_config.json
+topic_policy.json
+/agent/

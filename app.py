@@ -51,6 +51,10 @@ _AMIX: 'AmixRuntime | None' = None   # the governance NATS runtime (governed-onl
 _AUTH_USER = os.environ.get('UDS_ADMIN_USERNAME', '')
 _AUTH_PASS = os.environ.get('UDS_ADMIN_PASSWORD', '')
 
+# Loopback credential for in-process tool dispatch (see uds_agent/backend.py).
+from uds_agent.backend import INTERNAL_HEADER as _INTERNAL_HEADER, INTERNAL_TOKEN as _INTERNAL_TOKEN
+
+
 def _basic_ok() -> bool:
     """True when the current request satisfies the app's HTTP-Basic credential."""
     auth = request.authorization
@@ -69,6 +73,15 @@ async def _require_basic_auth():
     # Governed mode: a valid AMIX SSO session satisfies auth even when a Basic
     # credential is also set (dead branch standalone — _GOV.governed() is False).
     if _GOV.governed() and _amix_current_user() is not None:
+        return None
+    # The agent/MCP tool layer re-enters the app's own routes through Quart's
+    # test client (uds_agent.backend.DirectBackend) rather than duplicating the
+    # handlers. Those calls carry a token minted fresh each boot and never
+    # written down, and the caller has already passed the MCP bearer gate or
+    # the SPA's session to get here.
+    if request.headers.get(_INTERNAL_HEADER) and hmac.compare_digest(
+        request.headers.get(_INTERNAL_HEADER, ''), _INTERNAL_TOKEN
+    ):
         return None
     if not (_AUTH_USER and _AUTH_PASS):
         return None
@@ -2206,6 +2219,17 @@ async def api_viz_values():
 @app.route('/api/viz/tags/<path:entity_id>', methods=['GET'])
 async def api_viz_tags(entity_id):
     return jsonify({'tags': viz_service.entity_tags(UNS_CONFIG_FILE, entity_id)})
+
+# ── Agent + MCP ───────────────────────────────────────────────────────────────
+# The modelling agent (/api/agent/*) and the MCP server external agents connect
+# to (/mcp) share one tool registry — see uds_agent/tools.py. Both are behind
+# the app's own auth; /mcp additionally requires its bearer token, and answers
+# 404 when MCP is switched off in the agent settings.
+from uds_agent.routes import bp as _agent_bp
+from uds_mcp.http import bp as _mcp_bp
+
+app.register_blueprint(_agent_bp)
+app.register_blueprint(_mcp_bp)
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == '__main__':

@@ -278,6 +278,77 @@ data that looks like it came off a PLC.
 
 All profiles are plant-state-aware. Values change coherently when a plant faults, recovers or stops.
 
+### 10. Modelling agent & MCP server (`/agent`, `/mcp`)
+
+Hand a language model your organisation's **topic policy** and ask it to model a
+simulation. The agent reads the rulebook, builds the ISA-95 tree, instantiates
+real equipment from the asset library, grades its own work, fixes what it broke,
+and shows you the topics the bridge will publish. Full guide:
+[docs/AGENT_AND_MCP.md](docs/AGENT_AND_MCP.md).
+
+**One tool registry, three consumers.** `uds_agent/tools.py` defines 29 tools;
+the built-in chat agent, the in-process `/mcp` endpoint and the standalone
+`python -m uds_mcp` entrypoints all execute the same functions, so an external
+agent is never less capable than the built-in one. Tools reach the app through
+`uds_agent/backend.py` — `DirectBackend` re-enters the app's own HTTP handlers
+in-process (an agent's UNS save restarts the OPC server and the bridge exactly
+as the Designer's does), `HttpBackend` drives a remote UDS over its REST API.
+
+| Group | Tools |
+|---|---|
+| Inspect | `uns_overview`, `uns_browse`, `uns_search`, `uns_get_node`, `sim_status`, `asset_library`, `simulation_profiles`, `topics_preview` |
+| Model | `uns_add_node`, `uns_update_node`, `uns_delete_node`, `uns_move_node`, `uns_set_tags`, `uns_delete_tags`, `uns_add_asset`, `uns_replace_subtree` |
+| Policy | `policy_get`, `policy_set`, `policy_check`, `policy_conform_names`, `policy_suggest_name` |
+| Undo | `uns_snapshots`, `uns_revert` |
+| Run it | `sim_control`, `plant_control`, `anomaly_inject`, `bridge_config`, `payload_schemas`, `plc_simulators` |
+
+`uns_add_asset` instantiates a library template whole — a centrifugal pump
+arrives with all eleven tags, units and simulation profiles in one call, with
+tag names rewritten into the policy's case rule on the way in.
+`uns_replace_subtree` takes a nested tree, so a site is one call rather than
+fifty. Paths are `/`-joined node names from the root (`acme/nl-veghel/mixing`);
+the root's own name is optional, so a path copied out of a topic works too.
+
+**Topic policy** (`topic_policy.json`, `uds_agent/policy.py`) is a first-class
+object: separator, prefix, allowed ISA-95 levels, per-level naming patterns and
+allow-lists, tag case and qualifiers, forbidden parts, maximum topic length —
+plus a free-text `notes` field for the parts a regex cannot express, injected
+verbatim into the agent's system prompt as binding. `policy_check` walks the
+model with `uns_tree.build_bridge_entries`, the bridge's own walk, so what it
+validates is literally what would be published.
+
+| Violation | Meaning |
+|---|---|
+| `name.pattern` / `tag.pattern` | a name breaks the case rule or pattern |
+| `name.allowed` / `name.forbidden` | outside an allowed set, or on the deny list |
+| `name.separator` | a name contains the topic separator |
+| `level.missing` / `level.order` / `level.undeclared` | ISA-95 ladder problems |
+| `tag.qualifier` | a qualifier outside the allowed set |
+| `topic.duplicate` | two tags collapse onto one topic |
+| `topic.length` | over `maxTopicLength` |
+
+**Every write is snapshotted** before it lands, and `uns_revert` puts any of the
+last 30 model states back — including undoing a revert. Surfaced as an **Undo**
+tab on the Agent page.
+
+**Agent page** (`/agent`) — streaming chat over SSE, a collapsible card per tool
+call showing arguments and results, conversation history, and a side panel with
+the policy editor, a live compliance report, the topics the model would publish,
+and the undo history.
+
+**MCP server** — `POST /mcp` on the dashboard's own port, streamable HTTP,
+bearer-gated with a token minted on first use. Also `python -m uds_mcp stdio`
+for a local desktop agent, and `python -m uds_mcp http` + `Dockerfile.mcp` for a
+separate trust boundary. `GET /mcp/info` is unauthenticated and reports the
+protocol revision and tool list without leaking anything.
+
+**LLM** — any OpenAI-compatible endpoint (Azure AI Foundry, OpenAI, OpenRouter,
+Ollama, vLLM), configured under Settings → Agent or via `UDS_LLM_ENDPOINT` /
+`UDS_LLM_API_KEY` / `UDS_LLM_MODEL`. The API key is never returned to the
+browser. With no LLM configured the MCP side still works on its own.
+
+---
+
 ### Closed-loop control & setpoints
 
 The `ctrl_*` profiles turn a group of tags into a **per-equipment control loop** for
@@ -428,6 +499,19 @@ All endpoints are served by `app.py` on port 5000.
 | `POST` | `/api/plc/<id>/start\|stop` | Start / stop one instance |
 | `GET` | `/api/opc/test` | Diagnose OPC-UA connectivity |
 | `POST` | `/api/anomaly/inject` | TCP anomaly injection — force a tag value |
+| `GET` | `/api/agent/settings` | Agent + MCP settings (never returns the API key) |
+| `POST` | `/api/agent/settings` | Save them; empty `apiKey` keeps the stored one, empty `mcpToken` rotates |
+| `GET` | `/api/agent/tools` | The tool catalogue, with which ones write |
+| `GET` | `/api/agent/policy` | Active topic policy |
+| `POST` | `/api/agent/policy` | Save the topic policy |
+| `GET` | `/api/agent/policy/check` | Grade the current model against it (`?limit=`) |
+| `GET` | `/api/agent/topics` | Topics the model would publish (`?contains=&limit=`) |
+| `GET` | `/api/agent/snapshots` | The model-snapshot undo history |
+| `POST` | `/api/agent/snapshots/<id>/revert` | Restore one (itself snapshotted) |
+| `GET`/`POST`/`DELETE` | `/api/agent/conversations[/<id>]` | Chat history |
+| `POST` | `/api/agent/chat` | Run a turn; streams agent events as SSE |
+| `POST` | `/mcp` | MCP over streamable HTTP — bearer token required |
+| `GET` | `/mcp/info` | Unauthenticated: is MCP on, and what does it expose |
 
 ---
 
@@ -512,12 +596,30 @@ UNS-Design-Studio/
 ├── factory.py               # OPC-UA server + simulation engine
 ├── bridge.py                # OPC-UA → MQTT/NATS bridge
 │
+├── uds_agent/               # The modelling agent
+│   ├── tools.py             #   the tool registry — one definition, three consumers
+│   ├── policy.py            #   topic policy model + checker
+│   ├── backend.py           #   Direct (in-process) / Http (remote) dispatch
+│   ├── llm.py               #   streaming OpenAI-compatible adapter
+│   ├── loop.py              #   the agentic turn
+│   ├── prompts.py           #   system prompt, with the live policy injected
+│   ├── store.py             #   conversation persistence
+│   ├── settings.py          #   LLM config + MCP token
+│   └── routes.py            #   /api/agent/* (SSE chat)
+├── uds_mcp/                 # UDS as an MCP server
+│   ├── protocol.py          #   transport-agnostic JSON-RPC dispatch
+│   ├── http.py              #   /mcp on the dashboard, bearer-gated
+│   ├── stdio.py             #   stdio transport for a local desktop agent
+│   └── __main__.py          #   python -m uds_mcp stdio|http
+│
 ├── uns_config.json          # UNS tree definition (primary config)
 ├── sim_state.json           # Plant running state + recipe (runtime state)
 ├── server_config.json       # OPC-UA and TCP port settings
 ├── bridge_config.json       # Broker connection settings
 ├── payload_schemas.json     # Payload schema templates
 ├── asset_library.json       # Asset library for UNS designer
+├── topic_policy.json        # Topic policy the agent models against
+├── agent_config.json        # LLM endpoint/key/model, MCP token
 │
 ├── templates/
 │   ├── index.html           # Dashboard
@@ -528,6 +630,7 @@ UNS-Design-Studio/
 ├── example_UNS_jsons_to_import/   # Example enterprise templates
 ├── docs/                          # Screenshots
 ├── Dockerfile
+├── Dockerfile.mcp           # Standalone MCP server image
 ├── docker-compose.yml
 ├── entrypoint.sh            # First-boot config seeding + symlinks
 ├── start_dashboard.bat      # Windows local launch script

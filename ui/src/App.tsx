@@ -10,6 +10,7 @@ import { Designer } from "./pages/designer/Designer";
 import { Visualization } from "./pages/Visualization";
 import { PlcSimulators } from "./pages/PlcSimulators";
 import { Start } from "./pages/Start";
+import { Agent } from "./pages/agent/Agent";
 import { isOnboarded } from "./onboarding";
 
 // mqtt.js is heavy; keep it out of the main bundle — only load it on /live.
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/" element={<HomeGate />} />
           <Route path="/start" element={<Start />} />
           <Route path="/uns" element={<Designer />} />
+          <Route path="/agent" element={<Agent />} />
           <Route path="/viz" element={<Visualization />} />
           <Route path="/plc" element={<PlcSimulators />} />
           <Route path="/settings" element={<Settings />} />
