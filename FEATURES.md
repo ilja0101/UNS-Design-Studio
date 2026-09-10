@@ -286,7 +286,7 @@ real equipment from the asset library, grades its own work, fixes what it broke,
 and shows you the topics the bridge will publish. Full guide:
 [docs/AGENT_AND_MCP.md](docs/AGENT_AND_MCP.md).
 
-**One tool registry, three consumers.** `uds_agent/tools.py` defines 32 tools;
+**One tool registry, three consumers.** `uds_agent/tools.py` defines 34 tools;
 the built-in chat agent, the in-process `/mcp` endpoint and the standalone
 `python -m uds_mcp` entrypoints all execute the same functions, so an external
 agent is never less capable than the built-in one. Tools reach the app through
@@ -301,6 +301,7 @@ as the Designer's does), `HttpBackend` drives a remote UDS over its REST API.
 | Policy | `policy_get`, `policy_set`, `policy_check`, `policy_conform_names`, `policy_suggest_name` |
 | Undo | `uns_snapshots`, `uns_revert` |
 | Attachments | `attachment_list`, `attachment_read`, `artifact_create` |
+| Trends | `trend_watch`, `trend_read` |
 | Run it | `sim_control`, `plant_control`, `anomaly_inject`, `bridge_config`, `payload_schemas`, `plc_simulators` |
 
 `uns_add_asset` instantiates a library template whole — a centrifugal pump
@@ -322,6 +323,11 @@ library), ```mermaid (lazy-loaded, strict), sanitised ```svg, highlighted code
 with copy/download, and `artifact_create` for files the agent hands back — the
 same fence vocabulary as IAI-V2 and the AMIX Ask AI panels. An effort chip
 (auto/low/med/high) sets the reasoning effort for the next turn only.
+
+**Trends of live values** (`trend_service.py`, `/api/trends`). A watch-list of
+up to 32 tags, recorded by the existing OPC-UA poll loop every 3 s into a
+600-sample ring buffer; `trend_read` returns a window with statistics and a
+chart the tool card draws itself. The agent never re-types a series.
 
 **Topic policy** (`topic_policy.json`, `uds_agent/policy.py`) is a first-class
 object: separator, prefix, allowed ISA-95 levels, per-level naming patterns and

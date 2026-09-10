@@ -3,7 +3,9 @@ import { AlertTriangle, Check, ChevronRight, Download, Sparkles, Wrench, X } fro
 import { type Attachment } from "../../api";
 import { cx } from "../../components/ui";
 import { AttachmentChip } from "./attachments";
+import { Chart } from "./ChartBlock";
 import { downloadText } from "./CodeBlock";
+import { parseChartSpec, type ChartSpec } from "./svgchart";
 import { Markdown } from "./markdown";
 
 /** A tool call as the transcript sees it: issued, then resolved. */
@@ -153,6 +155,11 @@ function ToolCard({ entry }: { entry: ToolEntry }) {
           <AttachmentChip attachment={artifactOf(entry)!} />
         </div>
       )}
+      {!entry.pending && chartOf(entry) && (
+        <div className="border-t border-border px-2.5 pb-1">
+          <Chart spec={chartOf(entry)!} />
+        </div>
+      )}
       {open && (
         <div className="border-t border-border px-2.5 py-2">
           <Detail label="Arguments" value={entry.args} />
@@ -169,6 +176,15 @@ function ToolCard({ entry }: { entry: ToolEntry }) {
       )}
     </div>
   );
+}
+
+/** A tool result that carries its own chart (trend_read): drawn here, so the
+ *  model never has to repeat the series in its answer. */
+function chartOf(entry: ToolEntry): ChartSpec | null {
+  const r = entry.result as { chart?: unknown } | null;
+  if (!r?.chart || typeof r.chart !== "object") return null;
+  const { spec } = parseChartSpec(JSON.stringify(r.chart));
+  return spec && spec.series.some((s) => s.data.length > 0) ? spec : null;
 }
 
 /** A tool result that is a stored file (artifact_create, or any result carrying one). */

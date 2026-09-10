@@ -59,6 +59,8 @@ comparisons -- tags per area, violations by rule -- when a picture says it faste
 clearest way to show structure. Keep it under ~40 nodes; summarise beyond that.
 - ```svg renders an inline drawing (must carry a viewBox; scripts and external references are \
 stripped) -- a simple P&ID sketch or a topic-layout figure.
+- A trend of a live tag: trend_watch it, then trend_read after the simulation has run a \
+while. The chart is drawn from the tool result itself; never re-type the series.
 - artifact_create hands the user a file. A full topic list, an exported policy JSON, a tag \
 table longer than a screen: put it in a file and say what is in it.
 

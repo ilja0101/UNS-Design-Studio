@@ -183,6 +183,15 @@ def _summarize(name: str, ok: bool, payload: Any) -> str:
         return str(payload)[:200]
     if not isinstance(payload, dict):
         return f'{name} ok'
+    if 'chart' in payload and 'samples' in payload:
+        st = payload.get('stats') or {}
+        if not payload['samples']:
+            return f"{payload.get('tag')}: no samples yet"
+        return (f"{payload.get('tag')}: {payload['samples']} samples, last {st.get('last')}"
+                f"{(' ' + payload['unit']) if payload.get('unit') else ''}")
+    if 'watched' in payload and isinstance(payload['watched'], list):
+        n = len(payload['watched'])
+        return f"watching {n} tag(s)" + (f", {len(payload['errors'])} error(s)" if payload.get('errors') else '')
     if isinstance(payload.get('artifact'), dict):
         a = payload['artifact']
         return f"{a.get('name', 'file')} · {a.get('size', 0)} B, ready to download"

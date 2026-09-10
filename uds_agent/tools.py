@@ -1031,6 +1031,56 @@ async def _attachment_list(backend: Backend, args: dict) -> Any:
     return await backend.call('GET', '/api/agent/attachments')
 
 
+# ── trends ──────────────────────────────────────────────────────────────────
+# UDS keeps a short history only for tags somebody asked to watch; the OPC-UA
+# poll loop records them every few seconds. Watch first, read after a while.
+
+@tool('trend_watch',
+      'Start (or stop) recording a tag\'s live value so it can be trended. Recording is every '
+      '~3 s while the OPC-UA server runs, up to 32 tags, half an hour of history each. Use '
+      'action "list" to see what is watched and how many samples exist.',
+      _obj({
+          'action': {'type': 'string', 'enum': ['add', 'remove', 'list'],
+                     'description': 'Defaults to add.'},
+          'tags': {'type': 'array', 'items': _obj({
+              'path': _path_prop('Node path, e.g. acme/ams-01/mixing/m1 (root name optional).'),
+              'tag': {'type': 'string', 'description': 'Tag name on that node.'},
+          }, ['path', 'tag']), 'description': 'Tags to add or remove.'},
+      }), writes=False)
+async def _trend_watch(backend: Backend, args: dict) -> Any:
+    action = args.get('action') or 'add'
+    if action == 'list':
+        return await backend.call('GET', '/api/trends')
+    tags = [t for t in (args.get('tags') or []) if isinstance(t, dict)]
+    if not tags:
+        raise ToolError('tags is required for add/remove')
+    method = 'DELETE' if action == 'remove' else 'POST'
+    return await backend.call(method, '/api/trends/watch', {'tags': tags})
+
+
+@tool('trend_read',
+      'The recorded history of a watched tag as a time series with min/max/mean/last. The '
+      'chat renders the chart from this call\'s result -- do NOT repeat the numbers in your '
+      'answer, describe what they show. If the tag is not watched yet, trend_watch it and '
+      'tell the user to ask again in a minute; if samples is 0, the simulation or the OPC-UA '
+      'server is probably not running (sim_status).',
+      _obj({
+          'path': _path_prop('Node path, e.g. acme/ams-01/mixing/m1 (root name optional).'),
+          'tag': {'type': 'string', 'description': 'Tag name on that node.'},
+          'seconds': {'type': 'number', 'minimum': 5, 'maximum': 3600,
+                      'description': 'How far back (default 300).'},
+          'points': {'type': 'integer', 'minimum': 2, 'maximum': 600,
+                     'description': 'Max points to return, thinned evenly (default 120).'},
+      }, ['path', 'tag']))
+async def _trend_read(backend: Backend, args: dict) -> Any:
+    params = {'path': str(args.get('path') or ''), 'tag': str(args.get('tag') or ''),
+              'seconds': float(args.get('seconds') or 300),
+              'points': int(args.get('points') or 120)}
+    if not params['path'] and not params['tag']:
+        raise ToolError('path and tag are required')
+    return await backend.call('GET', '/api/trends/read', params=params)
+
+
 @tool('artifact_create',
       'Hand the user a file: a CSV of topics, a JSON policy, an exported tag list, a Markdown '
       'report. Returns the stored file\'s id and name; the chat shows it as a downloadable card. '

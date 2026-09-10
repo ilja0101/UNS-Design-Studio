@@ -287,6 +287,8 @@ _state = {
     'opc_connected': False,
     'plant_data':  {},
     'viz_values':  {},
+    # Short value history for tags the agent (or anyone) asked to watch.
+    'trends':      None,   # trend_service.TrendStore, created below
     # Bridge
     'bridge_proc':  None,
     'bridge_stats': {
@@ -902,6 +904,7 @@ async def _poll_loop():
                         async with _locks['data']:
                             _state['plant_data'] = await _collect_plant_data(ent, ns_idx)
                             _state['viz_values'] = await _collect_viz_values(ent, ns_idx)
+                        await _collect_trends(ent, ns_idx)
                     except Exception as e:
                         _log(f"[poll] Data collection error (triggering reconnect): {e}")
                         _state['opc_connected'] = False
@@ -2155,6 +2158,7 @@ async def api_schemas_save():
     return jsonify({'ok': True})
 
 # ── Visualization (SCADA mimic) ───────────────────────────────────────────────
+import trend_service
 import viz_service
 
 def _suggest_kind(name): return viz_service.suggest_kind(name)
@@ -2164,8 +2168,8 @@ def _walk_viz_entities(): return viz_service.walk_entities(UNS_CONFIG_FILE)
 def _viz_resolve_tag_path(entity_id, tag_name):
     return viz_service.resolve_tag_path(UNS_CONFIG_FILE, entity_id, tag_name)
 
-async def _collect_viz_values(ent, idx):
-    """Bridge viz_service.collect_values_async to a live OPC client (poll loop only)."""
+def _opc_reader(ent, idx):
+    """A read(path_parts) closure over a live OPC client; None on any failure."""
     async def read(path):
         try:
             n = ent
@@ -2174,11 +2178,110 @@ async def _collect_viz_values(ent, idx):
             return await n.read_value()
         except Exception:
             return None
+    return read
+
+
+async def _collect_viz_values(ent, idx):
+    """Bridge viz_service.collect_values_async to a live OPC client (poll loop only)."""
     return await viz_service.collect_values_async(
         _load_viz_cfg().get('gauges', []),
         _viz_resolve_tag_path,
-        read,
+        _opc_reader(ent, idx),
     )
+
+
+# ── Trends: a value history for watched tags ──────────────────────────────────
+# The poll loop above already visits the OPC server every few seconds; the
+# watched tags ride along. See trend_service.py.
+_state['trends'] = trend_service.TrendStore()
+
+
+async def _collect_trends(ent, idx):
+    store = _state['trends']
+    targets = store.targets()
+    if not targets:
+        return
+    read = _opc_reader(ent, idx)
+    now = time.time()
+    for key, parts in targets:
+        value = await read(parts)
+        if value is not None:
+            store.record(key, value, now)
+
+
+def _trend_target(path: str, tag: str):
+    """Agent path + tag → (clean path, OPC browse path, unit), or a reason it cannot be."""
+    tree = viz_service._read_uns(UNS_CONFIG_FILE).get('tree', {}) or {}
+    parts = [p for p in str(path or '').replace('\\', '/').split('/') if p.strip()]
+    root = tree.get('name', '')
+    if parts and parts[0] == root:
+        parts = parts[1:]
+    node = tree
+    for part in parts:
+        node = next((c for c in node.get('children', []) if c.get('name') == part), None)
+        if node is None:
+            return None, None, f"no node '{part}' on the path {path}"
+    tag_def = next((t for t in node.get('tags', []) if t.get('name') == tag), None)
+    if tag_def is None:
+        names = ', '.join(t.get('name', '?') for t in node.get('tags', [])[:20]) or '(no tags)'
+        return None, None, f"no tag '{tag}' on {'/'.join(parts) or root}. tags there: {names}"
+    opc = viz_service.resolve_tag_path(UNS_CONFIG_FILE, '|'.join([root, *parts]), tag)
+    if not opc:
+        return None, None, f'could not resolve an OPC-UA path for {tag}'
+    return '/'.join(parts), opc, str(tag_def.get('unit') or '')
+
+
+@app.route('/api/trends', methods=['GET'])
+async def api_trends_list():
+    return jsonify({'watched': _state['trends'].watched(),
+                    'opc_ready': bool(_state.get('opc_connected')),
+                    'poll_seconds': 3, 'max_watch': trend_service.MAX_WATCH})
+
+
+@app.route('/api/trends/watch', methods=['POST'])
+async def api_trends_watch():
+    body = await request.get_json() or {}
+    added, errors = [], []
+    for item in body.get('tags') or []:
+        path, tag = str(item.get('path') or ''), str(item.get('tag') or '')
+        clean, opc, unit = _trend_target(path, tag)
+        if opc is None:
+            errors.append(unit)
+            continue
+        try:
+            added.append(_state['trends'].add(clean, tag, opc, unit=unit))
+        except ValueError as exc:
+            errors.append(str(exc))
+    status = 200 if added or not errors else 400
+    return jsonify({'ok': not errors, 'watched': added, 'errors': errors,
+                    'opc_ready': bool(_state.get('opc_connected'))}), status
+
+
+@app.route('/api/trends/watch', methods=['DELETE'])
+async def api_trends_unwatch():
+    body = await request.get_json() or {}
+    removed = [t for t in body.get('tags') or []
+               if _state['trends'].remove(str(t.get('path') or ''), str(t.get('tag') or ''))]
+    return jsonify({'ok': True, 'removed': len(removed)})
+
+
+@app.route('/api/trends/read', methods=['GET'])
+async def api_trends_read():
+    path = request.args.get('path', '')
+    tag = request.args.get('tag', '')
+    try:
+        seconds = float(request.args.get('seconds', 300) or 300)
+        points = int(request.args.get('points', trend_service.DEFAULT_POINTS) or trend_service.DEFAULT_POINTS)
+    except ValueError:
+        return jsonify({'error': 'seconds and points must be numbers'}), 400
+    clean, _, _ = _trend_target(path, tag)
+    try:
+        out = _state['trends'].read(clean if clean is not None else path, tag,
+                                    seconds=seconds, points=points)
+    except KeyError:
+        return jsonify({'error': f'{tag} at {path} is not on the watch list; watch it first'}), 404
+    out['opc_ready'] = bool(_state.get('opc_connected'))
+    return jsonify(out)
 
 @app.route('/viz')
 async def viz_page():

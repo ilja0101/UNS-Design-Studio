@@ -231,6 +231,15 @@ panels, so one prompt convention serves the family:
 | ```` ```svg ```` with a `viewBox` | an inline drawing, sanitised tag-by-tag: no scripts, handlers or external references survive |
 | any other fence | highlighted code with copy, and download for the ones worth keeping |
 | `artifact_create(name, content)` | a file card you can download — a 300-topic CSV belongs there, not in the answer |
+| `trend_read(path, tag)` | a line chart of the tag's recorded live values, drawn on the tool card from the result itself |
+
+**Trends.** UDS keeps no history by default. `trend_watch` puts a tag on a
+watch-list (32 at most) and the OPC-UA poll loop, which already visits the
+server every 3 s for the dashboard, records it into a ring buffer of 600
+samples — half an hour. `trend_read` returns the window as a series with
+min/max/mean/last and a ready chart spec; the card draws it, so the model is
+told never to re-type the numbers. `GET|POST|DELETE /api/trends[/watch|/read]`
+is the surface underneath (`trend_service.py`), usable without the agent.
 
 An artifact is an attachment the agent authored: same storage, same
 `attachment_read`, so an external MCP client can read what the built-in agent
@@ -261,6 +270,8 @@ writes are disabled (Settings, or `--read-only`).
 **Undo** — `uns_snapshots`, `uns_revert`
 
 **Attachments** — `attachment_list`, `attachment_read`, `artifact_create`
+
+**Trends** — `trend_watch`, `trend_read`
 
 **Run it** — `sim_control`, `plant_control`, `anomaly_inject`, `bridge_config`,
 `payload_schemas`, `plc_simulators`

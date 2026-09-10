@@ -21,7 +21,7 @@ import { ShiftBadge } from "./ShiftBadge";
 
 const APP_INFO = {
   name: "UNS Design Studio",
-  version: "2.4.0",
+  version: "2.5.0",
   author: "Ilja Bartels",
   repo: "github.com/ilja0101/UNS-Design-Studio",
   repoUrl: "https://github.com/ilja0101/UNS-Design-Studio",

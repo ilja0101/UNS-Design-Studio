@@ -3,6 +3,22 @@
 All notable changes to UNS Design Studio are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.5.0] — 2026-09-11
+
+### Added
+
+- **Trends of live tag values** (`trend_service.py`, `GET|POST|DELETE
+  /api/trends[/watch|/read]`, tools `trend_watch` / `trend_read`). UDS kept no
+  history; now a watch-list of up to 32 tags is recorded by the OPC-UA poll
+  loop that already runs every 3 s for the dashboard, into a 600-sample ring
+  buffer per tag (half an hour). `trend_read` returns a window as a series with
+  min/max/mean/last plus a ready chart spec, and the **tool card draws the
+  chart itself** — the agent is told never to repeat the numbers, which keeps
+  a trend question at a few hundred tokens. Paths resolve to OPC-UA browse
+  paths with the visualisation page's rules, so a tag the gauges can read, the
+  trend can read. Verified against the live simulation: boiler steam pressure,
+  23 samples, min 4.418 / max 5.151 bar, charted on the card.
+
 ## [2.4.0] — 2026-09-11
 
 ### Added
