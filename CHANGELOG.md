@@ -3,7 +3,7 @@
 All notable changes to UNS Design Studio are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased] — 2026-09-05
+## [2.2.0] — 2026-09-10
 
 ### Added
 

@@ -16,6 +16,19 @@ from typing import Any
 from json_persistence import load_json, save_json_atomic
 from uds_agent.paths import settings_file
 
+
+def _stored() -> dict[str, Any]:
+    """The settings file as a dict, or empty -- silently when there is none.
+
+    A fresh UDS has no agent_config.json until the MCP token is minted on the
+    first read, so load_json's read-failure line printed twice on every first
+    boot. Absent is the normal state, not a fault.
+    """
+    if not os.path.exists(settings_file()):
+        return {}
+    raw = load_json(settings_file(), None, label='agent_config.json')
+    return dict(raw) if isinstance(raw, dict) else {}
+
 DEFAULTS: dict[str, Any] = {
     # Any OpenAI-compatible endpoint: Azure AI Foundry, OpenAI, OpenRouter,
     # Ollama (http://localhost:11434/v1), vLLM, LM Studio.
@@ -45,10 +58,9 @@ _ENV = {
 
 
 def load() -> dict[str, Any]:
-    raw = load_json(settings_file(), None, label='agent_config.json')
+    raw = _stored()
     cfg = dict(DEFAULTS)
-    if isinstance(raw, dict):
-        cfg.update({k: v for k, v in raw.items() if k in DEFAULTS})
+    cfg.update({k: v for k, v in raw.items() if k in DEFAULTS})
     for key, env in _ENV.items():
         if os.environ.get(env):
             cfg[key] = os.environ[env]
@@ -67,8 +79,7 @@ def _ensure_token(cfg: dict[str, Any]) -> str:
     from the Settings page (``mcpToken: ""`` on save).
     """
     token = secrets.token_urlsafe(32)
-    stored = load_json(settings_file(), None, label='agent_config.json')
-    stored = stored if isinstance(stored, dict) else {}
+    stored = _stored()
     stored['mcpToken'] = token
     save_json_atomic(settings_file(), stored, ensure_ascii=False, label='agent_config.json')
     return token
@@ -76,8 +87,7 @@ def _ensure_token(cfg: dict[str, Any]) -> str:
 
 def save(patch: dict[str, Any]) -> dict[str, Any]:
     """Merge a patch into the stored settings; empty apiKey keeps the old one."""
-    stored = load_json(settings_file(), None, label='agent_config.json')
-    stored = dict(stored) if isinstance(stored, dict) else {}
+    stored = _stored()
     for key, value in (patch or {}).items():
         if key not in DEFAULTS:
             continue
