@@ -163,7 +163,7 @@ export function Agent() {
             <p className="truncate text-[11px] text-fg-muted">
               {configured
                 ? `Models the UNS through ${settings.data?.model} — every edit is snapshotted`
-                : "No LLM endpoint configured yet"}
+                : "No model door configured yet"}
             </p>
           </div>
           <button
@@ -427,7 +427,7 @@ function Composer({
           }}
           placeholder={
             disabled
-              ? "Configure an LLM endpoint in Settings to chat here"
+              ? "Choose a model door under Settings → Agent to chat here"
               : "Paste a topic policy, or ask for a plant to be modelled…"
           }
           className="max-h-[260px] min-h-[36px] flex-1 resize-none bg-transparent px-1.5 py-1.5 text-[13px] text-fg outline-none placeholder:text-fg-faint disabled:opacity-60"
@@ -490,11 +490,12 @@ function Starters({ onPick }: { onPick: (prompt: string) => void }) {
 function NotConfigured() {
   return (
     <div className="mb-6 rounded-xl border border-warn/40 bg-warn-soft p-4">
-      <h3 className="text-sm font-semibold text-fg">No LLM endpoint configured</h3>
+      <h3 className="text-sm font-semibold text-fg">No model door configured</h3>
       <p className="mt-1 text-[12px] leading-relaxed text-fg-muted">
-        The built-in agent needs an OpenAI-compatible endpoint — Azure AI Foundry, OpenAI,
-        OpenRouter, or a local Ollama. Add one under Settings, or skip it entirely and drive this
-        UDS from an external agent over MCP: the tools are identical.
+        The built-in agent reaches a model one of two ways, chosen under Settings → Agent: the
+        Model Gateway over this app's own backbone — no key here, works from the OT tier, the way
+        the other applications do it — or a direct OpenAI-compatible endpoint with a key. Or skip
+        both and drive this UDS from an external agent over MCP: the tools are identical.
       </p>
       <div className="mt-3">
         <Link to="/settings">

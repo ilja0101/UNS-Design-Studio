@@ -49,6 +49,7 @@ from uds_agent.llm import (
     ToolDescriptor,
     build_request,
     normalize_dict,
+    param_fallback,
 )
 
 log = logging.getLogger(__name__)
@@ -138,11 +139,24 @@ class MeshAdapter:
         body = build_request(model=self.model, system=system, messages=messages, tools=tools,
                              temperature=temperature, reasoning_effort=reasoning_effort,
                              max_tokens=self._max_tokens)
-        body.pop('max_completion_tokens', None)
-        body['max_tokens'] = self._max_tokens
         body['stream'] = False   # the gateway refuses a stream, by design
-        raw = await self._request(envelope(body, person=self.person, purpose=self.purpose))
-        _, response = unwrap(raw)
+
+        # Same loop as the HTTP door: send the modern spelling, and swap exactly
+        # one parameter per refusal that names it. The gateway forwards the
+        # provider's sentence, so the needles are the same on both doors.
+        attempts = 0
+        while True:
+            attempts += 1
+            raw = await self._request(envelope(body, person=self.person, purpose=self.purpose))
+            try:
+                _, response = unwrap(raw)
+                break
+            except InferenceError as exc:
+                changed = param_fallback(body, exc.status, str(exc)) if exc.kind == 'gateway' else None
+                if changed and attempts < 5:
+                    log.info('mesh: param fallback (%s), retrying', changed)
+                    continue
+                raise
         turn = normalize_dict(response)
         if turn.text:
             yield TextDelta(turn.text)

@@ -132,3 +132,19 @@ def test_a_gateway_refusal_is_explained_with_its_own_words():
     msg = loop._explain(llm.InferenceError('gateway', REFUSAL['body']['error']['message'], 403))
     assert msg.startswith('The Model Gateway refused')
     assert 'under Applications' in msg
+
+
+def test_the_providers_own_refusal_flips_max_tokens_the_other_way():
+    """Word for word what gpt-5.6-luna said through the gateway on the lab."""
+    body = {'max_tokens': 800, 'model': 'm'}
+    msg = "gpt-5.6-luna refused the request: Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead."
+    assert llm.param_fallback(body, 400, msg) == 'max_tokens→max_completion_tokens'
+    assert body == {'max_completion_tokens': 800, 'model': 'm'}
+    # and it does not flip back on the next call with the same message
+    assert llm.param_fallback(body, 400, msg) is None
+
+
+def test_the_mesh_body_sends_the_modern_spelling_first():
+    body = llm.build_request(model='', system='s', messages=[], tools=None, temperature=None,
+                             reasoning_effort=None, max_tokens=64)
+    assert 'max_completion_tokens' in body and 'max_tokens' not in body

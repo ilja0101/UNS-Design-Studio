@@ -168,12 +168,30 @@ class LlmAdapter:
 
 def _param_fallback(params: dict[str, Any], exc: Any) -> str | None:
     """Mutate params for one known per-deployment quirk; return what changed."""
-    if getattr(exc, 'status_code', None) not in (400, 422):
+    return param_fallback(params, getattr(exc, 'status_code', None),
+                          str(getattr(exc, 'message', exc) or ''))
+
+
+def param_fallback(params: dict[str, Any], status: int | None, msg: str) -> str | None:
+    """The same quirks, from a status and a message -- what the mesh door has.
+
+    The gateway forwards the provider's own refusal sentence, so the needles
+    below match it on either door. Each call mutates ONE thing and says which;
+    the caller retries and comes back if the next refusal names another.
+    """
+    if status not in (400, 422):
         return None
-    msg = str(getattr(exc, 'message', exc) or '')
+    # A newer model refusing the legacy name. Seen on the lab from gpt-5.6-luna
+    # through the gateway, word for word: "'max_tokens' is not supported with
+    # this model. Use 'max_completion_tokens' instead." That sentence names BOTH
+    # parameters, so it is checked first and the forward rule below is fenced
+    # off from it -- otherwise the two flip each other until the attempt cap.
+    if 'max_tokens' in params and "'max_tokens'" in msg and 'max_completion_tokens' in msg:
+        params['max_completion_tokens'] = params.pop('max_tokens')
+        return 'max_tokens→max_completion_tokens'
     if 'max_completion_tokens' in params and 'max_completion_tokens' in msg and (
         'extra_forbidden' in msg or 'not permitted' in msg or 'unsupported' in msg.lower()
-    ):
+    ) and "'max_tokens' is not supported" not in msg:
         params['max_tokens'] = params.pop('max_completion_tokens')
         return 'max_completion_tokens→max_tokens'
     if 'reasoning_effort' in params and 'reasoning_effort' in msg:
