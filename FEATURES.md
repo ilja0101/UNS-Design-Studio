@@ -286,7 +286,7 @@ real equipment from the asset library, grades its own work, fixes what it broke,
 and shows you the topics the bridge will publish. Full guide:
 [docs/AGENT_AND_MCP.md](docs/AGENT_AND_MCP.md).
 
-**One tool registry, three consumers.** `uds_agent/tools.py` defines 31 tools;
+**One tool registry, three consumers.** `uds_agent/tools.py` defines 32 tools;
 the built-in chat agent, the in-process `/mcp` endpoint and the standalone
 `python -m uds_mcp` entrypoints all execute the same functions, so an external
 agent is never less capable than the built-in one. Tools reach the app through
@@ -300,7 +300,7 @@ as the Designer's does), `HttpBackend` drives a remote UDS over its REST API.
 | Model | `uns_add_node`, `uns_update_node`, `uns_delete_node`, `uns_move_node`, `uns_set_tags`, `uns_delete_tags`, `uns_add_asset`, `uns_replace_subtree` |
 | Policy | `policy_get`, `policy_set`, `policy_check`, `policy_conform_names`, `policy_suggest_name` |
 | Undo | `uns_snapshots`, `uns_revert` |
-| Attachments | `attachment_list`, `attachment_read` |
+| Attachments | `attachment_list`, `attachment_read`, `artifact_create` |
 | Run it | `sim_control`, `plant_control`, `anomaly_inject`, `bridge_config`, `payload_schemas`, `plc_simulators` |
 
 `uns_add_asset` instantiates a library template whole — a centrifugal pump
@@ -316,6 +316,12 @@ paste. Workbooks and CSVs reach the model as rows, text as itself, images as an
 `image_url` part; the inline copy is bounded (12 k characters per file, 30 k per
 message) and the agent pages the rest with `attachment_read`. The conversation
 stores metadata only; the file stays under `agent/attachments/`.
+
+**A chat that shows, not tells.** Tables, ```chart (hand-rolled SVG, no
+library), ```mermaid (lazy-loaded, strict), sanitised ```svg, highlighted code
+with copy/download, and `artifact_create` for files the agent hands back — the
+same fence vocabulary as IAI-V2 and the AMIX Ask AI panels. An effort chip
+(auto/low/med/high) sets the reasoning effort for the next turn only.
 
 **Topic policy** (`topic_policy.json`, `uds_agent/policy.py`) is a first-class
 object: separator, prefix, allowed ISA-95 levels, per-level naming patterns and

@@ -152,6 +152,21 @@ async def upload_attachments():
     return jsonify({'attachments': saved, 'errors': errors}), (200 if saved else 400)
 
 
+@bp.route('/attachments/text', methods=['POST'])
+async def create_text_attachment():
+    """A file authored by the agent (artifact_create): JSON in, the same metadata out."""
+    body = await request.get_json() or {}
+    name = str(body.get('name') or '').strip()
+    content = body.get('content')
+    if not name or not isinstance(content, str):
+        return jsonify({'error': 'name and string content are required'}), 400
+    try:
+        meta = att.save(name, content.encode('utf-8'), str(body.get('mime') or ''))
+    except att.AttachmentError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify(att.public(meta))
+
+
 @bp.route('/attachments/<aid>', methods=['GET'])
 async def get_attachment(aid: str):
     meta = att.load(aid)
@@ -214,7 +229,8 @@ async def chat():
         # freshly-created conversation before any content arrives.
         yield _sse({'type': 'start', 'conversation': convo['id'], 'title': convo.get('title')})
         try:
-            async for event in agent_loop.run_turn(_backend, convo, text, attachments=attachments or None):
+            async for event in agent_loop.run_turn(_backend, convo, text, attachments=attachments or None,
+                                                   effort=str(body.get('effort') or '') or None):
                 yield _sse(event)
         except Exception as exc:  # pragma: no cover — belt and braces
             log.exception('agent: chat stream failed')

@@ -49,7 +49,7 @@ class McpDispatcher:
     """Owns the tool registry and answers MCP requests against one backend."""
 
     def __init__(self, backend: Backend, *, allow_writes: bool = True,
-                 server_name: str = 'uns-design-studio', server_version: str = '2.3.0'):
+                 server_name: str = 'uns-design-studio', server_version: str = '2.4.0'):
         self.backend = backend
         self.allow_writes = allow_writes
         self.server_name = server_name

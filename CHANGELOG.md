@@ -3,6 +3,33 @@
 All notable changes to UNS Design Studio are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.4.0] — 2026-09-11
+
+### Added
+
+- **The chat shows, not tells** — the same visual vocabulary as IAI-V2 and the
+  AMIX Ask AI panels, so one prompt convention serves the family
+  (`ui/src/pages/agent/{markdown,ChartBlock,MermaidBlock,SvgBlock,CodeBlock}.tsx`).
+  - Markdown **tables** (GFM, with alignment), blockquotes and rules.
+  - ```` ```chart ```` renders a bar/line/area/scatter chart from a JSON spec
+    with hover values — hand-rolled SVG geometry ported from IAI-V2, no chart
+    library.
+  - ```` ```mermaid ```` renders a diagram; Mermaid is a lazy chunk (loaded the
+    first time a diagram appears, ~170 kB gzipped, strict security level).
+  - ```` ```svg ```` renders an inline drawing after allow-list sanitisation:
+    scripts, event handlers, `<image>`, `foreignObject` and external `href`s are
+    stripped, and an SVG without a `viewBox` is refused.
+  - Other fences get syntax highlighting (json/yaml/xml/python/bash) with copy,
+    and download for the longer ones. Tool results over 400 characters can be
+    downloaded as JSON from the card.
+  - **`artifact_create(name, content)`** — the agent hands the user a file,
+    shown as a downloadable card. An artifact is an attachment the agent
+    authored: same storage, same `attachment_read`, so an MCP client can read
+    what the built-in agent produced.
+  - **Effort chip** (auto · low · med · high) next to the paperclip: reasoning
+    effort for the next turn only, remembered on the message and shown on the
+    turn. The system prompt teaches the agent when to use each of the above.
+
 ## [2.3.0] — 2026-09-11
 
 ### Added

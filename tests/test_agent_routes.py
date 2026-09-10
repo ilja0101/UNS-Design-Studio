@@ -227,7 +227,7 @@ async def test_an_upload_comes_back_as_metadata_and_a_chat_may_reference_it(
 
     got = {}
 
-    async def fake_turn(backend, convo, text, attachments=None):
+    async def fake_turn(backend, convo, text, attachments=None, **kw):
         got['attachments'] = attachments
         yield {'type': 'done', 'stop': 'end_turn'}
 

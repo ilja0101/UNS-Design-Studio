@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
   ArrowUp,
+  Brain,
   MessageSquarePlus,
   PanelRightClose,
   PanelRightOpen,
@@ -11,7 +12,7 @@ import {
   Square,
   Trash2,
 } from "lucide-react";
-import { agentChat, api, type AgentEvent, type ChatMessage } from "../../api";
+import { agentChat, api, type AgentEvent, type ChatMessage, type Effort } from "../../api";
 import { Button, cx } from "../../components/ui";
 import { AttachmentChip, prepareForUpload, type PendingAttachment } from "./attachments";
 import { SidePanel } from "./SidePanel";
@@ -56,6 +57,10 @@ export function Agent() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState<PendingAttachment[]>([]);
+  // Per-turn reasoning effort. "" means whatever Settings → Agent says; it is
+  // a chip rather than a setting because the same conversation has cheap
+  // questions and expensive ones, and tokens are paid for.
+  const [effort, setEffort] = useState<Effort>("");
   const [live, setLive] = useState<Turn[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +107,7 @@ export function Agent() {
         text: message,
         tools: [],
         attachments: ready,
+        effort: effort || undefined,
       };
       const agentTurn: Turn = {
         key: `a-${Date.now()}`,
@@ -124,6 +130,7 @@ export function Agent() {
             message,
             conversation: conversationId ?? undefined,
             attachments: ready.length ? ready.map((a) => a.id) : undefined,
+            effort: effort || undefined,
           },
           controller.signal,
         )) {
@@ -143,7 +150,7 @@ export function Agent() {
         qc.invalidateQueries({ queryKey: ["agent-snapshots"] });
       }
     },
-    [active.data, conversationId, pending, qc, streaming],
+    [active.data, conversationId, effort, pending, qc, streaming],
   );
 
   /** Upload as soon as a file is picked, so send is instant and errors show early. */
@@ -250,6 +257,8 @@ export function Agent() {
           pending={pending}
           onAddFiles={addFiles}
           onRemove={removePending}
+          effort={effort}
+          onEffort={setEffort}
         />
       </section>
 
@@ -312,7 +321,14 @@ function replay(messages: ChatMessage[]): Turn[] {
 
   messages.forEach((m, i) => {
     if (m.role === "user") {
-      turns.push({ key: `m${i}`, role: "user", text: m.content, tools: [], attachments: m.attachments });
+      turns.push({
+        key: `m${i}`,
+        role: "user",
+        text: m.content,
+        tools: [],
+        attachments: m.attachments,
+        effort: m.effort,
+      });
       return;
     }
     if (m.role === "assistant") {
@@ -436,6 +452,8 @@ function Composer({
   pending,
   onAddFiles,
   onRemove,
+  effort,
+  onEffort,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -446,6 +464,8 @@ function Composer({
   pending: PendingAttachment[];
   onAddFiles: (files: File[]) => void;
   onRemove: (key: string) => void;
+  effort: Effort;
+  onEffort: (e: Effort) => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -526,6 +546,7 @@ function Composer({
           >
             <Paperclip size={15} />
           </button>
+          <EffortChip value={effort} onChange={onEffort} disabled={disabled} />
         <textarea
           ref={ref}
           rows={1}
@@ -550,7 +571,7 @@ function Composer({
               ? "Choose a model door under Settings → Agent to chat here"
               : dragging
                 ? "Drop the file…"
-                : "Paste a topic policy, attach the spreadsheet, or ask for a plant to be modelled…"
+                : "Ask for a plant, or attach the policy or a tag list…"
           }
           className="max-h-[260px] min-h-[36px] flex-1 resize-none bg-transparent px-1.5 py-1.5 text-[13px] text-fg outline-none placeholder:text-fg-faint disabled:opacity-60"
         />
@@ -580,6 +601,47 @@ function Composer({
           edits this simulator directly
         </p>
       )}
+    </div>
+  );
+}
+
+const EFFORTS: Array<{ value: Effort; label: string; hint: string }> = [
+  { value: "", label: "auto", hint: "the effort configured under Settings → Agent" },
+  { value: "low", label: "low", hint: "quick answers, cheapest" },
+  { value: "medium", label: "med", hint: "balanced" },
+  { value: "high", label: "high", hint: "modelling a whole site, auditing a large namespace" },
+];
+
+/** Reasoning effort for the next turn, as a small segmented chip. */
+function EffortChip({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: Effort;
+  onChange: (e: Effort) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div
+      className="mb-0.5 flex shrink-0 items-center gap-0.5 rounded-lg bg-surface-2 p-0.5"
+      title="Reasoning effort for the next turn"
+    >
+      <Brain size={12} className="ml-1 text-fg-faint" />
+      {EFFORTS.map((e) => (
+        <button
+          key={e.label}
+          onClick={() => onChange(e.value)}
+          disabled={disabled}
+          title={e.hint}
+          className={cx(
+            "rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-tokens disabled:opacity-40",
+            e.value === value ? "bg-surface text-fg shadow-card" : "text-fg-muted hover:text-fg",
+          )}
+        >
+          {e.label}
+        </button>
+      ))}
     </div>
   );
 }

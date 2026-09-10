@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { AlertTriangle, Check, ChevronRight, Sparkles, Wrench, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, Download, Sparkles, Wrench, X } from "lucide-react";
 import { type Attachment } from "../../api";
 import { cx } from "../../components/ui";
 import { AttachmentChip } from "./attachments";
+import { downloadText } from "./CodeBlock";
 import { Markdown } from "./markdown";
 
 /** A tool call as the transcript sees it: issued, then resolved. */
@@ -23,6 +24,7 @@ export interface Turn {
   text: string;
   tools: ToolEntry[];
   attachments?: Attachment[];
+  effort?: "low" | "medium" | "high";
   streaming?: boolean;
 }
 
@@ -31,7 +33,7 @@ export function Transcript({ turns }: { turns: Turn[] }) {
     <div className="flex flex-col gap-5">
       {turns.map((t) =>
         t.role === "user" ? (
-          <UserTurn key={t.key} text={t.text} attachments={t.attachments ?? []} />
+          <UserTurn key={t.key} text={t.text} attachments={t.attachments ?? []} effort={t.effort} />
         ) : (
           <AgentTurn key={t.key} turn={t} />
         ),
@@ -40,9 +42,22 @@ export function Transcript({ turns }: { turns: Turn[] }) {
   );
 }
 
-function UserTurn({ text, attachments }: { text: string; attachments: Attachment[] }) {
+function UserTurn({
+  text,
+  attachments,
+  effort,
+}: {
+  text: string;
+  attachments: Attachment[];
+  effort?: "low" | "medium" | "high";
+}) {
   return (
     <div className="flex flex-col items-end gap-1.5">
+      {effort && (
+        <span className="text-[10px] uppercase tracking-wider text-fg-faint" title="Reasoning effort for this turn">
+          {effort} effort
+        </span>
+      )}
       {attachments.length > 0 && (
         <div className="flex max-w-[80%] flex-wrap justify-end gap-1.5">
           {attachments.map((a) => (
@@ -75,7 +90,7 @@ function AgentTurn({ turn }: { turn: Turn }) {
         )}
         {turn.text ? (
           <div className="text-fg">
-            <Markdown text={turn.text} />
+            <Markdown text={turn.text} streaming={turn.streaming} />
           </div>
         ) : (
           turn.streaming &&
@@ -133,10 +148,17 @@ function ToolCard({ entry }: { entry: ToolEntry }) {
           {entry.pending ? "running…" : entry.summary}
         </span>
       </button>
+      {!entry.pending && artifactOf(entry) && (
+        <div className="border-t border-border px-2.5 py-2">
+          <AttachmentChip attachment={artifactOf(entry)!} />
+        </div>
+      )}
       {open && (
         <div className="border-t border-border px-2.5 py-2">
           <Detail label="Arguments" value={entry.args} />
-          {!entry.pending && entry.result != null && <Detail label="Result" value={entry.result} />}
+          {!entry.pending && entry.result != null && (
+            <Detail label="Result" value={entry.result} download={`${entry.name}.json`} />
+          )}
           {failed && (
             <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-err">
               <AlertTriangle size={12} className="mt-0.5 shrink-0" />
@@ -149,12 +171,28 @@ function ToolCard({ entry }: { entry: ToolEntry }) {
   );
 }
 
-function Detail({ label, value }: { label: string; value: unknown }) {
+/** A tool result that is a stored file (artifact_create, or any result carrying one). */
+function artifactOf(entry: ToolEntry): Attachment | null {
+  const r = entry.result as { artifact?: Attachment } | null;
+  const a = r?.artifact;
+  return a && typeof a.id === "string" && a.id.startsWith("att-") ? a : null;
+}
+
+function Detail({ label, value, download }: { label: string; value: unknown; download?: string }) {
   const text = JSON.stringify(value, null, 2) ?? "";
   return (
     <div className="mt-1 first:mt-0">
-      <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-fg-faint">
-        {label}
+      <div className="mb-0.5 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-fg-faint">
+        <span>{label}</span>
+        {download && text.length > 400 && (
+          <button
+            onClick={() => downloadText(download, text, "application/json")}
+            className="flex items-center gap-1 rounded px-1 normal-case tracking-normal hover:text-fg"
+            title="Download the full result as JSON"
+          >
+            <Download size={11} /> {(text.length / 1024).toFixed(0)} kB
+          </button>
+        )}
       </div>
       <pre className="max-h-56 overflow-auto rounded border border-border bg-bg p-2 font-mono text-[11px] leading-relaxed text-fg">
         {text.length > 4000 ? text.slice(0, 4000) + "\n…" : text}

@@ -299,6 +299,8 @@ export interface ChatMessage {
   content: string;
   ts?: string;
   attachments?: Attachment[];
+  /** Reasoning effort chosen for this turn, when it overrode the setting. */
+  effort?: "low" | "medium" | "high";
   tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
   tool_call_id?: string;
   name?: string;
@@ -336,8 +338,10 @@ export type AgentEvent =
  *  the SSE frames are parsed off a fetch stream by hand. Frames are separated
  *  by a blank line; a partial frame at the end of a chunk is carried over.
  */
+export type Effort = "" | "low" | "medium" | "high";
+
 export async function* agentChat(
-  body: { message: string; conversation?: string; attachments?: string[] },
+  body: { message: string; conversation?: string; attachments?: string[]; effort?: Effort },
   signal?: AbortSignal,
 ): AsyncGenerator<AgentEvent> {
   const r = await fetch(apiUrl("/api/agent/chat"), {

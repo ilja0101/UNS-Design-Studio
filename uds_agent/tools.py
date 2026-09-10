@@ -1031,6 +1031,26 @@ async def _attachment_list(backend: Backend, args: dict) -> Any:
     return await backend.call('GET', '/api/agent/attachments')
 
 
+@tool('artifact_create',
+      'Hand the user a file: a CSV of topics, a JSON policy, an exported tag list, a Markdown '
+      'report. Returns the stored file\'s id and name; the chat shows it as a downloadable card. '
+      'Use it for anything longer than a screen -- a table of 300 topics belongs in a file, not '
+      'in the answer.',
+      _obj({
+          'name': {'type': 'string', 'description': 'File name with extension, e.g. topics.csv.'},
+          'content': {'type': 'string', 'description': 'The file text, complete.'},
+      }, ['name', 'content']))
+async def _artifact_create(backend: Backend, args: dict) -> Any:
+    name = str(args.get('name') or '').strip()
+    content = args.get('content')
+    if not name or not isinstance(content, str) or not content:
+        raise ToolError('name and non-empty content are required')
+    meta = await backend.call('POST', '/api/agent/attachments/text',
+                              {'name': name, 'content': content})
+    return {'artifact': meta, 'id': meta.get('id'), 'name': meta.get('name'),
+            'size': meta.get('size')}
+
+
 @tool('attachment_read',
       'Read more of an attached file than fits in the message: a page of rows from a '
       'spreadsheet/CSV sheet, or lines from a text file. Page with offset until total is reached.',

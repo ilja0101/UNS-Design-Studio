@@ -63,13 +63,20 @@ def _descriptors(allow_writes: bool) -> list[ToolDescriptor]:
     ]
 
 
+EFFORTS = ('low', 'medium', 'high')
+
+
 async def run_turn(backend: Backend, convo: dict, user_text: str,
-                   attachments: list[dict] | None = None) -> AsyncIterator[dict]:
+                   attachments: list[dict] | None = None,
+                   effort: str | None = None) -> AsyncIterator[dict]:
     """Drive one user turn to completion, yielding UI events.
 
     ``attachments`` is the public metadata of files already uploaded through
     ``/api/agent/attachments``; the message keeps that list and
     :func:`store.for_model` renders the files for the model on every replay.
+    ``effort`` overrides the configured reasoning effort for this one turn --
+    the chip in the composer -- and is remembered on the message so the
+    transcript can show what a given answer cost.
     """
     cfg = settings.load()
     if not settings.is_configured(cfg):
@@ -83,6 +90,8 @@ async def run_turn(backend: Backend, convo: dict, user_text: str,
         message: dict[str, Any] = {'role': 'user', 'content': user_text or ''}
         if attachments:
             message['attachments'] = list(attachments)
+        if effort in EFFORTS:
+            message['effort'] = effort
         store.append(convo, message)
         if not convo.get('messages') or len(convo['messages']) == 1:
             convo['title'] = store.title_from(user_text) if user_text else                 ', '.join(a.get('name', 'file') for a in attachments)[:58]
@@ -94,7 +103,7 @@ async def run_turn(backend: Backend, convo: dict, user_text: str,
     system = prompts.system_prompt(policy_mod.load_policy(), cfg.get('systemPromptExtra', ''))
     max_steps = max(1, int(cfg.get('maxSteps') or 24))
     temperature = cfg.get('temperature')
-    reasoning = cfg.get('reasoningEffort') or ''
+    reasoning = effort if effort in EFFORTS else (cfg.get('reasoningEffort') or '')
 
     totals = {'prompt': 0, 'completion': 0, 'steps': 0}
 
@@ -174,6 +183,9 @@ def _summarize(name: str, ok: bool, payload: Any) -> str:
         return str(payload)[:200]
     if not isinstance(payload, dict):
         return f'{name} ok'
+    if isinstance(payload.get('artifact'), dict):
+        a = payload['artifact']
+        return f"{a.get('name', 'file')} · {a.get('size', 0)} B, ready to download"
     if 'violations' in payload:
         counts = payload.get('counts') or {}
         if payload.get('ok'):

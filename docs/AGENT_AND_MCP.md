@@ -218,6 +218,29 @@ lets the standalone MCP process read a file it does not have on disk.
 names the ids: `{"message": "...", "attachments": ["att-…"]}`. A message with
 files and no words is a message.
 
+## What the agent can show you
+
+The transcript speaks the same visual vocabulary as the IAI-V2 and AMIX Ask AI
+panels, so one prompt convention serves the family:
+
+| In the answer | Rendered as |
+|---|---|
+| a GFM table | a table — the agent is told to use one for anything row-shaped |
+| ```` ```chart ```` with a JSON spec (`type` bar/line/area/scatter, `series[{name,data:[[x,y]]}]`) | an SVG chart, hover for values, no chart library |
+| ```` ```mermaid ```` | a diagram (`graph TD` of the tree it built); Mermaid loads lazily, strict mode |
+| ```` ```svg ```` with a `viewBox` | an inline drawing, sanitised tag-by-tag: no scripts, handlers or external references survive |
+| any other fence | highlighted code with copy, and download for the ones worth keeping |
+| `artifact_create(name, content)` | a file card you can download — a 300-topic CSV belongs there, not in the answer |
+
+An artifact is an attachment the agent authored: same storage, same
+`attachment_read`, so an external MCP client can read what the built-in agent
+produced.
+
+**Effort per turn.** The chip next to the paperclip (auto · low · med · high)
+overrides the configured reasoning effort for the next message only, and the
+turn is labelled with it in the transcript. The same conversation has cheap
+questions and expensive ones, and tokens are paid for.
+
 ---
 
 ## Tools
@@ -237,7 +260,7 @@ writes are disabled (Settings, or `--read-only`).
 
 **Undo** — `uns_snapshots`, `uns_revert`
 
-**Attachments** — `attachment_list`, `attachment_read`
+**Attachments** — `attachment_list`, `attachment_read`, `artifact_create`
 
 **Run it** — `sim_control`, `plant_control`, `anomaly_inject`, `bridge_config`,
 `payload_schemas`, `plc_simulators`

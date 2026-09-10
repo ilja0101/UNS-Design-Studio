@@ -225,3 +225,43 @@ def test_both_attachment_tools_are_read_only_and_in_the_registry():
     names = {t.name: t for t in tools_mod.registry(include_writes=False)}
     assert 'attachment_list' in names and 'attachment_read' in names
     assert not names['attachment_read'].writes
+
+
+# ── artifacts: a file the agent hands back ──────────────────────────────────
+
+async def test_artifact_create_stores_a_file_the_chat_can_download(data, monkeypatch):
+    from uds_agent import routes  # noqa: F401  (the DirectBackend route is what a real turn uses)
+
+    class Backend(FakeBackend):
+        async def call(self, method, path, body=None, params=None):
+            assert (method, path) == ('POST', '/api/agent/attachments/text')
+            return att.public(att.save(body['name'], body['content'].encode('utf-8')))
+
+    res = await tools_mod.call(Backend(), 'artifact_create',
+                               {'name': 'topics.csv', 'content': 'topic\nuns.acme.ams-01\n'})
+    assert res['id'].startswith('att-') and res['name'] == 'topics.csv'
+    meta = att.load(res['id'])
+    assert meta['kind'] == 'table' and meta['sheets'][0]['rows'] == 2
+    with pytest.raises(tools_mod.ToolError):
+        await tools_mod.call(Backend(), 'artifact_create', {'name': 'x.csv', 'content': ''})
+
+
+async def test_a_per_turn_effort_overrides_the_setting_and_is_remembered(data, monkeypatch):
+    from tests.test_agent_loop import script
+    agent_settings.save({'endpoint': 'http://mock/v1', 'apiKey': 'k', 'model': 'm',
+                         'reasoningEffort': 'low'})
+    adapter = script(monkeypatch, [{'text_chunks': ['ok']}, {'text_chunks': ['ok']}])
+    seen = []
+    orig = adapter.stream_turn
+
+    async def spy(**kw):
+        seen.append(kw.get('reasoning_effort'))
+        async for x in orig(**kw):
+            yield x
+    adapter.stream_turn = spy
+    convo = store.create('t')
+    [e async for e in agent_loop.run_turn(FakeBackend(), convo, 'think hard', effort='high')]
+    [e async for e in agent_loop.run_turn(FakeBackend(), convo, 'and now?', effort='bogus')]
+    assert seen == ['high', 'low']
+    msgs = store.load(convo['id'])['messages']
+    assert msgs[0]['effort'] == 'high' and 'effort' not in msgs[2]
