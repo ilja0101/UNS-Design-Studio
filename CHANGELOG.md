@@ -3,6 +3,32 @@
 All notable changes to UNS Design Studio are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [2.3.0] — 2026-09-11
+
+### Added
+
+- **Attachments in the agent chat.** A topic policy kept in Excel, a Kepware
+  CSV export, a JSON model or a P&ID can be attached to a message — paperclip,
+  drag-and-drop or paste — instead of being retyped (`uds_agent/attachments.py`,
+  `POST /api/agent/attachments`, `attachments: [ids]` on `/api/agent/chat`).
+  - Workbooks and CSVs reach the model as `a | b | c` rows per sheet, trimmed of
+    empty rows and columns; text files as themselves; images as an `image_url`
+    content part (downscaled in the browser first). Anything else is named and
+    declared unreadable rather than pretended.
+  - **Bounded by design**: 12 000 characters per file and 30 000 per message go
+    inline; a bigger sheet is cut with a line saying how to page it, and two new
+    read-only tools — `attachment_list`, `attachment_read` — page rows or lines
+    by offset. They go through the backend like every other tool, so the
+    standalone MCP process reads a file it does not have on disk.
+  - The conversation stores metadata only; the model's copy is rebuilt from the
+    file on each turn, so a chat never holds a spreadsheet twice and an image
+    never lands in the JSON. Files live under `agent/attachments/`.
+  - The system prompt tells the agent an attached policy *is* the policy — rows
+    into `policy_set`'s fields, everything else into `notes` verbatim — and a
+    tag list is a build order.
+  - `openpyxl` joins `requirements.txt`; the standalone MCP image needs nothing
+    new.
+
 ## [2.2.0] — 2026-09-10
 
 ### Added

@@ -97,13 +97,23 @@ def title_from(text: str) -> str:
 
 
 def for_model(convo: dict) -> list[dict]:
-    """Strip UI-only fields so the history can be replayed into the model."""
+    """Strip UI-only fields so the history can be replayed into the model.
+
+    A user message that carried attachments is stored as the person typed it
+    plus the attachment metadata; the model's copy is rebuilt here from the
+    files on disk, so the conversation JSON never holds a spreadsheet twice
+    and an image never lands in it at all.
+    """
+    from uds_agent import attachments as att
     keep = ('role', 'content', 'tool_calls', 'tool_call_id', 'name')
     out = []
     for m in convo.get('messages') or []:
         msg = {k: v for k, v in m.items() if k in keep and v is not None}
-        if msg.get('role'):
-            out.append(msg)
+        if not msg.get('role'):
+            continue
+        if m.get('role') == 'user' and m.get('attachments'):
+            msg['content'] = att.model_content(m.get('content') or '', m['attachments'])
+        out.append(msg)
     return out
 
 

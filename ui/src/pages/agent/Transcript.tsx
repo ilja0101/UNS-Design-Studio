@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { AlertTriangle, Check, ChevronRight, Sparkles, Wrench, X } from "lucide-react";
+import { type Attachment } from "../../api";
 import { cx } from "../../components/ui";
+import { AttachmentChip } from "./attachments";
 import { Markdown } from "./markdown";
 
 /** A tool call as the transcript sees it: issued, then resolved. */
@@ -20,6 +22,7 @@ export interface Turn {
   role: "user" | "assistant";
   text: string;
   tools: ToolEntry[];
+  attachments?: Attachment[];
   streaming?: boolean;
 }
 
@@ -27,18 +30,31 @@ export function Transcript({ turns }: { turns: Turn[] }) {
   return (
     <div className="flex flex-col gap-5">
       {turns.map((t) =>
-        t.role === "user" ? <UserTurn key={t.key} text={t.text} /> : <AgentTurn key={t.key} turn={t} />,
+        t.role === "user" ? (
+          <UserTurn key={t.key} text={t.text} attachments={t.attachments ?? []} />
+        ) : (
+          <AgentTurn key={t.key} turn={t} />
+        ),
       )}
     </div>
   );
 }
 
-function UserTurn({ text }: { text: string }) {
+function UserTurn({ text, attachments }: { text: string; attachments: Attachment[] }) {
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent px-3.5 py-2 text-[13px] leading-relaxed text-accent-fg">
-        {text}
-      </div>
+    <div className="flex flex-col items-end gap-1.5">
+      {attachments.length > 0 && (
+        <div className="flex max-w-[80%] flex-wrap justify-end gap-1.5">
+          {attachments.map((a) => (
+            <AttachmentChip key={a.id} attachment={a} />
+          ))}
+        </div>
+      )}
+      {text && (
+        <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent px-3.5 py-2 text-[13px] leading-relaxed text-accent-fg">
+          {text}
+        </div>
+      )}
     </div>
   );
 }

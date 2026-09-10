@@ -20,3 +20,7 @@ tzdata>=2024.1
 # entrypoints' HTTP backend (uds_agent/backend.py).
 openai>=1.60
 httpx>=0.27
+
+# Chat attachments: a topic policy or tag list handed over as a workbook is read
+# with openpyxl (uds_agent/attachments.py). CSV and text need nothing extra.
+openpyxl>=3.1

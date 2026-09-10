@@ -158,7 +158,29 @@ export const api = {
     req<{ ok: boolean }>(`/api/agent/conversations/${encodeURIComponent(id)}`, {
       method: "DELETE",
     }),
+  /** Upload files for a chat message; multipart, so `req`'s JSON header must not apply. */
+  attachmentUpload: async (files: File[]): Promise<{ attachments: Attachment[]; errors: string[] }> => {
+    const form = new FormData();
+    files.forEach((f) => form.append("files", f, f.name));
+    const r = await fetch(apiUrl("/api/agent/attachments"), {
+      method: "POST",
+      credentials: "same-origin",
+      body: form,
+    });
+    const data = (await r.json().catch(() => ({}))) as { attachments?: Attachment[]; errors?: string[]; error?: string };
+    if (!r.ok && !data.attachments?.length) {
+      throw new Error(data.errors?.join("; ") || data.error || `upload failed (HTTP ${r.status})`);
+    }
+    return { attachments: data.attachments ?? [], errors: data.errors ?? [] };
+  },
+  attachmentDelete: (id: string) =>
+    req<{ ok: boolean }>(`/api/agent/attachments/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
+
+/** Where an attachment's bytes are served (image previews, click-to-open). */
+export function attachmentUrl(id: string): string {
+  return apiUrl(`/api/agent/attachments/${encodeURIComponent(id)}/file`);
+}
 
 // ── Agent types ──
 export interface AgentSettings {
@@ -260,10 +282,23 @@ export interface ConversationMeta {
   messages: number;
 }
 
+/** A file handed to the agent in chat — metadata only; the bytes stay on the server. */
+export interface Attachment {
+  id: string;
+  name: string;
+  size: number;
+  mime: string;
+  kind: "table" | "text" | "image" | "other";
+  ts?: string;
+  sheets?: Array<{ name: string; rows: number; cols: number }>;
+  note?: string;
+}
+
 export interface ChatMessage {
   role: "user" | "assistant" | "tool";
   content: string;
   ts?: string;
+  attachments?: Attachment[];
   tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
   tool_call_id?: string;
   name?: string;
@@ -302,7 +337,7 @@ export type AgentEvent =
  *  by a blank line; a partial frame at the end of a chunk is carried over.
  */
 export async function* agentChat(
-  body: { message: string; conversation?: string },
+  body: { message: string; conversation?: string; attachments?: string[] },
   signal?: AbortSignal,
 ): AsyncGenerator<AgentEvent> {
   const r = await fetch(apiUrl("/api/agent/chat"), {

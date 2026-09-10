@@ -6,12 +6,14 @@ import {
   MessageSquarePlus,
   PanelRightClose,
   PanelRightOpen,
+  Paperclip,
   Settings2,
   Square,
   Trash2,
 } from "lucide-react";
 import { agentChat, api, type AgentEvent, type ChatMessage } from "../../api";
 import { Button, cx } from "../../components/ui";
+import { AttachmentChip, prepareForUpload, type PendingAttachment } from "./attachments";
 import { SidePanel } from "./SidePanel";
 import { Transcript, type ToolEntry, type Turn } from "./Transcript";
 
@@ -45,10 +47,15 @@ const STARTERS = [
   },
 ];
 
+/** What the paperclip accepts. Anything else uploads too, but the agent can only name it. */
+const ACCEPT =
+  ".xlsx,.xlsm,.csv,.tsv,.txt,.md,.json,.yaml,.yml,.xml,image/png,image/jpeg,image/webp,image/gif";
+
 export function Agent() {
   const qc = useQueryClient();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [pending, setPending] = useState<PendingAttachment[]>([]);
   const [live, setLive] = useState<Turn[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,12 +87,22 @@ export function Agent() {
   const send = useCallback(
     async (text: string) => {
       const message = text.trim();
-      if (!message || streaming) return;
+      // A file with no words is a message: "here is the policy" is implied.
+      const ready = pending.filter((p) => p.attachment).map((p) => p.attachment!);
+      if ((!message && ready.length === 0) || streaming) return;
+      if (pending.some((p) => !p.attachment && !p.error)) return; // still uploading
       setError(null);
       setDraft("");
+      setPending([]);
 
       const base = replay(active.data?.messages ?? []);
-      const userTurn: Turn = { key: `u-${Date.now()}`, role: "user", text: message, tools: [] };
+      const userTurn: Turn = {
+        key: `u-${Date.now()}`,
+        role: "user",
+        text: message,
+        tools: [],
+        attachments: ready,
+      };
       const agentTurn: Turn = {
         key: `a-${Date.now()}`,
         role: "assistant",
@@ -103,7 +120,11 @@ export function Agent() {
 
       try {
         for await (const ev of agentChat(
-          { message, conversation: conversationId ?? undefined },
+          {
+            message,
+            conversation: conversationId ?? undefined,
+            attachments: ready.length ? ready.map((a) => a.id) : undefined,
+          },
           controller.signal,
         )) {
           applyEvent(ev, { patch, setConversationId, setError });
@@ -122,7 +143,37 @@ export function Agent() {
         qc.invalidateQueries({ queryKey: ["agent-snapshots"] });
       }
     },
-    [active.data, conversationId, qc, streaming],
+    [active.data, conversationId, pending, qc, streaming],
+  );
+
+  /** Upload as soon as a file is picked, so send is instant and errors show early. */
+  const addFiles = useCallback(async (files: File[]) => {
+    if (!files.length) return;
+    const stamped = files.map((file, i) => ({ key: `${Date.now()}-${i}-${file.name}`, file }));
+    setPending((prev) => [...prev, ...stamped.map((s) => ({ key: s.key, name: s.file.name, size: s.file.size }))]);
+    for (const { key, file } of stamped) {
+      try {
+        const prepared = await prepareForUpload(file);
+        const { attachments, errors } = await api.attachmentUpload([prepared]);
+        const meta = attachments[0];
+        setPending((prev) =>
+          prev.map((p) =>
+            p.key === key ? { ...p, attachment: meta, error: meta ? undefined : errors[0] ?? "upload failed" } : p,
+          ),
+        );
+      } catch (e) {
+        setPending((prev) => prev.map((p) => (p.key === key ? { ...p, error: String(e) } : p)));
+      }
+    }
+  }, []);
+
+  const removePending = useCallback(
+    (key: string) => {
+      const gone = pending.find((p) => p.key === key);
+      if (gone?.attachment) void api.attachmentDelete(gone.attachment.id);
+      setPending((prev) => prev.filter((p) => p.key !== key));
+    },
+    [pending],
   );
 
   const startNew = () => {
@@ -196,6 +247,9 @@ export function Agent() {
           onStop={() => abort.current?.abort()}
           streaming={streaming}
           disabled={!configured}
+          pending={pending}
+          onAddFiles={addFiles}
+          onRemove={removePending}
         />
       </section>
 
@@ -258,7 +312,7 @@ function replay(messages: ChatMessage[]): Turn[] {
 
   messages.forEach((m, i) => {
     if (m.role === "user") {
-      turns.push({ key: `m${i}`, role: "user", text: m.content, tools: [] });
+      turns.push({ key: `m${i}`, role: "user", text: m.content, tools: [], attachments: m.attachments });
       return;
     }
     if (m.role === "assistant") {
@@ -379,6 +433,9 @@ function Composer({
   onStop,
   streaming,
   disabled,
+  pending,
+  onAddFiles,
+  onRemove,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -386,8 +443,16 @@ function Composer({
   onStop: () => void;
   streaming: boolean;
   disabled: boolean;
+  pending: PendingAttachment[];
+  onAddFiles: (files: File[]) => void;
+  onRemove: (key: string) => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const uploading = pending.some((p) => !p.attachment && !p.error);
+  const hasFiles = pending.some((p) => p.attachment);
+  const canSend = !disabled && !uploading && (value.trim().length > 0 || hasFiles);
   // Grow with the content up to a ceiling, then scroll — a pasted policy
   // document should be visible, not squeezed into two lines.
   //
@@ -412,7 +477,55 @@ function Composer({
 
   return (
     <div className="border-t border-border px-5 py-3">
-      <div className="mx-auto flex w-full max-w-3xl items-end gap-2 rounded-xl border border-border bg-surface p-2 focus-within:border-accent">
+      <div
+        className={cx(
+          "mx-auto w-full max-w-3xl rounded-xl border bg-surface p-2 transition-tokens focus-within:border-accent",
+          dragging ? "border-accent ring-2 ring-accent/30" : "border-border",
+        )}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!disabled) setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          if (!disabled && e.dataTransfer.files.length) onAddFiles(Array.from(e.dataTransfer.files));
+        }}
+      >
+        {pending.length > 0 && (
+          <div className="mb-1.5 flex flex-wrap gap-1.5 px-1">
+            {pending.map((p) => (
+              <AttachmentChip
+                key={p.key}
+                attachment={p.attachment ?? { id: "", name: p.name, size: p.size, mime: "", kind: "other" }}
+                uploading={!p.attachment && !p.error}
+                error={p.error}
+                onRemove={() => onRemove(p.key)}
+              />
+            ))}
+          </div>
+        )}
+        <div className="flex items-end gap-1.5">
+          <input
+            ref={fileRef}
+            type="file"
+            accept={ACCEPT}
+            multiple
+            hidden
+            onChange={(e) => {
+              if (e.target.files) onAddFiles(Array.from(e.target.files));
+              e.target.value = "";
+            }}
+          />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={disabled}
+            title="Attach a file — a topic policy in Excel, a tag list, a P&ID"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-fg-muted hover:bg-surface-2 hover:text-fg disabled:opacity-40"
+          >
+            <Paperclip size={15} />
+          </button>
         <textarea
           ref={ref}
           rows={1}
@@ -425,10 +538,19 @@ function Composer({
               onSend();
             }
           }}
+          onPaste={(e) => {
+            const files = Array.from(e.clipboardData.files);
+            if (files.length) {
+              e.preventDefault();
+              onAddFiles(files);
+            }
+          }}
           placeholder={
             disabled
               ? "Choose a model door under Settings → Agent to chat here"
-              : "Paste a topic policy, or ask for a plant to be modelled…"
+              : dragging
+                ? "Drop the file…"
+                : "Paste a topic policy, attach the spreadsheet, or ask for a plant to be modelled…"
           }
           className="max-h-[260px] min-h-[36px] flex-1 resize-none bg-transparent px-1.5 py-1.5 text-[13px] text-fg outline-none placeholder:text-fg-faint disabled:opacity-60"
         />
@@ -443,17 +565,19 @@ function Composer({
         ) : (
           <button
             onClick={onSend}
-            disabled={disabled || !value.trim()}
-            title="Send"
+            disabled={!canSend}
+            title={uploading ? "Waiting for the upload" : "Send"}
             className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent text-accent-fg hover:bg-accent-hover disabled:opacity-40"
           >
             <ArrowUp size={15} />
           </button>
         )}
+        </div>
       </div>
       {!disabled && (
         <p className="mx-auto mt-1.5 w-full max-w-3xl text-[10px] text-fg-faint">
-          Enter to send · Shift+Enter for a new line · the agent edits this simulator directly
+          Enter to send · Shift+Enter for a new line · drop or paste a file to attach it · the agent
+          edits this simulator directly
         </p>
       )}
     </div>

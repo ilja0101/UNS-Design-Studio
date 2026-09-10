@@ -63,8 +63,14 @@ def _descriptors(allow_writes: bool) -> list[ToolDescriptor]:
     ]
 
 
-async def run_turn(backend: Backend, convo: dict, user_text: str) -> AsyncIterator[dict]:
-    """Drive one user turn to completion, yielding UI events."""
+async def run_turn(backend: Backend, convo: dict, user_text: str,
+                   attachments: list[dict] | None = None) -> AsyncIterator[dict]:
+    """Drive one user turn to completion, yielding UI events.
+
+    ``attachments`` is the public metadata of files already uploaded through
+    ``/api/agent/attachments``; the message keeps that list and
+    :func:`store.for_model` renders the files for the model on every replay.
+    """
     cfg = settings.load()
     if not settings.is_configured(cfg):
         yield {'type': 'error', 'message':
@@ -73,10 +79,13 @@ async def run_turn(backend: Backend, convo: dict, user_text: str) -> AsyncIterat
                'agent at this UDS over MCP instead.'}
         return
 
-    if user_text:
-        store.append(convo, {'role': 'user', 'content': user_text})
+    if user_text or attachments:
+        message: dict[str, Any] = {'role': 'user', 'content': user_text or ''}
+        if attachments:
+            message['attachments'] = list(attachments)
+        store.append(convo, message)
         if not convo.get('messages') or len(convo['messages']) == 1:
-            convo['title'] = store.title_from(user_text)
+            convo['title'] = store.title_from(user_text) if user_text else                 ', '.join(a.get('name', 'file') for a in attachments)[:58]
         store.save(convo)
 
     adapter = make_adapter(cfg)
@@ -178,6 +187,12 @@ def _summarize(name: str, ok: bool, payload: Any) -> str:
         return ', '.join(bits)
     if 'total' in payload and 'topics' in payload:
         return f"{payload['total']} topic(s)"
+    if 'total' in payload and ('rows' in payload or 'lines' in payload):
+        got = payload.get('rows') if 'rows' in payload else payload.get('lines')
+        where = f" of sheet {payload['sheet']}" if payload.get('sheet') else ''
+        return f"{len(got or [])} of {payload['total']} {'rows' if 'rows' in payload else 'lines'}{where}"
+    if 'attachments' in payload and isinstance(payload['attachments'], list):
+        return f"{len(payload['attachments'])} attachment(s)"
     if 'count' in payload:
         return f"{payload['count']} result(s)"
     if 'counts' in payload:

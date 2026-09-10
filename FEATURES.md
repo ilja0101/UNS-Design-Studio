@@ -286,7 +286,7 @@ real equipment from the asset library, grades its own work, fixes what it broke,
 and shows you the topics the bridge will publish. Full guide:
 [docs/AGENT_AND_MCP.md](docs/AGENT_AND_MCP.md).
 
-**One tool registry, three consumers.** `uds_agent/tools.py` defines 29 tools;
+**One tool registry, three consumers.** `uds_agent/tools.py` defines 31 tools;
 the built-in chat agent, the in-process `/mcp` endpoint and the standalone
 `python -m uds_mcp` entrypoints all execute the same functions, so an external
 agent is never less capable than the built-in one. Tools reach the app through
@@ -300,6 +300,7 @@ as the Designer's does), `HttpBackend` drives a remote UDS over its REST API.
 | Model | `uns_add_node`, `uns_update_node`, `uns_delete_node`, `uns_move_node`, `uns_set_tags`, `uns_delete_tags`, `uns_add_asset`, `uns_replace_subtree` |
 | Policy | `policy_get`, `policy_set`, `policy_check`, `policy_conform_names`, `policy_suggest_name` |
 | Undo | `uns_snapshots`, `uns_revert` |
+| Attachments | `attachment_list`, `attachment_read` |
 | Run it | `sim_control`, `plant_control`, `anomaly_inject`, `bridge_config`, `payload_schemas`, `plc_simulators` |
 
 `uns_add_asset` instantiates a library template whole — a centrifugal pump
@@ -308,6 +309,13 @@ tag names rewritten into the policy's case rule on the way in.
 `uns_replace_subtree` takes a nested tree, so a site is one call rather than
 fifty. Paths are `/`-joined node names from the root (`acme/nl-veghel/mixing`);
 the root's own name is optional, so a path copied out of a topic works too.
+
+**Chat attachments** (`uds_agent/attachments.py`). Attach the policy spreadsheet,
+a Kepware CSV export, a JSON model or a P&ID to a message — paperclip, drop or
+paste. Workbooks and CSVs reach the model as rows, text as itself, images as an
+`image_url` part; the inline copy is bounded (12 k characters per file, 30 k per
+message) and the agent pages the rest with `attachment_read`. The conversation
+stores metadata only; the file stays under `agent/attachments/`.
 
 **Topic policy** (`topic_policy.json`, `uds_agent/policy.py`) is a first-class
 object: separator, prefix, allowed ISA-95 levels, per-level naming patterns and

@@ -12,8 +12,9 @@ from __future__ import annotations
 import json
 import logging
 
-from quart import Blueprint, Response, jsonify, request
+from quart import Blueprint, Response, jsonify, request, send_file
 
+from uds_agent import attachments as att
 from uds_agent import loop as agent_loop
 from uds_agent import policy as policy_mod
 from uds_agent import settings as agent_settings
@@ -127,6 +128,68 @@ async def delete_conversation(cid: str):
     return jsonify({'ok': store.delete(cid)})
 
 
+# ── attachments ─────────────────────────────────────────────────────────────
+# Uploaded before the message is sent, referenced by id from it. The browser
+# gets the metadata straight back so it can show the chip; the model gets the
+# rendered content on the turn (uds_agent/attachments.py).
+
+@bp.route('/attachments', methods=['GET'])
+async def list_attachments():
+    return jsonify({'attachments': [att.public(m) for m in att.listing()]})
+
+
+@bp.route('/attachments', methods=['POST'])
+async def upload_attachments():
+    files = await request.files
+    saved, errors = [], []
+    for f in files.getlist('files') or []:
+        try:
+            saved.append(att.public(att.save(f.filename or 'file', f.read(), f.mimetype or '')))
+        except att.AttachmentError as exc:
+            errors.append(str(exc))
+    if not saved and not errors:
+        return jsonify({'error': 'no files in the request (multipart field "files")'}), 400
+    return jsonify({'attachments': saved, 'errors': errors}), (200 if saved else 400)
+
+
+@bp.route('/attachments/<aid>', methods=['GET'])
+async def get_attachment(aid: str):
+    meta = att.load(aid)
+    if meta is None:
+        return jsonify({'error': 'no such attachment'}), 404
+    return jsonify(att.public(meta))
+
+
+@bp.route('/attachments/<aid>/file', methods=['GET'])
+async def download_attachment(aid: str):
+    meta = att.load(aid)
+    if meta is None:
+        return jsonify({'error': 'no such attachment'}), 404
+    return await send_file(att.file_path(meta), mimetype=meta.get('mime'),
+                           as_attachment=False, attachment_filename=meta['name'])
+
+
+@bp.route('/attachments/<aid>/read', methods=['GET'])
+async def read_attachment(aid: str):
+    """One page of rows or lines — what the attachment_read tool goes through."""
+    meta = att.load(aid)
+    if meta is None:
+        return jsonify({'error': 'no such attachment'}), 404
+    try:
+        return jsonify(att.read_page(
+            meta, sheet=request.args.get('sheet', ''),
+            offset=int(request.args.get('offset', 0) or 0),
+            limit=int(request.args.get('limit', att.PAGE_ROWS) or att.PAGE_ROWS),
+        ))
+    except (att.AttachmentError, ValueError) as exc:
+        return jsonify({'error': str(exc)}), 400
+
+
+@bp.route('/attachments/<aid>', methods=['DELETE'])
+async def delete_attachment(aid: str):
+    return jsonify({'ok': att.delete(aid)})
+
+
 # ── chat ────────────────────────────────────────────────────────────────────
 
 @bp.route('/chat', methods=['POST'])
@@ -134,18 +197,24 @@ async def chat():
     body = await request.get_json() or {}
     text = str(body.get('message') or '').strip()
     cid = body.get('conversation')
+    attachments = []
+    for aid in body.get('attachments') or []:
+        meta = att.load(str(aid))
+        if meta is None:
+            return jsonify({'error': f'attachment {aid} was not uploaded (or was deleted)'}), 400
+        attachments.append(att.public(meta))
+    if not text and not attachments:
+        return jsonify({'error': 'message must not be empty'}), 400
     convo = store.load(cid) if cid else None
     if convo is None:
-        convo = store.create(store.title_from(text))
-    if not text:
-        return jsonify({'error': 'message must not be empty'}), 400
+        convo = store.create(store.title_from(text) if text else attachments[0]['name'])
 
     async def stream():
         # The conversation id goes out first so the client can adopt a
         # freshly-created conversation before any content arrives.
         yield _sse({'type': 'start', 'conversation': convo['id'], 'title': convo.get('title')})
         try:
-            async for event in agent_loop.run_turn(_backend, convo, text):
+            async for event in agent_loop.run_turn(_backend, convo, text, attachments=attachments or None):
                 yield _sse(event)
         except Exception as exc:  # pragma: no cover — belt and braces
             log.exception('agent: chat stream failed')

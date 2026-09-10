@@ -185,7 +185,38 @@ literally what would be published. It reports:
 | `topic.length` | over `maxTopicLength` |
 
 Edit it on the Agent page's **Policy** tab, over `GET|POST /api/agent/policy`,
-or just paste your policy into the chat and ask the agent to store it.
+paste your policy into the chat, or **attach the document itself** and ask the
+agent to store it.
+
+## Attachments
+
+The people who own a topic policy keep it in a spreadsheet, and a tag list
+comes out of Kepware as CSV. So the chat takes files: the paperclip, a drop on
+the composer, or a paste. What the model sees depends on the kind
+(`uds_agent/attachments.py`):
+
+| Kind | Files | What the model gets |
+|---|---|---|
+| table | `.xlsx` `.xlsm` `.csv` `.tsv` | every sheet as `a \| b \| c` rows, empty rows and columns dropped |
+| text | `.txt` `.md` `.json` `.yaml` `.xml` … | the text itself |
+| image | `.png` `.jpg` `.webp` `.gif` | an `image_url` content part — a P&ID or a screenshot, if the model can see |
+| other | anything else | the name and size, and a note that it cannot read it |
+
+Tokens are money, so the inline copy is **bounded**: 12 000 characters per
+file, 30 000 per message. A bigger sheet is cut with a line saying how to page
+it, and the model reads on with `attachment_read` (rows from a named sheet, or
+lines from a text file, by offset). Large images are downscaled in the browser
+before upload.
+
+Files live under `agent/attachments/`; the conversation stores metadata only
+and the model's copy is rebuilt from the file on every turn, so a stored chat
+never holds a spreadsheet twice and an image never lands in it at all. The
+`attachment_*` tools go through the backend like every other, which is what
+lets the standalone MCP process read a file it does not have on disk.
+
+`POST /api/agent/attachments` (multipart `files`) uploads; the chat body then
+names the ids: `{"message": "...", "attachments": ["att-…"]}`. A message with
+files and no words is a message.
 
 ---
 
@@ -205,6 +236,8 @@ writes are disabled (Settings, or `--read-only`).
 `policy_suggest_name`
 
 **Undo** — `uns_snapshots`, `uns_revert`
+
+**Attachments** — `attachment_list`, `attachment_read`
 
 **Run it** — `sim_control`, `plant_control`, `anomaly_inject`, `bridge_config`,
 `payload_schemas`, `plc_simulators`
@@ -257,3 +290,4 @@ Under the data dir (`UNS_DATA_DIR`, else `/data`, else the repo):
 | `topic_policy.json` | the active topic policy |
 | `agent/conversations/*.json` | chat history, replayable into the model |
 | `agent/snapshots/*.json` | the undo history (last 30 model states) |
+| `agent/attachments/` | files handed to the agent in chat, one metadata JSON plus the file each |

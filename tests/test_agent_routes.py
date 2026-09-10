@@ -156,7 +156,7 @@ async def test_an_empty_message_is_rejected(client):
 
 
 async def test_the_chat_stream_is_sse_and_frames_every_event(client, monkeypatch):
-    async def fake_turn(backend, convo, text):
+    async def fake_turn(backend, convo, text, **kw):
         yield {'type': 'tool_call', 'id': 'c1', 'name': 'uns_overview', 'args': {}}
         yield {'type': 'tool_result', 'id': 'c1', 'name': 'uns_overview', 'ok': True,
                'summary': '4 nodes', 'result': {'counts': {'nodes': 4}}}
@@ -178,7 +178,7 @@ async def test_the_chat_stream_is_sse_and_frames_every_event(client, monkeypatch
 
 async def test_the_first_frame_names_the_conversation_it_created(client, monkeypatch):
     """The client adopts that id, so a follow-up lands in the same thread."""
-    async def fake_turn(backend, convo, text):
+    async def fake_turn(backend, convo, text, **kw):
         yield {'type': 'done', 'stop': 'end_turn'}
 
     monkeypatch.setattr(agent_loop, 'run_turn', fake_turn)
@@ -189,7 +189,7 @@ async def test_the_first_frame_names_the_conversation_it_created(client, monkeyp
 
 
 async def test_a_crash_mid_stream_reaches_the_client_as_an_error_event(client, monkeypatch):
-    async def exploding(backend, convo, text):
+    async def exploding(backend, convo, text, **kw):
         yield {'type': 'delta', 'text': 'starting'}
         raise RuntimeError('kaboom')
 
@@ -199,3 +199,51 @@ async def test_a_crash_mid_stream_reaches_the_client_as_an_error_event(client, m
     events = [json.loads(f[len('data: '):]) for f in raw.split('\n\n') if f.startswith('data: ')]
     assert events[-1]['type'] == 'error'
     assert 'kaboom' in events[-1]['message']
+
+
+# ── attachments ─────────────────────────────────────────────────────────────
+
+@pytest.fixture
+def attachments_dir(tmp_path, monkeypatch):
+    from uds_agent import attachments as att
+    monkeypatch.setattr(att, 'attachments_dir', lambda: _mk(tmp_path / 'att'))
+    return tmp_path / 'att'
+
+
+async def test_an_upload_comes_back_as_metadata_and_a_chat_may_reference_it(
+        client, attachments_dir, monkeypatch):
+    from io import BytesIO
+    from quart.datastructures import FileStorage
+    r = await client.post('/api/agent/attachments', files={
+        'files': FileStorage(BytesIO(b'name,unit\nflow,m3/h\n'), filename='tags.csv',
+                             content_type='text/csv')})
+    assert r.status_code == 200
+    meta = (await body(r))['attachments'][0]
+    assert meta['kind'] == 'table' and meta['name'] == 'tags.csv'
+    assert 'flow' not in json.dumps(meta)   # metadata, never content
+
+    page = await body(await client.get(f'/api/agent/attachments/{meta["id"]}/read?offset=1'))
+    assert page['rows'] == [['flow', 'm3/h']]
+
+    got = {}
+
+    async def fake_turn(backend, convo, text, attachments=None):
+        got['attachments'] = attachments
+        yield {'type': 'done', 'stop': 'end_turn'}
+
+    monkeypatch.setattr(agent_loop, 'run_turn', fake_turn)
+    r = await client.post('/api/agent/chat', json={'message': '', 'attachments': [meta['id']]})
+    assert r.status_code == 200
+    await r.get_data()
+    assert got['attachments'] == [meta]
+
+
+async def test_a_chat_naming_an_unknown_attachment_is_refused(client, attachments_dir):
+    r = await client.post('/api/agent/chat', json={'message': 'x', 'attachments': ['att-nope']})
+    assert r.status_code == 400
+    assert 'att-nope' in (await body(r))['error']
+
+
+async def test_an_upload_with_no_files_is_a_400(client, attachments_dir):
+    r = await client.post('/api/agent/attachments', form={'x': 'y'})
+    assert r.status_code == 400

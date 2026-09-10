@@ -42,3 +42,10 @@ def snapshots_dir() -> str:
     d = os.path.join(agent_dir(), 'snapshots')
     os.makedirs(d, exist_ok=True)
     return d
+
+
+def attachments_dir() -> str:
+    """Files handed to the agent in chat, one metadata JSON plus a blob dir each."""
+    d = os.path.join(agent_dir(), 'attachments')
+    os.makedirs(d, exist_ok=True)
+    return d

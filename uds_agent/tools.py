@@ -26,6 +26,7 @@ import os
 import time
 import uuid
 from typing import Any, Callable
+from urllib.parse import quote
 
 from json_persistence import load_json, save_json_atomic
 from uds_agent import policy as policy_mod
@@ -1015,3 +1016,37 @@ async def _plc_simulators(backend: Backend, args: dict) -> Any:
     if not iid:
         raise ToolError('id is required to start or stop an instance')
     return await backend.call('POST', f'/api/plc/{iid}/{action}', {})
+
+
+# ── attachments ─────────────────────────────────────────────────────────────
+# Files the user handed over in chat. The first page of each is already in the
+# user message; these page the rest, through the backend so the standalone MCP
+# process (where the file is not on disk) reads them the same way.
+
+@tool('attachment_list',
+      'Files uploaded to this UDS through the agent chat (name, kind, size, sheets). The user '
+      'message already shows the start of each attached file; use this to find one by name.',
+      _obj({}))
+async def _attachment_list(backend: Backend, args: dict) -> Any:
+    return await backend.call('GET', '/api/agent/attachments')
+
+
+@tool('attachment_read',
+      'Read more of an attached file than fits in the message: a page of rows from a '
+      'spreadsheet/CSV sheet, or lines from a text file. Page with offset until total is reached.',
+      _obj({
+          'id': {'type': 'string', 'description': 'Attachment id, from the message or attachment_list.'},
+          'sheet': {'type': 'string', 'description': 'Sheet name for a workbook (default: first).'},
+          'offset': {'type': 'integer', 'minimum': 0, 'description': 'First row/line (default 0).'},
+          'limit': {'type': 'integer', 'minimum': 1, 'maximum': 1000,
+                    'description': 'Rows/lines to return (default 200).'},
+      }, ['id']))
+async def _attachment_read(backend: Backend, args: dict) -> Any:
+    aid = str(args.get('id') or '').strip()
+    if not aid:
+        raise ToolError('id is required')
+    params = {'offset': int(args.get('offset') or 0), 'limit': int(args.get('limit') or 200)}
+    if args.get('sheet'):
+        params['sheet'] = str(args['sheet'])
+    return await backend.call('GET', f'/api/agent/attachments/{quote(aid, safe="")}/read',
+                              params=params)
