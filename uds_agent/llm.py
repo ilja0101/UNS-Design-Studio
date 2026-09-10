@@ -93,23 +93,9 @@ class LlmAdapter:
         """Yield TextDelta items as tokens arrive, then exactly one InferenceTurn."""
         import openai
 
-        params: dict[str, Any] = {
-            'model': self.model,
-            'max_completion_tokens': self._max_tokens,
-            'messages': [{'role': 'system', 'content': system}, *messages],
-        }
-        if tools:
-            params['tools'] = [
-                {'type': 'function',
-                 'function': {'name': t.name, 'description': t.description,
-                              'parameters': t.input_schema}}
-                for t in tools
-            ]
-            params['tool_choice'] = 'auto'
-        if temperature is not None:
-            params['temperature'] = temperature
-        if reasoning_effort:
-            params['reasoning_effort'] = reasoning_effort
+        params = build_request(model=self.model, system=system, messages=messages, tools=tools,
+                               temperature=temperature, reasoning_effort=reasoning_effort,
+                               max_tokens=self._max_tokens)
 
         attempts = 0
         streaming = True
@@ -240,3 +226,49 @@ def _normalize(response: Any) -> InferenceTurn:
         completion_tokens=getattr(response.usage, 'completion_tokens', 0) or 0,
     ) if getattr(response, 'usage', None) else Usage()
     return _finalize(message.content or '', frags, choice.finish_reason, usage)
+
+
+def build_request(*, model: str, system: str, messages: list[dict[str, Any]],
+                  tools: list[ToolDescriptor] | None, temperature: float | None,
+                  reasoning_effort: str | None, max_tokens: int) -> dict[str, Any]:
+    """The OpenAI chat-completion body, built once for every door.
+
+    The HTTP adapter posts this; the mesh adapter wraps it in the gateway's
+    envelope and publishes it. Same bytes either way, so a tool that works on
+    one door works on the other -- the gateway forwards the body verbatim.
+    """
+    params: dict[str, Any] = {
+        'model': model,
+        'max_completion_tokens': max_tokens,
+        'messages': [{'role': 'system', 'content': system}, *messages],
+    }
+    if tools:
+        params['tools'] = [
+            {'type': 'function',
+             'function': {'name': t.name, 'description': t.description,
+                          'parameters': t.input_schema}}
+            for t in tools
+        ]
+        params['tool_choice'] = 'auto'
+    if temperature is not None:
+        params['temperature'] = temperature
+    if reasoning_effort:
+        params['reasoning_effort'] = reasoning_effort
+    return params
+
+
+def normalize_dict(response: dict[str, Any]) -> InferenceTurn:
+    """``_normalize`` for a response that arrived as JSON rather than an SDK object."""
+    choices = response.get('choices') or []
+    choice = choices[0] if choices else {}
+    message = choice.get('message') or {}
+    frags = {
+        i: {'id': tc.get('id') or f'call_{i}',
+            'name': (tc.get('function') or {}).get('name') or '',
+            'arguments': (tc.get('function') or {}).get('arguments') or ''}
+        for i, tc in enumerate(message.get('tool_calls') or [])
+    }
+    u = response.get('usage') or {}
+    usage = Usage(prompt_tokens=int(u.get('prompt_tokens') or 0),
+                  completion_tokens=int(u.get('completion_tokens') or 0))
+    return _finalize(message.get('content') or '', frags, choice.get('finish_reason'), usage)

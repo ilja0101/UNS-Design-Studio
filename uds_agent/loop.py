@@ -37,8 +37,23 @@ log = logging.getLogger(__name__)
 
 
 def is_configured() -> bool:
-    cfg = settings.load()
-    return bool(cfg.get('endpoint') and cfg.get('apiKey') and cfg.get('model'))
+    return settings.is_configured(settings.load())
+
+
+def make_adapter(cfg: dict) -> 'LlmAdapter | MeshAdapter':
+    """The door the settings chose. Both have the same stream_turn surface."""
+    if (cfg.get('route') or 'direct') == 'mesh':
+        from uds_agent.mesh import MeshAdapter
+        return MeshAdapter(
+            protocol=cfg.get('meshProtocol') or 'mqtt', host=cfg['meshHost'],
+            port=int(cfg.get('meshPort') or 0), app_id=cfg.get('meshAppId') or 'uns-design-studio',
+            username=cfg.get('meshUsername') or '', password=cfg.get('meshPassword') or '',
+            creds=cfg.get('meshCreds') or '', person=cfg.get('meshPerson') or '',
+            purpose=cfg.get('meshPurpose') or '', model=cfg.get('meshModel') or '',
+            timeout=float(cfg.get('meshTimeout') or 120), max_tokens=int(cfg.get('maxTokens') or 8000),
+        )
+    return LlmAdapter(cfg['endpoint'], cfg['apiKey'], cfg['model'],
+                      max_tokens=int(cfg.get('maxTokens') or 8000))
 
 
 def _descriptors(allow_writes: bool) -> list[ToolDescriptor]:
@@ -51,10 +66,11 @@ def _descriptors(allow_writes: bool) -> list[ToolDescriptor]:
 async def run_turn(backend: Backend, convo: dict, user_text: str) -> AsyncIterator[dict]:
     """Drive one user turn to completion, yielding UI events."""
     cfg = settings.load()
-    if not (cfg.get('endpoint') and cfg.get('apiKey') and cfg.get('model')):
+    if not settings.is_configured(cfg):
         yield {'type': 'error', 'message':
-               'No LLM endpoint configured. Set one under Settings → Agent, or point an '
-               'external agent at this UDS over MCP instead.'}
+               'No model door configured. Under Settings → Agent choose the Model Gateway over '
+               'this app\'s backbone, or a direct endpoint with a key — or point an external '
+               'agent at this UDS over MCP instead.'}
         return
 
     if user_text:
@@ -63,8 +79,7 @@ async def run_turn(backend: Backend, convo: dict, user_text: str) -> AsyncIterat
             convo['title'] = store.title_from(user_text)
         store.save(convo)
 
-    adapter = LlmAdapter(cfg['endpoint'], cfg['apiKey'], cfg['model'],
-                         max_tokens=int(cfg.get('maxTokens') or 8000))
+    adapter = make_adapter(cfg)
     allow_writes = bool(cfg.get('allowWrites', True))
     descriptors = _descriptors(allow_writes)
     system = prompts.system_prompt(policy_mod.load_policy(), cfg.get('systemPromptExtra', ''))
@@ -187,6 +202,13 @@ def _render(payload: Any) -> str:
 
 
 def _explain(exc: InferenceError) -> str:
+    if exc.kind == 'gateway':
+        # The gateway's own sentence says exactly where to go; keep it whole.
+        # A 403 here is governance working -- somebody has to allow this app
+        # to reach that model -- not a fault in this application.
+        return f'The Model Gateway refused this request: {exc}'
+    if exc.kind == 'timeout':
+        return str(exc)
     if exc.kind == 'connection':
         return f'{exc}. Check the endpoint under Settings → Agent.'
     if exc.kind == 'rate_limit':

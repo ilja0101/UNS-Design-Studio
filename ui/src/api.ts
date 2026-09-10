@@ -162,6 +162,19 @@ export const api = {
 
 // ── Agent types ──
 export interface AgentSettings {
+  /** Which door to a model: the app's own backbone to the Model Gateway, or a direct endpoint. */
+  route: "direct" | "mesh";
+  meshProtocol: "" | "mqtt" | "nats";
+  meshHost: string;
+  meshPort: number;
+  meshUsername: string;
+  meshCreds: string;
+  meshAppId: string;
+  meshModel: string;
+  meshPerson: string;
+  meshPurpose: string;
+  meshTimeout: number;
+  meshPasswordSet: boolean;
   endpoint: string;
   model: string;
   maxTokens: number;
