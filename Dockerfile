@@ -41,5 +41,8 @@ EXPOSE 4840 9999 5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=5 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=5).read()" || exit 1
 
+# The IIoT Canvas card (canvas.json): --build-arg CANVAS_CARD="$(jq -c . canvas.json)"
+ARG CANVAS_CARD=
+LABEL io.iiot-canvas.card=$CANVAS_CARD
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["python", "app.py"]

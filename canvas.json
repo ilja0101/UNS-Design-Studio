@@ -1,0 +1,66 @@
+{
+  "card": 1,
+  "id": "uds",
+  "title": "UNS Design Studio",
+  "icon": "📐",
+  "color": "#0ea5e9",
+  "section": "OT & plant",
+  "capability": "Data source",
+  "description": "Design the plant and run it: a modelled factory served over OPC UA, PLC simulators, shifts and anomalies, and a UNS bridge that publishes the plant to a broker set in its UI. Wire a gateway to its OPC UA port; agents and the MCP Gateway reach its modelling tools on the MCP port.",
+  "port": 5000,
+  "health": "/healthz",
+  "ui": "/app",
+  "env": {
+    "UDS_ADMIN_USERNAME": "{admin.user}",
+    "UDS_ADMIN_PASSWORD": "{admin.password}",
+    "UDS_ADVERTISE_HOST": "{host}"
+  },
+  "ports": [
+    {
+      "id": "opcua",
+      "kind": "opcua",
+      "role": "server",
+      "port": 4840,
+      "path": "/freeopcua/server/",
+      "label": "OPC UA",
+      "speaks": "the modelled plant over OPC UA"
+    },
+    {
+      "id": "mcp",
+      "kind": "mcp",
+      "role": "server",
+      "port": 5000,
+      "path": "/mcp",
+      "label": "MCP",
+      "speaks": "MCP over streamable HTTP, a bearer token (UDS_MCP_TOKEN, else the one it mints)"
+    },
+    {
+      "id": "mqtt",
+      "kind": "mqtt",
+      "role": "client",
+      "label": "Publish (MQTT)",
+      "speaks": "its UNS bridge; the broker is set in its UI"
+    },
+    {
+      "id": "backbone",
+      "kind": "backbone",
+      "role": "client",
+      "label": "Publish (NATS)",
+      "speaks": "its UNS bridge; the broker is set in its UI"
+    }
+  ],
+  "settings": [
+    {
+      "key": "UDS_AUTOSTART",
+      "label": "Autostart",
+      "default": "1",
+      "description": "Bring the simulation up on start.",
+      "options": [
+        "1",
+        "0"
+      ]
+    }
+  ],
+  "data": "/data",
+  "user": ""
+}
