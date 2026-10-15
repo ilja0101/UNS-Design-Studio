@@ -87,6 +87,10 @@ async def _require_basic_auth():
         return None
     if request.path == '/healthz':
         return None
+    # /mcp has its own gate (the MCP bearer token, uds_mcp/http.py): an MCP client
+    # such as a gateway sends that token and cannot also send a Basic credential.
+    if request.path in ('/mcp', '/mcp/'):
+        return None
     if _basic_ok():
         return None
     return Response(

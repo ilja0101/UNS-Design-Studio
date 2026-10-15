@@ -263,3 +263,17 @@ async def test_the_internal_loopback_token_satisfies_basic_auth(app_module, monk
 
     result = await DirectBackend(app_module.app).call('GET', '/api/uns')
     assert result['tree']['name'] == 'Acme'
+
+
+async def test_mcp_takes_its_bearer_token_while_the_dashboard_is_behind_basic(mcp_client, app_module, monkeypatch):
+    """An MCP gateway sends the MCP token and cannot also send a Basic credential."""
+    client, token = mcp_client
+    monkeypatch.setattr(app_module, '_AUTH_USER', 'admin')
+    monkeypatch.setattr(app_module, '_AUTH_PASS', 'secret')
+
+    r = await post_mcp(client, token, {'jsonrpc': '2.0', 'id': 1, 'method': 'ping'})
+    assert r.status_code == 200
+    r = await post_mcp(client, 'wrong', {'jsonrpc': '2.0', 'id': 1, 'method': 'ping'})
+    assert r.status_code == 401
+    assert (await client.get('/api/uns', headers={'Authorization': f'Bearer {token}'})).status_code == 401
+    assert (await client.get('/mcp/info')).status_code == 401
