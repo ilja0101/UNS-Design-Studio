@@ -13,7 +13,8 @@
   "env": {
     "UDS_ADMIN_USERNAME": "{admin.user}",
     "UDS_ADMIN_PASSWORD": "{admin.password}",
-    "UDS_ADVERTISE_HOST": "{host}"
+    "UDS_ADVERTISE_HOST": "{host}",
+    "UDS_MCP_TOKEN": "{token}"
   },
   "ports": [
     {
@@ -31,8 +32,9 @@
       "role": "server",
       "port": 5000,
       "path": "/mcp",
+      "auth": "bearer",
       "label": "MCP",
-      "speaks": "MCP over streamable HTTP, a bearer token (UDS_MCP_TOKEN, else the one it mints)"
+      "speaks": "its modelling tools over MCP (Streamable HTTP), with the card token"
     },
     {
       "id": "mqtt",
