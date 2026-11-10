@@ -1048,14 +1048,18 @@ async def _autostart_pipeline():
     fleet is started from the portal. Gated by UDS_AUTOSTART. Starts the factory
     server and the NATS bridge, then clocks the plants in unless a shift schedule
     is enabled and currently off-hours (then the plants are parked and the shift
-    loop clocks them in at the bell)."""
+    loop clocks them in at the bell). UDS_AUTOSTART_BRIDGE=0 leaves the bridge off."""
     await asyncio.sleep(2)  # let the app settle before spawning subprocesses
     ok, msg = await start_factory_server()
     _log(f'[autostart] factory server: {msg}')
     if not ok:
         return
-    bok, bmsg = await start_bridge()
-    _log(f'[autostart] bridge: {bmsg}')
+    # UDS_AUTOSTART_BRIDGE=0: the server and plants come up, publishing waits for a click (Bridge page)
+    if os.environ.get('UDS_AUTOSTART_BRIDGE', '1').strip().lower() in ('0', 'false', 'no', 'off'):
+        _log('[autostart] bridge: left off (UDS_AUTOSTART_BRIDGE=0)')
+    else:
+        bok, bmsg = await start_bridge()
+        _log(f'[autostart] bridge: {bmsg}')
     open_now = True
     cfg = _state.get('shift_cfg') or _load_shift_cfg()
     if cfg.get('enabled'):
