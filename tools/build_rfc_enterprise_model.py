@@ -67,8 +67,12 @@ GROUPS = {
         ("Roosendaal", "inulin", "Chicory inulin plant", ["FiberRoot Inulin Standard", "FiberRoot Inulin HP", "OligoSoft Oligofructose Powder"]),
         ("Zwolle", "inulin", "Chicory fibre specialties", ["FiberRoot Inulin Instant", "OligoSoft Oligofructose Syrup"]),
     ]),
-    "VoerKringloop": ("Animal feed from the other groups' by-products: beet pulp, potato peels, liquid feed.", [
-        ("Alphen-aan-den-Rijn", "drying", "Feed from food by-products", ["PulpPerfect Pressed Beet Pulp", "PeelMix Potato Steam Peel Feed", "VloeiVoer Liquid Feed"]),
+    "KringLoopVoer": ("Animal feed from food industry by-products: plants, and a trade organisation buying and selling them.", [
+        ("Nijmegen", "drying", "Feed from food by-products", ["PulpPerfect Pressed Beet Pulp", "PulpPerfect Dried Pulp Pellets"]),
+        ("Cuijk", "drying", "Potato by-product feed", ["PeelMix Potato Steam Peel Feed", "PeelMix Potato Pulp"]),
+        ("Wrexham", "drying", "Feed from food by-products (UK)", ["BrewGrain Wet Brewers Grains", "VloeiVoer Liquid Feed"]),
+        ("Veurne", "drying", "Feed from food by-products (BE)", ["VloeiVoer Liquid Feed", "StarchMix Wet Wheat Feed"]),
+        ("Mons", "drying", "Feed from food by-products (BE)", ["StarchMix Wet Wheat Feed", "PeelMix Potato Steam Peel Feed"]),
     ]),
 }
 
@@ -80,6 +84,56 @@ def opc(name: str) -> str:
 
 def slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+# A trade organisation has no equipment to put in ISA-95 levels: under its business group it is laid
+# out by business function (sourcing, sales, logistics), and what it publishes are business events:
+# orders, their status, tons and trucks. Same UNS, same enterprise and group; not an equipment tree.
+TRADE = ("KringLoopVoer", "Trade", "Trade organisation, head office Alphen aan den Rijn: buys by-products from "
+         "the food industry upstream and sells feed to farms and feed mills downstream.", {
+    "sourcing": ("Upstream: by-products bought from food and drink producers.",
+                 ["brewery-by-products", "potato-processing-by-products", "sugar-beet-pulp", "starch-and-bioethanol", "dairy-by-products"],
+                 [("purchase-order-id", "String", "", {"profile": "erp_order_id"}, "Purchase order (call-off) on the supplier contract."),
+                  ("purchase-order-status", "String", "", {"profile": "order_status"}, "Status of the active purchase order."),
+                  ("contracted-tons", "Int", "t", {"profile": "order_quantity"}, "Tons contracted on the active order."),
+                  ("collected-tons", "Float", "t", {"profile": "inbound_tons"}, "Tons collected from this supplier stream today."),
+                  ("last-truck-id", "String", "", {"profile": "truck_id"}, "Last truck that collected at a supplier."),
+                  ("dry-matter", "Float", "%", {"min": 18, "max": 30, "std": 0.4}, "Dry matter of the last load, from the supplier's sample.")]),
+    "sales": ("Downstream: feed sold to livestock farms, feed mills and biogas plants.",
+              ["dairy-farms", "pig-farms", "feed-mills", "biogas-plants"],
+              [("sales-order-id", "String", "", {"profile": "erp_order_id"}, "Sales order being delivered."),
+               ("sales-order-status", "String", "", {"profile": "order_status"}, "Status of the active sales order."),
+               ("order-quantity", "Int", "t", {"profile": "order_quantity"}, "Tons on the active sales order."),
+               ("delivered-tons", "Float", "t", {"profile": "outbound_tons"}, "Tons delivered to this segment today."),
+               ("revenue", "Float", "EUR", {"profile": "revenue_eur"}, "Revenue from this segment, current period.")]),
+    "logistics": ("Collection and delivery by the own and chartered tank fleet.",
+                  ["tank-fleet", "dispatch"],
+                  [("last-truck-id", "String", "", {"profile": "truck_id"}, "Last truck that changed status."),
+                   ("trucks-on-route", "Int", "", {"min": 20, "max": 60, "std": 2}, "Trucks on the road now."),
+                   ("loads-planned-today", "Int", "", {"min": 150, "max": 260, "std": 3}, "Loads planned for today."),
+                   ("load-status", "String", "", {"profile": "order_status"}, "Status of the last load.")]),
+})
+
+
+def camel(name: str) -> str:
+    return "".join(w.capitalize() for w in name.split("-"))
+
+
+def trade_site() -> dict:
+    group, name, what, areas = TRADE
+    root = f"{opc(group)}/{name}"
+    site = {"name": name, "type": "site", "id": f"site-{slug(group)}-{slug(name)}", "description": f"{group} {name}: {what}", "tags": [], "children": []}
+    for area, (adesc, centres, tags) in areas.items():
+        a = {"name": area, "type": "area", "id": f"area-{slug(group)}-trade-{area}", "description": adesc, "tags": [], "children": []}
+        for wc in centres:
+            w = {"name": wc, "type": "workCenter", "id": f"wc-{slug(group)}-trade-{area}-{wc}", "description": f"{area.capitalize()}: {wc.replace('-', ' ')}.", "tags": []}
+            for tname, dtype, unit, sim, desc in tags:
+                w["tags"].append({"access": "R", "dataType": dtype, "description": desc, "id": f"tag-{slug(group)}-trade-{area}-{wc}-{tname}",
+                                  "name": tname, "opcPath": f"{root}/{camel(area)}/{camel(wc)}/{camel(tname)}", "payloadSchema": "standard",
+                                  "qualifier": "data", "simulation": sim, "unit": unit})
+            a["children"].append(w)
+        site["children"].append(a)
+    return site
 
 
 def plant(template: dict, old_site: str, old_group: str, group: str, town: str, process: str, what: str, products: list) -> dict:
@@ -115,12 +169,14 @@ def main() -> int:
             old_site, old_group = TEMPLATES[process]
             unit["children"].append(plant(copy.deepcopy(found[old_site]), old_site, old_group,
                                           group, town, process, what, products))
+        if group == TRADE[0]:
+            unit["children"].append(trade_site())
         units.append(unit)
     tree["children"] = units
     tree["description"] = ("RoyalFarmersCollective: agro-food cooperative of growers. Business groups: "
                            + "; ".join(f"{g} ({d.rstrip('.')})" for g, (d, _) in GROUPS.items()) + ".")
     model["description"] = ("RoyalFarmersCollective, a fictive agro-food cooperative on five business groups: "
-                            + ", ".join(f"{g} ({len(p)} plant{'s' if len(p) > 1 else ''})" for g, (_, p) in GROUPS.items())
+                            + ", ".join(f"{g} ({len(p)} plant{'s' if len(p) > 1 else ''}{' and a trade organisation' if g == TRADE[0] else ''})" for g, (_, p) in GROUPS.items())
                             + ". Plants in real towns; every company, brand and product name is made up.")
 
     # every id unique, or the OPC UA server refuses the model
