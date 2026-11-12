@@ -24,10 +24,18 @@ def test_subject_token_matches_modelgw(app_id, token):
 
 
 def test_chat_subject_is_the_gateway_family():
-    assert mesh.chat_subject('uns-design-studio') == 'iiot.svc.llmgw.chat.uns-design-studio'
+    assert mesh.chat_subject('uns-design-studio') == 'agents.llm.chat.uns-design-studio'
     # Solace form, what the MQTT publish uses and what the driver subscribes.
     assert mesh.chat_subject('uns-design-studio').replace('.', '/') == \
-        'iiot/svc/llmgw/chat/uns-design-studio'
+        'agents/llm/chat/uns-design-studio'
+    assert mesh.old_chat_subject('uns-design-studio') == 'iiot.svc.llmgw.chat.uns-design-studio'
+
+
+def test_the_new_name_once_a_gateway_beats_on_it():
+    a = mesh.MeshAdapter(protocol='nats', host='h', port=4222, app_id='uns-design-studio')
+    assert a._subject_now() == 'iiot.svc.llmgw.chat.uns-design-studio'   # a gateway a release behind
+    a._heard()
+    assert a._subject_now() == 'agents.llm.chat.uns-design-studio'
 
 
 # ── envelope ────────────────────────────────────────────────────────────────
@@ -123,7 +131,7 @@ def test_make_adapter_picks_the_door():
     a = loop.make_adapter({'route': 'mesh', 'meshProtocol': 'mqtt', 'meshHost': 'h', 'meshPort': 1883,
                            'meshAppId': 'uns-design-studio'})
     assert isinstance(a, mesh.MeshAdapter) and a.protocol == 'mqtt'
-    assert a._subject == 'iiot.svc.llmgw.chat.uns-design-studio'
+    assert a._subject == 'agents.llm.chat.uns-design-studio'
     b = loop.make_adapter({'route': 'direct', 'endpoint': 'http://x/v1', 'apiKey': 'k', 'model': 'm'})
     assert isinstance(b, llm.LlmAdapter)
 
