@@ -9,7 +9,10 @@ same connection, and nothing inbound is ever opened.
 
 The contract, as measured on the lab on 2026-09-10 rather than read:
 
-* Publish on ``iiot.svc.llmgw.chat.<app-id>`` (``/``-form on Solace/MQTT).
+* Publish on ``agents.llm.chat.<app-id>`` (``/``-form on Solace/MQTT) once a
+  gateway beats on ``agents.llm.heartbeat``; until then on the old
+  ``iiot.svc.llmgw.chat.<app-id>``, which a gateway a release behind answers.
+  The old name goes in the next release.
 * Envelope ``{"person", "purpose", "body"}`` where ``body`` is the OpenAI
   chat-completion request, forwarded to the provider verbatim -- so ``tools``
   and ``tool_calls`` survive, which is what lets this agent model rather than
@@ -54,7 +57,11 @@ from uds_agent.llm import (
 
 log = logging.getLogger(__name__)
 
-SUBJECT_ROOT = 'iiot.svc.llmgw'
+SUBJECT_ROOT = 'agents.llm'
+HEARTBEAT = 'agents.llm.heartbeat'
+# The name before agents.llm.: asked while no gateway beats on the new one. Goes in the next release.
+OLD_SUBJECT_ROOT = 'iiot.svc.llmgw'
+FRESH = 45.0   # a heartbeat older than this is a gateway gone
 DEFAULT_TIMEOUT = 120.0
 
 
@@ -71,6 +78,10 @@ def subject_token(app_id: str) -> str:
 
 def chat_subject(app_id: str) -> str:
     return f'{SUBJECT_ROOT}.chat.{subject_token(app_id)}'
+
+
+def old_chat_subject(app_id: str) -> str:
+    return f'{OLD_SUBJECT_ROOT}.chat.{subject_token(app_id)}'
 
 
 def envelope(body: dict, *, person: str, purpose: str) -> bytes:
@@ -123,6 +134,8 @@ class MeshAdapter:
         self.timeout = float(timeout or DEFAULT_TIMEOUT)
         self._max_tokens = max_tokens
         self._subject = chat_subject(self.app_id)
+        self._old_subject = old_chat_subject(self.app_id)
+        self._beat_at = 0.0   # last beat on agents.llm.heartbeat
         self._conn_token = secrets.token_hex(6)
         self._client: Any = None
         self._pending: dict[str, asyncio.Future] = {}
@@ -178,6 +191,13 @@ class MeshAdapter:
 
     # ── transport ───────────────────────────────────────────────────────────
 
+    def _subject_now(self) -> str:
+        """The new name once a gateway beats on it lately, else the old one."""
+        return self._subject if time.monotonic() - self._beat_at < FRESH else self._old_subject
+
+    def _heard(self, *_: Any) -> None:
+        self._beat_at = time.monotonic()
+
     async def _request(self, payload: bytes) -> bytes:
         if self.protocol == 'nats':
             return await self._request_nats(payload)
@@ -197,26 +217,32 @@ class MeshAdapter:
                     url = f'nats://{self.username}:{self.password}@{self.host}:{self.port}'
                 try:
                     self._client = await nats.connect(url, **opts)
+                    await self._client.subscribe(HEARTBEAT, cb=self._heard_nats)
                 except Exception as exc:
                     raise InferenceError('connection', f'cannot reach the backbone at {url}: {exc}',
                                          retryable=True) from exc
+        subject = self._subject_now()
         try:
-            msg = await self._client.request(self._subject, payload, timeout=self.timeout)
+            msg = await self._client.request(subject, payload, timeout=self.timeout)
         except asyncio.TimeoutError as exc:
             raise InferenceError('timeout',
-                                 f'no answer from the Model Gateway on {self._subject} within '
+                                 f'no answer from the Model Gateway on {subject} within '
                                  f'{self.timeout:.0f}s — is llmgw serving this backbone?',
                                  retryable=True) from exc
         except Exception as exc:
-            raise InferenceError('mesh', f'request on {self._subject} failed: {exc}',
+            raise InferenceError('mesh', f'request on {subject} failed: {exc}',
                                  retryable=True) from exc
         return msg.data
+
+    async def _heard_nats(self, _msg: Any) -> None:
+        self._heard()
 
     async def _request_mqtt(self, payload: bytes) -> bytes:
         """Solace over its MQTT listener: reply address as the bb-reply property."""
         await self._ensure_mqtt()
         token = secrets.token_hex(6)
         reply_subject = f'_REPLY.{self.app_id}.{self._conn_token}.{token}'   # dot form: what the driver reads
+        subject = self._subject_now()
         fut: asyncio.Future = asyncio.get_running_loop().create_future()
         self._pending[token] = fut
         try:
@@ -224,18 +250,18 @@ class MeshAdapter:
             from paho.mqtt.properties import Properties
             props = Properties(PacketTypes.PUBLISH)
             props.UserProperty = [('bb-reply', reply_subject)]
-            await self._client.publish(self._subject.replace('.', '/'), payload, qos=0,
+            await self._client.publish(subject.replace('.', '/'), payload, qos=0,
                                        properties=props)
             return await asyncio.wait_for(fut, timeout=self.timeout)
         except asyncio.TimeoutError as exc:
             raise InferenceError('timeout',
-                                 f'no answer from the Model Gateway on {self._subject} within '
+                                 f'no answer from the Model Gateway on {subject} within '
                                  f'{self.timeout:.0f}s — is llmgw serving this backbone, and '
                                  f'does the reply subscription reach it?', retryable=True) from exc
         except InferenceError:
             raise
         except Exception as exc:
-            raise InferenceError('mesh', f'request on {self._subject} failed: {exc}',
+            raise InferenceError('mesh', f'request on {subject} failed: {exc}',
                                  retryable=True) from exc
         finally:
             self._pending.pop(token, None)
@@ -259,6 +285,10 @@ class MeshAdapter:
             # One subscription for the life of the connection, tokens under it.
             reply_filter = f'_REPLY/{self.app_id}/{self._conn_token}/+'
             await client.subscribe(reply_filter)
+            try:   # only picks the name; a broker that refuses it leaves the old one
+                await client.subscribe(HEARTBEAT.replace('.', '/'))
+            except Exception as exc:
+                log.warning('mesh: cannot follow %s: %s', HEARTBEAT, exc)
             self._client = client
             self._reader = asyncio.create_task(self._read_replies(client))
             # Let the subscription cross the DMR link before the first request
@@ -271,6 +301,9 @@ class MeshAdapter:
     async def _read_replies(self, client: Any) -> None:
         try:
             async for m in client.messages:
+                if str(m.topic) == HEARTBEAT.replace('.', '/'):
+                    self._heard()
+                    continue
                 token = str(m.topic).rsplit('/', 1)[-1]
                 fut = self._pending.get(token)
                 if fut is not None and not fut.done():
