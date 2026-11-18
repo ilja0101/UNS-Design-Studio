@@ -9,10 +9,11 @@ same connection, and nothing inbound is ever opened.
 
 The contract, as measured on the lab on 2026-09-10 rather than read:
 
-* Publish on ``agents.llm.chat.<app-id>`` (``/``-form on Solace/MQTT) once a
-  gateway beats on ``agents.llm.heartbeat``; until then on the old
-  ``iiot.svc.llmgw.chat.<app-id>``, which a gateway a release behind answers.
-  The old name goes in the next release.
+* Publish on ``agent-router.v1.llm.chat.<app-id>`` (``/``-form on Solace/MQTT)
+  once a gateway beats on ``agent-router.v1.llm.heartbeat``; else on the newest
+  older name a gateway beats on (``agents.llm.``), else on
+  ``iiot.svc.llmgw.chat.<app-id>``, which a gateway two releases behind
+  answers. The older names go in the next release.
 * Envelope ``{"person", "purpose", "body"}`` where ``body`` is the OpenAI
   chat-completion request, forwarded to the provider verbatim -- so ``tools``
   and ``tool_calls`` survive, which is what lets this agent model rather than
@@ -57,10 +58,11 @@ from uds_agent.llm import (
 
 log = logging.getLogger(__name__)
 
-SUBJECT_ROOT = 'agents.llm'
-HEARTBEAT = 'agents.llm.heartbeat'
-# The name before agents.llm.: asked while no gateway beats on the new one. Goes in the next release.
-OLD_SUBJECT_ROOT = 'iiot.svc.llmgw'
+# The gateway's roots, newest first. The two older ones go in the next release;
+# the oldest has no heartbeat of its own, so it is asked while no gateway beats.
+ROOTS = ('agent-router.v1.llm', 'agents.llm', 'iiot.svc.llmgw')
+HEARTBEATS = tuple(f'{r}.heartbeat' for r in ROOTS[:2])
+HEARTBEAT = HEARTBEATS[0]
 FRESH = 45.0   # a heartbeat older than this is a gateway gone
 DEFAULT_TIMEOUT = 120.0
 
@@ -76,12 +78,8 @@ def subject_token(app_id: str) -> str:
     return ''.join(out) or 'uns-design-studio'
 
 
-def chat_subject(app_id: str) -> str:
-    return f'{SUBJECT_ROOT}.chat.{subject_token(app_id)}'
-
-
-def old_chat_subject(app_id: str) -> str:
-    return f'{OLD_SUBJECT_ROOT}.chat.{subject_token(app_id)}'
+def chat_subject(app_id: str, gen: int = 0) -> str:
+    return f'{ROOTS[gen]}.chat.{subject_token(app_id)}'
 
 
 def envelope(body: dict, *, person: str, purpose: str) -> bytes:
@@ -134,8 +132,7 @@ class MeshAdapter:
         self.timeout = float(timeout or DEFAULT_TIMEOUT)
         self._max_tokens = max_tokens
         self._subject = chat_subject(self.app_id)
-        self._old_subject = old_chat_subject(self.app_id)
-        self._beat_at = 0.0   # last beat on agents.llm.heartbeat
+        self._beat_at = [0.0] * len(HEARTBEATS)   # last beat on each of HEARTBEATS
         self._conn_token = secrets.token_hex(6)
         self._client: Any = None
         self._pending: dict[str, asyncio.Future] = {}
@@ -192,11 +189,15 @@ class MeshAdapter:
     # ── transport ───────────────────────────────────────────────────────────
 
     def _subject_now(self) -> str:
-        """The new name once a gateway beats on it lately, else the old one."""
-        return self._subject if time.monotonic() - self._beat_at < FRESH else self._old_subject
+        """The newest name a gateway beats on lately, else the oldest."""
+        now = time.monotonic()
+        gen = next((i for i, at in enumerate(self._beat_at) if now - at < FRESH), len(ROOTS) - 1)
+        return chat_subject(self.app_id, gen)
 
-    def _heard(self, *_: Any) -> None:
-        self._beat_at = time.monotonic()
+    def _heard(self, subject: str = HEARTBEAT) -> None:
+        subject = subject.replace('/', '.')
+        if subject in HEARTBEATS:
+            self._beat_at[HEARTBEATS.index(subject)] = time.monotonic()
 
     async def _request(self, payload: bytes) -> bytes:
         if self.protocol == 'nats':
@@ -217,7 +218,8 @@ class MeshAdapter:
                     url = f'nats://{self.username}:{self.password}@{self.host}:{self.port}'
                 try:
                     self._client = await nats.connect(url, **opts)
-                    await self._client.subscribe(HEARTBEAT, cb=self._heard_nats)
+                    for hb in HEARTBEATS:
+                        await self._client.subscribe(hb, cb=self._heard_nats)
                 except Exception as exc:
                     raise InferenceError('connection', f'cannot reach the backbone at {url}: {exc}',
                                          retryable=True) from exc
@@ -234,8 +236,8 @@ class MeshAdapter:
                                  retryable=True) from exc
         return msg.data
 
-    async def _heard_nats(self, _msg: Any) -> None:
-        self._heard()
+    async def _heard_nats(self, msg: Any) -> None:
+        self._heard(msg.subject)
 
     async def _request_mqtt(self, payload: bytes) -> bytes:
         """Solace over its MQTT listener: reply address as the bb-reply property."""
@@ -285,10 +287,11 @@ class MeshAdapter:
             # One subscription for the life of the connection, tokens under it.
             reply_filter = f'_REPLY/{self.app_id}/{self._conn_token}/+'
             await client.subscribe(reply_filter)
-            try:   # only picks the name; a broker that refuses it leaves the old one
-                await client.subscribe(HEARTBEAT.replace('.', '/'))
-            except Exception as exc:
-                log.warning('mesh: cannot follow %s: %s', HEARTBEAT, exc)
+            for hb in HEARTBEATS:
+                try:   # only picks the name; a broker that refuses it leaves an older one
+                    await client.subscribe(hb.replace('.', '/'))
+                except Exception as exc:
+                    log.warning('mesh: cannot follow %s: %s', hb, exc)
             self._client = client
             self._reader = asyncio.create_task(self._read_replies(client))
             # Let the subscription cross the DMR link before the first request
@@ -301,8 +304,8 @@ class MeshAdapter:
     async def _read_replies(self, client: Any) -> None:
         try:
             async for m in client.messages:
-                if str(m.topic) == HEARTBEAT.replace('.', '/'):
-                    self._heard()
+                if str(m.topic).replace('/', '.') in HEARTBEATS:
+                    self._heard(str(m.topic))
                     continue
                 token = str(m.topic).rsplit('/', 1)[-1]
                 fut = self._pending.get(token)
